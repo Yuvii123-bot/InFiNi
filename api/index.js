@@ -4,7 +4,9 @@ import { createApp } from '../server/app.js';
 let app;
 export default function handler(req, res) {
   if (!app) app = createApp();                    // created once per warm instance; caches live as long as the instance does
-  if (req.query && req.query.__path) req.url = '/api/' + String(req.query.__path).replace(/^\/+/, '');
+  let sub = req.query && req.query.__path;
+  if (!sub) { try { sub = new URL(req.url, 'http://localhost').searchParams.get('__path'); } catch { sub = null; } }
+  if (sub) req.url = '/api/' + String(sub).replace(/^\/+/, '');
   return app.handle(req, res);
 }
 export const config = { api: { bodyParser: false }, maxDuration: 60 };

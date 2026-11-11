@@ -13,7 +13,7 @@ import { selectFeeds, fetchFeeds } from './providers/feeds.js';
 import { entityFacts, compareEntities, getEntity, chooseSenses } from './providers/wikidata.js';
 import { extractPage } from './extract/readable.js';
 import { classifySource, originGroups, scoreConfidence, buildGraph } from './evidence/evidence.js';
-import { answerPart, summarizeDoc } from './synth/synth.js';
+import { answerPart, summarizeDoc, topicMatcher } from './synth/synth.js';
 import { queryModel, rankEvidence, feedbackTerms, stemsOf, lexicalOverlap } from './rank/rank.js';
 import { canonicalUrl, domainOf, truncate, uniq, capitalize, squash, splitSentences, hash, escapeRegex } from './util/text.js';
 import { formatDate } from './util/dates.js';
@@ -61,7 +61,7 @@ export function blocksToText(blocks) {
   for (const b of blocks) {
     if (b.type === 'paragraph') out.push(sp(b.spans));
     else if (b.type === 'heading') out.push(`\n${b.text}`);
-    else if (b.type === 'list') out.push(b.items.map((it, i) => `${'  '.repeat(it.depth || 0)}${b.ordered ? i + 1 + '.' : '•'} ${sp(it.spans)}`).join('\n'));
+    else if (b.type === 'list') out.push(b.items.map((it, i) => `${'  '.repeat(it.depth || 0)}${b.ordered ? i + 1 + '.' : '•'} ${sp(it.spans)}${(it.code || []).map((c) => '\n' + c.split('\n').map((l) => '      ' + l).join('\n')).join('')}`).join('\n'));
     else if (b.type === 'table') out.push([b.header.join(' | '), ...b.rows.map((r) => r.join(' | '))].join('\n') + (b.cites ? ' ' + b.cites.map((c) => `[${c}]`).join('') : ''));
     else if (b.type === 'code') out.push(b.text);
     else if (b.type === 'note') out.push(`Note: ${b.text}`);
@@ -352,7 +352,12 @@ export function createEngine(userCfg) {
               const sel = selectFeeds(t.query, [...cfg.extraFeeds, ...(Array.isArray(settings.feeds) ? settings.feeds.filter((u) => /^https?:\/\//.test(u)).slice(0, 4) : [])]);
               const items = await fetchFeeds(sel, pctx, logSearch);
               const hours = { day: 50, week: 8 * 24, month: 32 * 24, year: 367 * 24 }[t.fresh] || 8 * 24;
-              items.filter((it) => it.ms && now - it.ms <= hours * 3600000 && it.ms - now < 7200000).sort((a, b) => b.ms - a.ms).slice(0, 90)
+              // keep what the feeds say about the asked topic first, then the most recent of everything else
+              const within = items.filter((it) => it.ms && now - it.ms <= hours * 3600000 && it.ms - now < 7200000).sort((a, b) => b.ms - a.ms);
+              const topic = analysis.parts[t.part] ? analysis.parts[t.part].focus : '';
+              const about = topicMatcher(topic);
+              const topical = topic ? within.filter((it) => about(`${it.title} ${it.summary || ''}`)).slice(0, 60) : [];
+              [...topical, ...within.filter((it) => !topical.includes(it)).slice(0, 90 - topical.length)]
                 .forEach((it) => addDoc({ url: it.url, title: it.title, site: it.source, author: it.author, published: it.published, summary: it.summary, blocks: [{ type: 'p', text: `${it.title}. ${it.summary}`.trim(), heading: '' }], news: true, regional: it.regional, partial: true, evidenceLevel: 'feed', kind: 'news', provider: 'feeds' }));
             })());
           } else if (t.kind === 'current-events') {

@@ -4,7 +4,7 @@
 // advertisements and hidden text are removed. Nothing in a page is ever executed or obeyed.
 
 import { parseHTML, walk, textOf, stripTags, find } from './html.js';
-import { cleanText, squash, hash, truncate } from '../util/text.js';
+import { cleanText, squash, hash, truncate, splitSentences } from '../util/text.js';
 import { parseDate, plausiblePubDate } from '../util/dates.js';
 
 const SKIP = new Set(['script', 'style', 'noscript', 'template', 'svg', 'canvas', 'iframe', 'object', 'embed', 'form', 'button', 'select', 'input',
@@ -100,9 +100,73 @@ function inline(el, out) {
 }
 function inlineText(el) { const o = { s: '', link: 0 }; inline(el, o); return o; }
 
+/**
+ * Many pages mark sub-headings as a paragraph that is bold from start to finish (<p><strong>1. Start here</strong></p>).
+ * Returns that title, or '' when the paragraph is ordinary text, a link, a byline or boilerplate.
+ */
+function pseudoHeading(p, o) {
+  let bold = 0;
+  for (const ch of p.children) {
+    if (ch.text !== undefined) { if (ch.text.trim()) return ''; continue; }
+    if (ch.tag === 'br' || ch.tag === 'img') continue;
+    if (ch.tag !== 'strong' && ch.tag !== 'b') return '';
+    bold++;
+  }
+  if (!bold) return '';
+  const text = squash(o.s);
+  if (text.length < 4 || text.length > 110 || /[.!,;:…]$/.test(text) || o.link / Math.max(1, o.s.length) > 0.5) return '';
+  if (BOILER_TEXT_RE.test(text) || /^(by|photo|image|credit|source|updated|published|posted|note|example|tip|warning)\b/i.test(text)) return '';
+  return text;
+}
+
+const STEP_HEAD_RE = /^(?:step\s*)?(\d{1,2})\s*[.):\u2013\u2014-]\s*(\S.{2,})$/i;
+/**
+ * Guides often number their section titles ("1. Define the goal", "Step 2: …") instead of using a list.
+ * Each run of three or more such titles, counted up from 1 at one heading level, becomes an ordered list whose
+ * items are the title plus the first sentence of that section — both verbatim from the page.
+ */
+function numberedSectionLists(blocks) {
+  const lists = [];
+  let run = [];
+  const close = () => { if (run.length >= 3) lists.push(run); run = []; };
+  for (let i = 0; i < blocks.length; i++) {
+    const b = blocks[i];
+    if (b.type !== 'heading') continue;
+    const m = STEP_HEAD_RE.exec(b.text);
+    if (!m) { if (run.length && b.level <= run[0].level) close(); continue; }
+    const n = Number(m[1]);
+    if (run.length && (b.level !== run[0].level || n !== run[run.length - 1].n + 1)) close();
+    if (!run.length && n !== 1) continue;
+    let first = '';
+    for (let j = i + 1; j < blocks.length && blocks[j].type !== 'heading'; j++) {
+      if (blocks[j].type === 'p' && blocks[j].text.length >= 30) { first = splitSentences(blocks[j].text)[0] || ''; break; }
+    }
+    run.push({ n, level: b.level, label: squash(m[2]), first, parent: b.heading || '' });
+  }
+  close();
+  return lists.map((steps) => ({
+    type: 'list', ordered: true, structured: true, derived: 'numbered-sections', heading: steps[0].parent,
+    items: steps.map((st) => ({ text: truncate(st.first ? `${st.label}${/[.!?:]$/.test(st.label) ? '' : ':'} ${st.first}` : st.label, 420), depth: 0 })),
+  }));
+}
+
 function hasBlockChild(el) {
   for (const ch of el.children) if (ch.tag && !INLINE.has(ch.tag) && !ch._skip) return true;
   return false;
+}
+
+/** Commands shown inside a list item (<li>Run this: <pre>…</pre></li>) stay attached to that item. */
+function itemCode(li) {
+  const out = [];
+  const visit = (el) => {
+    for (const ch of el.children || []) {
+      if (ch.text !== undefined || ch._skip || ch.tag === 'ul' || ch.tag === 'ol') continue;
+      if (ch.tag === 'pre') { const c = textOf(ch).replace(/\s+$/, '').replace(/^\n+/, ''); if (c.trim() && out.length < 2) out.push(c.slice(0, 600)); continue; }
+      visit(ch);
+    }
+  };
+  visit(li);
+  return out;
 }
 
 function listItems(listEl, depth, items) {
@@ -111,7 +175,8 @@ function listItems(listEl, depth, items) {
     if (li.tag !== 'li') { if (li.tag === 'ul' || li.tag === 'ol') listItems(li, depth + 1, items); continue; }
     const o = inlineText(li);
     const text = squash(o.s);
-    if (text) items.push({ text: truncate(text, 700), depth });
+    const code = text ? itemCode(li) : [];
+    if (text) items.push({ text: truncate(text, 700), depth, ...(code.length ? { code } : {}) });
     for (const sub of li.children) if ((sub.tag === 'ul' || sub.tag === 'ol') && !sub._skip && depth < 3) listItems(sub, depth + 1, items);
     if (items.length >= 120) return;
   }
@@ -159,6 +224,13 @@ function collectBlocks(container, blocks, state) {
     }
     buf = { s: '', link: 0 };
   };
+  const addHeading = (text, level, href = '', pseudo = false) => {
+    headings.length = level;
+    for (let k = 0; k < level; k++) if (headings[k] === undefined) headings[k] = '';
+    headings[level - 1] = text;
+    if (!pseudo) state.realLevel = level;
+    if (blocks.length < 1500) blocks.push({ type: 'heading', level, text, href, heading: headings.slice(0, level - 1).filter(Boolean).join(' › '), ...(pseudo ? { pseudo: true } : {}) });
+  };
   const visit = (node) => {
     for (const ch of node.children) {
       if (ch.text !== undefined) { buf.s += ch.text; continue; }
@@ -174,18 +246,16 @@ function collectBlocks(container, blocks, state) {
         flush();
         const text = squash(inlineText(ch).s).replace(/\s*\[edit\]\s*$/i, '');
         if (text && text.length < 200) {
-          const level = Number(tag[1]);
-          headings.length = level;
-          for (let k = 0; k < level; k++) if (headings[k] === undefined) headings[k] = '';
-          headings[level - 1] = text;
           const link = find(ch, (x) => x.tag === 'a' && !!x.attrs.href) || (ch.parent && ch.parent.tag === 'a' && ch.parent.attrs.href ? ch.parent : null);
-          if (blocks.length < 1500) blocks.push({ type: 'heading', level, text, href: link ? link.attrs.href : '', heading: headings.slice(0, level - 1).filter(Boolean).join(' › ') });
+          addHeading(text, Number(tag[1]), link ? link.attrs.href : '');
         }
         continue;
       }
       flush();
       if (tag === 'p') {
         const o = inlineText(ch);
+        const title = pseudoHeading(ch, o);
+        if (title) { addHeading(title, Math.min(6, (state.realLevel || 1) + 1), '', true); continue; }
         buf = o; flush();
       } else if (tag === 'ul' || tag === 'ol') {
         const items = [];
@@ -390,7 +460,7 @@ export function extractPage(html, baseUrl, { lastModified, now = Date.now() } = 
       if (seen.has(k)) continue;
       seen.add(k);
     } else if (b.items) {
-      b.items = b.items.map((it) => ({ ...it, text: cleanText(it.text) })).filter((it) => it.text);
+      b.items = b.items.map((it) => ({ ...it, text: cleanText(it.text), ...(it.code ? { code: it.code.map((c) => c.replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F\u200B-\u200F\u202A-\u202E\u2066-\u2069\uFEFF]/g, '')) } : {}) })).filter((it) => it.text);
       if (!b.items.length) continue;
       const k = 'l' + hash(b.items.map((it) => it.text).join('|'));
       if (seen.has(k)) continue;
@@ -403,6 +473,7 @@ export function extractPage(html, baseUrl, { lastModified, now = Date.now() } = 
     if (b.href) { try { const u = new URL(b.href, baseUrl); b.href = /^https?:$/.test(u.protocol) ? u.toString() : ''; } catch { b.href = ''; } }
     clean.push(b);
   }
+  if (!clean.some((b) => b.type === 'list' && b.ordered && b.structured)) clean.push(...numberedSectionLists(clean).slice(0, 3));
 
   // ---- metadata ----
   const pick = (...keys) => { for (const k of keys) if (meta[k]) return meta[k]; return ''; };

@@ -11,9 +11,12 @@ export function loadConfig(env = (typeof process !== 'undefined' ? process.env :
   const contact = String(env.INFINI_CONTACT || '').trim().slice(0, 120).replace(/[^\w@.:/+\-~ ]/g, '');
   // Wikimedia policy (2026): clients without contact details in the User-Agent are "unidentified" and get
   // 10 requests/minute; a compliant User-Agent gets 200. We stay under whichever applies.
-  const userAgent = env.INFINI_USER_AGENT || (contact
-    ? `InfiniAI/${VERSION} (${contact}) node-http`
-    : `InfiniAI/${VERSION} (self-hosted retrieval assistant; user-initiated requests) node-http`);
+  // The operator contact is sent ONLY to Wikimedia hosts (their API policy asks for it). Every other site gets the
+  // generic User-Agent, so a personal e-mail address is never broadcast to arbitrary web pages.
+  const siteUrl = String(env.INFINI_SITE_URL || (env.VERCEL_PROJECT_PRODUCTION_URL ? `https://${env.VERCEL_PROJECT_PRODUCTION_URL}` : '')).trim().slice(0, 120).replace(/[^\w@.:/+\-~]/g, '');
+  const genericUA = env.INFINI_USER_AGENT || `InfiniAI/${VERSION} (retrieval assistant; user-initiated requests) node-http`;
+  const contactUA = contact ? `InfiniAI/${VERSION} (${[siteUrl, contact].filter(Boolean).join('; ')}) node-http` : genericUA;
+  const userAgent = genericUA;
   let searxngUrl = '';
   try { if (env.SEARXNG_URL) searxngUrl = new URL(env.SEARXNG_URL).toString(); } catch { /* ignored: invalid URL */ }
   return {
@@ -21,7 +24,7 @@ export function loadConfig(env = (typeof process !== 'undefined' ? process.env :
     contact, userAgent,
     port: num(env.PORT, 8787, 1, 65535),
     host: env.HOST || '0.0.0.0',
-    keys: { brave: env.BRAVE_API_KEY || '', marginalia: env.MARGINALIA_API_KEY || '', stackexchange: env.STACKEXCHANGE_KEY || '' },
+    keys: { brave: env.BRAVE_API_KEY || '', marginalia: env.MARGINALIA_API_KEY || '', stackexchange: env.STACKEXCHANGE_KEY || '', tavily: env.TAVILY_API_KEY || '', firecrawl: env.FIRECRAWL_API_KEY || '' },
     searxngUrl,
     disabled: new Set(list(env.DISABLE_PROVIDERS)),
     extraFeeds: list(env.EXTRA_FEEDS),
@@ -31,6 +34,7 @@ export function loadConfig(env = (typeof process !== 'undefined' ? process.env :
     maxConcurrentAsks: num(env.MAX_CONCURRENT_ASKS, 4, 1, 64),
     http: {
       userAgent,
+      userAgentFor: (u) => (WIKIMEDIA_HOST.test(u.hostname) ? contactUA : genericUA),
       timeoutMs: num(env.FETCH_TIMEOUT_MS, 7000, 1000, 30000),
       maxBytes: num(env.FETCH_MAX_BYTES, 1_500_000, 50_000, 10_000_000),
       cacheBytes: num(env.CACHE_MAX_MB, 24, 0, 1024) * 1024 * 1024,
@@ -43,6 +47,7 @@ export function loadConfig(env = (typeof process !== 'undefined' ? process.env :
         { id: 'duckduckgo-html', label: 'DuckDuckGo', perMin: 12, test: (u) => u.hostname === 'html.duckduckgo.com' },
         { id: 'gdelt', label: 'GDELT', perMin: 6, test: (u) => u.hostname === 'api.gdeltproject.org' },
         { id: 'arxiv', label: 'arXiv API', perMin: 15, test: (u) => u.hostname === 'export.arxiv.org' },
+        { id: 'firecrawl', label: 'Firecrawl', perMin: 8, test: (u) => u.hostname === 'api.firecrawl.dev' },
       ],
     },
   };

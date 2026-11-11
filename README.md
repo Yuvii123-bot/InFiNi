@@ -33,9 +33,24 @@ No install step: zero npm dependencies, Node ≥ 18.17.
 ## Honest scope
 
 * It **repeats and organises what sources say**. It cannot reason beyond them, write essays or original code, or hold opinions.
-* Answer quality is bounded by what it can retrieve. Without a configured search key, general web search relies on best-effort public interfaces (DuckDuckGo’s HTML page, Mwmbl, Marginalia, Wiby) plus Wikipedia/Wikidata and specialist APIs. For dependable web coverage set `BRAVE_API_KEY` or `SEARXNG_URL`.
+* Answer quality is bounded by what it can retrieve. With no key at all, general web search uses Firecrawl’s keyless search (a small daily allowance per server address), then best-effort public interfaces (DuckDuckGo’s HTML page, Mwmbl, Marginalia, Wiby), next to Wikipedia/Wikidata, publisher feeds and specialist APIs. For dependable web coverage add a **free key that needs no payment method** — see “Web search without paying” below.
 * Its rules misread some questions and its ranking sometimes picks a poor passage; the benchmark in `docs/EVALUATION.md` reports measured failures, not just successes.
 * “Learning” means only: which sources worked, vocabulary that co-occurred with your topics, and answers you chose to save — stored in your browser and clearable. It does not train or improve autonomously.
+
+## Web search without paying
+
+No search key is required and none needs a credit card. Providers are tried in this order; the first one that returns results wins, and one that refuses or rate-limits is rested automatically.
+
+| Provider | What you need | Free allowance (as published by the provider, November 2026) |
+|---|---|---|
+| Your own SearXNG | `SEARXNG_URL` (self-hosted) | unlimited |
+| Tavily | `TAVILY_API_KEY` — free account, no card | about 1,000 searches a month |
+| Firecrawl | nothing (keyless), or `FIRECRAWL_API_KEY` — free account, no card | keyless: a daily allowance per server address (in our test about 80 searches, then a 24-hour wait); key: 1,000 credits a month ≈ 500 searches |
+| DuckDuckGo HTML, Mwmbl, Wiby | nothing | best effort (DuckDuckGo often asks automated clients for a human check, which is never bypassed) |
+| Marginalia | `MARGINALIA_API_KEY` — free non-commercial key on request by e-mail | independent small-web index |
+| Brave | `BRAVE_API_KEY` | still supported, but Brave now requires a payment method |
+
+Only links are taken from these services. INFINI AI fetches and reads every page itself and never asks a provider for a generated answer. Details and the options that were rejected: `docs/OPERATIONS.md`.
 
 ## Documentation
 

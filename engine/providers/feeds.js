@@ -45,12 +45,17 @@ const WORLD = new Set(['world']);
 
 /** Choose feeds whose tags match the question; fall back to world feeds. Returns [{feed, regional}]. */
 export function selectFeeds(questionText, extra = [], max = 6) {
-  const toks = new Set(tokenize(questionText).map(stem));
+  const words = tokenize(questionText);
+  const toks = new Set(words.map(stem));
+  // a spelled-out name also counts by its initials: "artificial intelligence" → ai, "United Kingdom" → uk, "European Union" → eu
+  for (let i = 0; i + 1 < words.length; i++) if (words[i].length >= 4 && words[i + 1].length >= 4) toks.add(words[i][0] + words[i + 1][0]);
   const scored = [];
   for (const f of FEED_CATALOGUE) {
     let score = 0;
     for (const t of f.tags) if (!WORLD.has(t) && toks.has(stem(t))) score += t.length > 3 ? 2 : 1;
-    if (score > 0) scored.push({ feed: f, score, regional: true });
+    // the first two tags describe what the whole feed is about; later tags are topics it merely tends to carry,
+    // so its stories still have to mention the topic themselves (regional = "every story in this feed is on topic")
+    if (score > 0) scored.push({ feed: f, score, regional: f.tags.slice(0, 2).some((t) => toks.has(stem(t))) });
   }
   scored.sort((a, b) => b.score - a.score);
   const out = scored.slice(0, max);

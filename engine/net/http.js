@@ -1,5 +1,7 @@
 // INFINI AI — hardened HTTP client.
-// GET-only, DNS-pinned (anti-rebinding), redirect-validating, size/time bounded, robots-aware, cached.
+// DNS-pinned (anti-rebinding), redirect-validating, size/time bounded, robots-aware, cached.
+// Pages are only ever fetched with GET. The single exception is postJSON(): a small JSON POST that search-provider
+// adapters send to their fixed API host (same address guard, no redirects followed, keys never leave that origin).
 // Built on node:http/https so the validated IP address is the one actually connected to.
 
 import http from 'node:http';
@@ -7,6 +9,7 @@ import https from 'node:https';
 import dns from 'node:dns';
 import zlib from 'node:zlib';
 import { validateUrl, isBlockedAddress, ipFamily, BlockedError } from './guard.js';
+import { hash } from '../util/text.js';
 
 export class HttpError extends Error {
   constructor(message, code = 'network', status = 0) { super(message); this.name = 'HttpError'; this.code = code; this.status = status; }
@@ -80,6 +83,18 @@ const ACCEPT = {
   xml: { header: 'application/atom+xml,application/rss+xml,application/xml;q=0.9,text/xml;q=0.9,*/*;q=0.1', re: /^(application\/([\w.+-]+\+)?xml|text\/(xml|html|plain))/ },
   any: { header: '*/*', re: /./ },
 };
+
+/**
+ * Headers for one hop. Caller-supplied headers (API keys) go only to the origin the request was addressed to —
+ * a redirect to any other origin never receives them.
+ */
+export function requestHeaders({ url, firstOrigin, userAgent, accept, lang, extra, postLength = null }) {
+  return {
+    'User-Agent': userAgent, Accept: accept, 'Accept-Encoding': 'gzip, deflate, br', 'Accept-Language': lang || 'en;q=0.9,*;q=0.4',
+    ...(url.origin === firstOrigin ? extra || {} : {}),
+    ...(postLength != null ? { 'Content-Type': 'application/json', 'Content-Length': String(postLength) } : {}),
+  };
+}
 
 export function createHttpClient(cfg = {}) {
   const conf = {
@@ -158,7 +173,7 @@ export function createHttpClient(cfg = {}) {
     return val;
   }
 
-  function rawGet(u, { address, family, headers, timeoutMs, maxBytes, signal }) {
+  function rawGet(u, { address, family, headers, timeoutMs, maxBytes, signal, method = 'GET', body = null }) {
     return new Promise((resolve, reject) => {
       const isHttps = u.protocol === 'https:';
       const host = u.hostname.replace(/^\[|\]$/g, '');
@@ -172,7 +187,7 @@ export function createHttpClient(cfg = {}) {
       const onAbort = () => { if (req) req.destroy(); finish(new HttpError('Request aborted', 'aborted')); };
       if (signal) { if (signal.aborted) return onAbort(); signal.addEventListener('abort', onAbort, { once: true }); }
       req = (isHttps ? https : http).request({
-        host, port: u.port || (isHttps ? 443 : 80), path: (u.pathname || '/') + (u.search || ''), method: 'GET', headers,
+        host, port: u.port || (isHttps ? 443 : 80), path: (u.pathname || '/') + (u.search || ''), method, headers,
         agent: agents[u.protocol],
         // Pin the connection to the address that was validated — the name is never resolved a second time.
         lookup: (hostname, options, cb) => {
@@ -208,7 +223,7 @@ export function createHttpClient(cfg = {}) {
         stream.on('error', (e) => (chunks.length ? finish(null, { status, headers: h, body: Buffer.concat(chunks), truncated: true }) : finish(new HttpError('Could not decode response: ' + e.message, 'decode'))));
         res.on('error', (e) => finish(new HttpError(e.message, 'network')));
       });
-      req.end();
+      req.end(body || undefined);
     });
   }
 
@@ -253,7 +268,10 @@ export function createHttpClient(cfg = {}) {
    */
   async function get(rawUrl, opts = {}) {
     const o = { timeoutMs: conf.timeoutMs, maxBytes: conf.maxBytes, accept: 'html', robots: false, fresh: false, cache: true, ...opts };
-    const key = o.accept + ' ' + rawUrl;
+    const isPost = o.method === 'POST';
+    const postBody = isPost ? Buffer.from(String(o.body || ''), 'utf8') : null;
+    if (isPost && postBody.length > 16_384) throw new HttpError('Request body too large', 'bad_request');
+    const key = o.accept + ' ' + rawUrl + (isPost ? ' POST ' + hash(postBody.toString('utf8')) : '') + (o.cacheTag ? ' ' + o.cacheTag : '');
     if (o.cache && !o.fresh) {
       const hit = cache.get(key);
       if (hit) return { ...hit, fromCache: true, ms: 0 };
@@ -261,6 +279,7 @@ export function createHttpClient(cfg = {}) {
     let trusted = false;
     try { trusted = conf.trustedOrigins.includes(new URL(rawUrl).origin); } catch { /* validateUrl reports it */ }
     let u = trusted ? new URL(rawUrl) : validateUrl(rawUrl, { allowPorts: conf.allowPorts });
+    const firstOrigin = u.origin;
     const started = Date.now();
     const redirects = [];
     for (let hop = 0; hop <= conf.maxRedirects; hop++) {
@@ -277,13 +296,15 @@ export function createHttpClient(cfg = {}) {
         stats.requests++;
         res = await rawGet(u, {
           ...addr, timeoutMs: remaining, maxBytes: o.maxBytes, signal: o.signal,
-          headers: { 'User-Agent': conf.userAgent, Accept: ACCEPT[o.accept].header, 'Accept-Encoding': 'gzip, deflate, br', 'Accept-Language': o.lang || 'en;q=0.9,*;q=0.4', ...(o.headers || {}) },
+          method: isPost ? 'POST' : 'GET', body: postBody,
+          headers: requestHeaders({ url: u, firstOrigin, userAgent: conf.userAgentFor ? conf.userAgentFor(u) : conf.userAgent, accept: ACCEPT[o.accept].header, lang: o.lang, extra: o.headers, postLength: isPost ? postBody.length : null }),
         });
       } catch (e) {
         if (e.code !== 'aborted') { stats.errors++; noteFailure(host); }
         throw e;
       } finally { globalSem.release(); sem.release(); }
       if (res.status >= 300 && res.status < 400 && res.headers.location) {
+        if (isPost) throw new HttpError('The search API answered with a redirect, which is not followed for POST requests', 'bad_redirect');
         let next;
         try { next = new URL(res.headers.location, u).toString(); } catch { throw new HttpError('Redirect to an invalid URL', 'bad_redirect'); }
         redirects.push(next);
@@ -325,7 +346,7 @@ export function createHttpClient(cfg = {}) {
     const res = await get(url, opts);
     if (res.status >= 400 || (res.status === 202 && !opts.accept202) || res.status === 204) {
       const hint = res.status === 403 || res.status === 401 ? ' (the site refused automated access)' : res.status === 429 ? ' (rate limited)' : res.status === 202 ? ' (challenge / not ready)' : '';
-      throw new HttpError(`HTTP ${res.status}${hint}`, 'http_' + res.status, res.status);
+      throw Object.assign(new HttpError(`HTTP ${res.status}${hint}`, 'http_' + res.status, res.status), { retryAfter: Math.max(0, Number(res.headers['retry-after']) || 0) });
     }
     const ct = res.headers['content-type'].toLowerCase().trim();
     const accept = ACCEPT[opts.accept || 'html'];
@@ -337,9 +358,11 @@ export function createHttpClient(cfg = {}) {
     const res = await getText(url, { accept: 'json', ...opts });
     try { return { ...res, json: JSON.parse(res.text) }; } catch { throw new HttpError('Response was not valid JSON', 'bad_json'); }
   }
+  /** JSON POST for search APIs. Same guard as GET (public addresses only, pinned DNS, size cap); redirects are refused. */
+  const postJSON = (url, body, opts = {}) => getJSON(url, { ...opts, method: 'POST', body: JSON.stringify(body) });
 
   return {
-    get, getText, getJSON, robotsAllowed, remaining, config: conf,
+    get, getText, getJSON, postJSON, robotsAllowed, remaining, config: conf,
     clearCache() { cache.clear(); robotsCache.clear(); dnsCache.clear(); failures.clear(); },
     stats() { return { ...stats, cacheEntries: cache.map.size, cacheBytes: cache.bytes, cacheHits: cache.hits, cacheMisses: cache.misses }; },
     close() { agents['http:'].destroy(); agents['https:'].destroy(); },

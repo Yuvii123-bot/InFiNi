@@ -316,6 +316,7 @@ function bestList(env, { ordered = false, minItems = 3 } = {}) {
     const titleStems = new Set(stemsOf(docs[p.di].title || ''));
     const need = [...env.qm.focus];
     if (ordered && need.length && need.filter((f) => titleStems.has(f) || p.headSet.has(f)).length / need.length < 0.6) continue;   // page or section is about something else
+    if (ordered && need.length && !need.some((f) => p.stemSet.has(f))) continue;   // the steps themselves never mention the subject (e.g. a "without X" scenario)
     if (ordered && !p.block.structured) {                 // steps must read like instructions, not testimonials or link lists
       const imperative = p.sentences.filter((x) => CUES.procedure.test(x)).length / p.sentences.length;
       if (imperative < (p.block.ordered ? 0.34 : 0.5)) continue;
@@ -334,27 +335,33 @@ function composeSteps(env, ordered) {
   const { ranked, docs, part, ctx } = env;
   if (isWeak(env)) return insufficient(env, 'I found pages on the topic, but none with instructions that match this question.');
   const found = bestList(env, { ordered });
-  const code = ctx.programming ? ranked.passages.filter((p) => p.type === 'code' && p.text.length >= 15 && p.text.split('\n').length <= 40 && (docs[p.di].sourceType === 'community' || docs[p.di].category === 'official documentation') && p.score > 0).sort((a, b) => (b.score + (docs[b.di].sourceType === 'community' || docs[b.di].sourceType === 'primary' ? 0.5 : 0)) - (a.score + (docs[a.di].sourceType === 'community' || docs[a.di].sourceType === 'primary' ? 0.5 : 0)))[0] : null;
+  const codeFits = (p) => p.type === 'code' && p.text.length >= 8 && p.text.split('\n').length <= 40;
+  const trusted = (d) => d.sourceType === 'community' || d.sourceType === 'primary';
+  // commands shown next to a step list must come from the same guide; otherwise the best-matching snippet from documentation or a Q&A site
+  const code = !ctx.programming ? null
+    : found ? (found.passage.block.items.some((it) => it.code) ? null : ranked.passages.filter((p) => codeFits(p) && p.di === found.passage.di && p.heading === found.passage.heading).sort((a, b) => b.score - a.score)[0] || null)
+      : ranked.passages.filter((p) => codeFits(p) && p.text.length >= 15 && (docs[p.di].sourceType === 'community' || docs[p.di].category === 'official documentation') && p.score > 0).sort((a, b) => (b.score + (trusted(docs[b.di]) ? 0.5 : 0)) - (a.score + (trusted(docs[a.di]) ? 0.5 : 0)))[0] || null;
   if (!found && !code) {
     const r = composeExtractive(env, { heading: ordered ? 'Advice found in the sources' : 'Points found in the sources', leadFilter: ordered ? (s) => s.cueHit && !s.dangling && s.directCov >= 0.5 : null });
     if (ordered && !r.stats.insufficient) { r.blocks.unshift(note('I did not find a page with step-by-step instructions for exactly this, so what follows is advice gathered from the sources rather than a complete procedure.', 'info')); r.stats.directness = Math.min(r.stats.directness, 0.6); }
     return r;
   }
   const blocks = [];
-  const leadS = ranked.sentences.find((s) => s.type === 'p' && (!s.dangling || s.si > 0) && !/\?$/.test(s.text));
+  // a step list is introduced by its own heading ("Steps — from …"); a loosely related top sentence in front of it only misleads
+  const leadS = found ? null : ranked.sentences.find((s) => s.type === 'p' && (!s.dangling || s.si > 0) && !/\?$/.test(s.text));
   const leadSp = leadS && leadS.score >= env.top.score * 0.5 ? env.quote(leadS, { allowDangling: true }) : null;
   if (leadSp) blocks.push(para([leadSp]));
   let n = 0;
   if (found) {
     const p = found.passage, sid = env.cite(p.di);
-    const items = p.block.items.slice(0, 12).map((it) => ({ spans: [span(truncate(cleanSentence(it.text), 320), [sid])], depth: it.depth || 0 }));
+    const items = p.block.items.slice(0, 12).map((it) => ({ spans: [span(truncate(cleanSentence(it.text), 320), [sid])], depth: it.depth || 0, ...(it.code && it.code.length ? { code: it.code } : {}) }));
     blocks.push({ type: 'heading', text: `${ordered ? 'Steps' : capitalize(part.attribute || 'Items')} — from ${docs[p.di].site || docs[p.di].domain}${p.heading ? ` (“${truncate(p.heading.split(' › ').pop(), 60)}”)` : ''}` });
     blocks.push({ type: 'list', ordered: !!p.block.ordered || ordered, items });
     env.claims.push({ text: items.map((i) => i.spans[0].text).join(' / ').slice(0, 400), di: p.di, source: sid, alsoSupportedBy: [], heading: p.heading, passage: truncate(p.text, 600), nature: 'stated as fact', temporal: 'undated', stems: p.stemSet, origin: docs[p.di].origin, score: p.score, part: ctx.partIndex });
     n = items.length;
   }
   if (code) { blocks.push({ type: 'heading', text: `Example code — from ${docs[code.di].site || docs[code.di].domain}` }); blocks.push({ type: 'code', text: code.text.slice(0, 2400), lang: code.block.lang || '', cites: [env.cite(code.di)] }); }
-  const extra = mmr(ranked.sentences.filter((s) => s.score >= env.top.score * 0.45 && s.type === 'p' && (!found || s.di !== found.passage.di)), 3, { maxPerDoc: 1, filter: (s) => !env.used.has(`${s.pi}:${s.si}`) }).map((s) => env.quote(s)).filter(Boolean);
+  const extra = mmr(ranked.sentences.filter((s) => s.score >= env.top.score * 0.45 && s.type === 'p' && (!found || s.di !== found.passage.di) && (!ordered || s.cueHit)), 3, { maxPerDoc: 1, filter: (s) => !env.used.has(`${s.pi}:${s.si}`) }).map((s) => env.quote(s)).filter(Boolean);
   if (extra.length && !env.style.brief) { blocks.push({ type: 'heading', text: 'Other sources add' }); blocks.push({ type: 'list', ordered: false, items: extra.map((sp) => ({ spans: [sp] })) }); }
   return { blocks, claims: env.claims, stats: { directness: clamp(0.5 + 0.4 * Math.min(1, (found ? found.score : 0.6))), keyClaims: env.claims.length, corroborated: env.corroborated }, lead: leadSp ? leadSp.text : `${n} steps from ${found ? docs[found.passage.di].site : ''}` };
 }
@@ -368,7 +375,10 @@ function composeComparison(env) {
   const intro = [];
   items.forEach((it, i) => {
     const di = ctx.entityDocs ? ctx.entityDocs.get(it.toLowerCase()) : undefined;
-    const own = (x) => (di != null ? x.di === di : [...stemSets[i]].every((t) => stemsOf(docs[x.di].title || '').includes(t)));
+    // without an identified page for the item, only a page titled after this item alone may introduce it — a "TCP vs UDP" article is not "the page about TCP"
+    const others = stemSets.filter((_, k) => k !== i);
+    const titled = (x) => { const ts = stemsOf(docs[x.di].title || ''); return [...stemSets[i]].every((t) => ts.includes(t)) && !others.some((o) => [...o].every((t) => ts.includes(t))); };
+    const own = (x) => (di != null ? x.di === di : titled(x) && [...stemSets[i]].every((t) => x.stems.has(t)));
     const s = ranked.sentences.filter((x) => own(x) && x.type === 'p' && x.order <= 2 && x.si === 0).sort((a, b) => a.order - b.order)[0];
     const sp = s && env.quote(s, { allowDangling: true });
     if (sp) intro.push({ spans: [span(`${capitalize(it)}: `, [], { strong: true }), sp] });
@@ -401,22 +411,58 @@ function composeComparison(env) {
   return { blocks, claims: env.claims, stats: { directness: direct.length ? 0.85 : cmp ? 0.65 : 0.5, keyClaims: Math.max(1, env.claims.length), corroborated: env.corroborated, structuredAgreement: false }, lead: direct[0] ? direct[0].text : intro.map((i) => i.spans[1].text).join(' ') };
 }
 
+const NAME_ADJECTIVES = { france: 'french', spain: 'spanish', britain: 'british', uk: 'british', netherlands: 'dutch', switzerland: 'swiss', greece: 'greek', turkey: 'turkish', poland: 'polish', sweden: 'swedish', denmark: 'danish', finland: 'finnish', ireland: 'irish', scotland: 'scottish', wales: 'welsh', england: 'english', thailand: 'thai', philippines: 'filipino', portugal: 'portuguese', norway: 'norwegian', belgium: 'belgian', peru: 'peruvian', asia: 'asian', us: 'american', usa: 'american' };
+/** Word forms that refer to the same named topic: the name itself and its adjective (China → Chinese, Nepal → Nepali/Nepalese, Germany → German). */
+function nameForms(word) {
+  const w = word.toLowerCase();
+  const base = w.replace(/[aeiouy]$/, '');
+  const irregular = NAME_ADJECTIVES[w];
+  return (tok) => tok === w || tok === w + 's' || tok === irregular || (base.length >= 4 && tok.startsWith(base) && (base.length >= 5 && tok.length === base.length ? true : /^(n|an|ian|ean|ese|i|is|ish)$/.test(tok.slice(base.length))));
+}
+
+/**
+ * Does a headline (with its summary) concern the asked topic? Every word of a short topic must be present ("artificial
+ * intelligence", not just "intelligence"), or its initials ("AI"), or — for a one-word name — its adjective ("Chinese").
+ */
+export function topicMatcher(focusText) {
+  const focus = new Set(stemsOf(focusText || ''));
+  const words = (focusText || '').split(/\s+/).filter((w) => /^\p{L}/u.test(w));
+  const initials = words.length >= 2 && words.length <= 5 ? new RegExp(`(^|[^\\p{L}\\p{N}])${words.map((w) => w[0].toUpperCase()).join('')}(?![\\p{L}\\p{N}])`, 'u') : null;
+  const named = words.length === 1 ? nameForms(words[0]) : null;
+  const need = focus.size <= 2 ? focus.size : Math.ceil(focus.size * 0.6);
+  return (text) => {
+    if (!focus.size) return true;
+    const st = new Set(stemsOf(text));
+    let n = 0;
+    for (const f of focus) if (st.has(f)) n++;
+    return n >= need || !!(initials && initials.test(text)) || !!(named && text.toLowerCase().split(/[^\p{L}\p{N}]+/u).some(named));
+  };
+}
+
 function composeNews(env) {
   const { ctx, part, docs } = env;
   const fresh = part.temporal.freshness || 'week';
-  const hours = part.temporal.when === 'yesterday' ? 50 : { day: 26, week: 7 * 24, month: 31 * 24, year: 366 * 24 }[fresh];
-  const windowLabel = part.temporal.when === 'yesterday' ? 'since yesterday' : { day: 'in the last 24 hours', week: 'in the last 7 days', month: 'in the last month', year: 'in the last year' }[fresh];
+  let hours = part.temporal.when === 'yesterday' ? 50 : { day: 26, week: 7 * 24, month: 31 * 24, year: 366 * 24 }[fresh];
+  let windowLabel = part.temporal.when === 'yesterday' ? 'since yesterday' : { day: 'in the last 24 hours', week: 'in the last 7 days', month: 'in the last month', year: 'in the last year' }[fresh];
   const focus = new Set(stemsOf(part.focus || ''));
-  const stories = [];
-  docs.forEach((d, di) => {
-    if (!d.news || !d.published) return;
-    const age = (ctx.now - Date.parse(d.published)) / 3600000;
-    if (!(age >= -2 && age <= hours)) return;
-    const st = new Set(stemsOf(d.title + ' ' + (d.summary || '')));
-    const onTopic = !focus.size || [...focus].some((f) => st.has(f));
-    if (!onTopic && !d.regional) return;
-    stories.push({ di, doc: d, age, titleStems: new Set(stemsOf(d.title)), onTopic });
-  });
+  const about = topicMatcher(part.focus);
+  const gather = (maxAge) => {
+    const out = [];
+    docs.forEach((d, di) => {
+      if (!d.news || !d.published) return;
+      const age = (ctx.now - Date.parse(d.published)) / 3600000;
+      if (!(age >= -2 && age <= maxAge)) return;
+      const onTopic = about(d.title + ' ' + (d.summary || ''));
+      if (!onTopic && !d.regional) return;
+      out.push({ di, doc: d, age, titleStems: new Set(stemsOf(d.title)), onTopic });
+    });
+    return out;
+  };
+  let stories = gather(hours);
+  if (!stories.length && fresh === 'day' && part.temporal.when !== 'yesterday') {      // nothing in the last day: say so and show what the feeds carried just before
+    stories = gather(50);
+    if (stories.length) { hours = 50; windowLabel = 'in the last two days (I found nothing dated within the last 24 hours)'; }
+  }
   if (!stories.length) return insufficient(env, `I read the available news feeds but found no item ${part.focus ? `about ${part.focus} ` : ''}published ${windowLabel}.`);
   // cluster the same story across publishers
   const clusters = [];
@@ -426,7 +472,17 @@ function composeNews(env) {
   }
   for (const c of clusters) c.score = c.items.length * 1.2 + (c.items.some((x) => x.onTopic) && focus.size ? 1 : 0) + Math.max(0, 1 - c.items[0].age / hours) + (c.items.some((x) => x.doc.verified) ? 0.3 : 0);
   clusters.sort((a, b) => b.score - a.score);
-  const shown = clusters.slice(0, env.style.brief ? 4 : env.style.detail ? 12 : 8);
+  // at most three single-publisher stories per outlet, so one prolific feed cannot fill the whole digest
+  const maxShown = env.style.brief ? 4 : env.style.detail ? 12 : 8;
+  const perOutlet = new Map(), shown = [];
+  for (const c of clusters) {
+    const outlet = c.items[0].doc.origin || c.items[0].doc.site;
+    if (c.items.length === 1 && (perOutlet.get(outlet) || 0) >= 3) continue;
+    perOutlet.set(outlet, (perOutlet.get(outlet) || 0) + 1);
+    shown.push(c);
+    if (shown.length >= maxShown) break;
+  }
+  for (const c of clusters) { if (shown.length >= maxShown) break; if (!shown.includes(c)) shown.push(c); }
   const items = shown.map((c) => {
     const lead = c.items.find((x) => x.doc.verified) || c.items[0];
     const cites = c.items.slice(0, 3).map((x) => env.cite(x.di));

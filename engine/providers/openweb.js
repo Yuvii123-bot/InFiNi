@@ -19,7 +19,7 @@ export const mwmbl = {
 
 export const marginalia = {
   id: 'marginalia', label: 'Marginalia', kind: 'web', keyless: true, documented: true, defaultOn: true,
-  note: 'Independent index (public shared key is heavily rate-limited; set MARGINALIA_API_KEY for a personal key).',
+  note: 'Independent index. The shared public key is usually rate-limited; a personal non-commercial key is free on request by e-mail (MARGINALIA_API_KEY).',
   available: () => true,
   async search(query, ctx) {
     const key = (ctx.cfg && ctx.cfg.keys && ctx.cfg.keys.marginalia) || 'public';
@@ -42,7 +42,7 @@ export const wiby = {
 // ---- optional, operator-configured providers (recommended for production) -----------------------
 export const brave = {
   id: 'brave', label: 'Brave Search API', kind: 'web', keyless: false, documented: true, defaultOn: true,
-  note: 'Requires BRAVE_API_KEY (free tier available). Key stays on the server.',
+  note: 'Requires BRAVE_API_KEY. Brave now asks for a payment method even for its free monthly credit, so it is optional and no longer the recommended route.',
   available: (cfg) => !!(cfg.keys && cfg.keys.brave),
   async search(query, ctx) {
     const fresh = { day: 'pd', week: 'pw', month: 'pm', year: 'py' }[ctx.fresh];

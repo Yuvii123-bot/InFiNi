@@ -191,7 +191,7 @@ function answerEl(result) {
   for (const b of result.answer.blocks) {
     if (b.type === 'paragraph') box.append(h('p', null, spansEl(b.spans, result)));
     else if (b.type === 'heading') box.append(h('h3', { class: b.level === 2 ? 'part' : null, text: b.text }));
-    else if (b.type === 'list') box.append(h(b.ordered ? 'ol' : 'ul', null, b.items.map((it) => h('li', { class: it.depth ? `d${Math.min(2, it.depth)}` : null }, spansEl(it.spans, result)))));
+    else if (b.type === 'list') box.append(h(b.ordered ? 'ol' : 'ul', null, b.items.map((it) => h('li', { class: it.depth ? `d${Math.min(2, it.depth)}` : null }, spansEl(it.spans, result), (it.code || []).map((c) => h('pre', null, h('code', { text: c })))))));
     else if (b.type === 'table') box.append(h('div', { class: 'table-wrap' }, h('table', null, b.caption ? h('caption', null, b.caption, ' ', spansEl([{ text: '', cites: b.cites || [] }], result)) : null, h('thead', null, h('tr', null, b.header.map((c) => h('th', { text: c })))), h('tbody', null, b.rows.map((r) => h('tr', null, r.map((c) => h('td', { text: c }))))))));
     else if (b.type === 'code') { box.append(h('pre', null, h('code', { text: b.text }))); if (b.cites && b.cites.length) box.append(h('p', { class: 'code-cite' }, 'Code quoted from ', spansEl([{ text: '', cites: b.cites }], result))); }
     else if (b.type === 'note') box.append(h('div', { class: 'note' + (b.tone === 'warn' ? ' warn' : ''), text: b.text }));
@@ -455,6 +455,9 @@ async function init() {
   state.chats = stored.map((c) => ({ id: c.id, title: c.title, updatedAt: c.updatedAt, text: c.messages.map((m) => m.text || (m.result && m.result.answer.text) || '').join(' ').slice(0, 4000).toLowerCase() })).sort((a, b) => b.updatedAt - a.updatedAt);
   newChat();
   autoGrow();
+  // a link such as /?q=Why+do+stars+shine%3F opens the app and asks that question once
+  const linked = new URLSearchParams(location.search).get('q');
+  if (linked) { history.replaceState(null, '', location.pathname); if (linked.trim() && linked.length <= 600) ask(linked); }
   if ('serviceWorker' in navigator && location.protocol === 'https:') navigator.serviceWorker.register('/sw.js').catch(() => { /* PWA install is optional */ });
 }
 init();

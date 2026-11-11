@@ -5,7 +5,9 @@ import http from 'node:http';
 import { stem, splitSentences, canonicalUrl, domainOf } from '../engine/util/text.js';
 import { parseDate, findDates } from '../engine/util/dates.js';
 import { validateUrl, isBlockedAddress } from '../engine/net/guard.js';
-import { createHttpClient, parseRobots, robotsPathAllowed } from '../engine/net/http.js';
+import { createHttpClient, parseRobots, robotsPathAllowed, requestHeaders, HttpError } from '../engine/net/http.js';
+import { firecrawl, tavily } from '../engine/providers/searchapis.js';
+import { webSearch, resetCooling, providerCooling, WEB_CHAIN, PROVIDERS } from '../engine/providers/index.js';
 import { parseHTML, textOf, findAll } from '../engine/extract/html.js';
 import { extractPage } from '../engine/extract/readable.js';
 import { parseFeed } from '../engine/extract/feed.js';
@@ -13,7 +15,8 @@ import { calc } from '../engine/math/calc.js';
 import { analyze } from '../engine/nlp/analyze.js';
 import { queryModel, rankEvidence, lexicalOverlap } from '../engine/rank/rank.js';
 import { classifySource, originGroups, detectConflicts, scoreConfidence } from '../engine/evidence/evidence.js';
-import { answerPart } from '../engine/synth/synth.js';
+import { answerPart, topicMatcher } from '../engine/synth/synth.js';
+import { selectFeeds } from '../engine/providers/feeds.js';
 import { buildPlan } from '../engine/plan/plan.js';
 import { createEngine, loadConfig } from '../engine/index.js';
 import { createApp } from '../server/app.js';
@@ -83,6 +86,72 @@ test('HTTP client: DNS rebinding, redirect re-validation, size cap, robots, per-
   assert.equal(robotsPathAllowed(parseRobots('User-agent: *\nDisallow: /a\nAllow: /a/public'), '/a/public/x'), true);
 });
 
+test('HTTP client: JSON POST for search APIs — cached per body, redirects refused, keys never leave their origin', async () => {
+  let hits = 0;
+  const srv = http.createServer((req, res) => {
+    if (req.url === '/moved') { res.writeHead(307, { Location: '/echo' }); return res.end(); }
+    let body = ''; req.on('data', (c) => (body += c)); req.on('end', () => { hits++; res.writeHead(200, { 'Content-Type': 'application/json' }); res.end(JSON.stringify({ method: req.method, type: req.headers['content-type'], key: req.headers['x-key'] || null, body })); });
+  });
+  await new Promise((r) => srv.listen(0, '127.0.0.1', r));
+  const origin = `http://127.0.0.1:${srv.address().port}`;
+  const c = createHttpClient({ allowPorts: [srv.address().port], trustedOrigins: [origin] });
+  const a = await c.postJSON(`${origin}/echo`, { query: 'stars' }, { headers: { 'X-Key': 'k1' } });
+  assert.deepEqual([a.json.method, a.json.type, a.json.key, JSON.parse(a.json.body).query], ['POST', 'application/json', 'k1', 'stars']);
+  assert.equal((await c.postJSON(`${origin}/echo`, { query: 'stars' }, { headers: { 'X-Key': 'k1' } })).fromCache, true);
+  await c.postJSON(`${origin}/echo`, { query: 'planets' });
+  assert.equal(hits, 2);                                              // same body → cache; different body → new request
+  await assert.rejects(c.postJSON(`${origin}/moved`, { query: 'x' }), (e) => e.code === 'bad_redirect');
+  await assert.rejects(c.postJSON(`${origin}/echo`, { query: 'x'.repeat(20000) }), (e) => e.code === 'bad_request');
+  await assert.rejects(createHttpClient().postJSON('http://169.254.169.254/latest', { a: 1 }), (e) => e.code === 'private_address' || e.name === 'BlockedError');
+  c.close(); srv.closeAllConnections(); srv.close();
+  const h = (to) => requestHeaders({ url: new URL(to), firstOrigin: 'https://api.search-provider.com', userAgent: 'ua', accept: '*/*', extra: { Authorization: 'Bearer secret' } });
+  assert.equal(h('https://api.search-provider.com/v2/search').Authorization, 'Bearer secret');
+  assert.equal(h('https://elsewhere.com/collect').Authorization, undefined);
+});
+
+test('search APIs without a payment method: Firecrawl (keyless or free key) and Tavily (free key)', async () => {
+  const calls = [];
+  const fake = (reply) => ({ postJSON: async (url, body, opts) => { calls.push({ url, body, opts }); if (reply instanceof Error) throw reply; return { json: reply }; } });
+  const cfg0 = loadConfig({});
+  const page = { url: 'https://nasa.gov/stars', title: ' How  stars shine ', description: 'Fusion in the core.' };
+  let out = await firecrawl.search('why do stars shine', { http: fake({ success: true, data: { web: [page, { url: 'javascript:alert(1)', title: 'x' }] } }), cfg: cfg0, fresh: 'week' });
+  assert.deepEqual(out, [{ title: 'How stars shine', url: 'https://nasa.gov/stars', snippet: 'Fusion in the core.', date: '', provider: 'firecrawl', kind: 'web' }]);
+  assert.equal(calls[0].url, 'https://api.firecrawl.dev/v2/search');
+  assert.deepEqual([calls[0].body.tbs, calls[0].opts.headers.Authorization, calls[0].opts.cacheTag], ['qdr:w', undefined, 'keyless']);
+  out = await firecrawl.search('q', { http: fake({ success: true, data: [page] }), cfg: loadConfig({ FIRECRAWL_API_KEY: 'fc-test' }) });
+  assert.equal(out.length, 1);
+  assert.equal(calls[1].opts.headers.Authorization, 'Bearer fc-test');
+  await assert.rejects(firecrawl.search('q', { http: fake(new HttpError('HTTP 403', 'http_403', 403)), cfg: cfg0 }), (e) => e.code === 'refused' && /free key/.test(e.message));
+  await assert.rejects(firecrawl.search('q', { http: fake(new HttpError('HTTP 429', 'http_429', 429)), cfg: cfg0 }), (e) => e.code === 'rate_limited');
+  // Tavily is off without a key and must never ask for a generated answer
+  assert.equal(tavily.available(cfg0), false);
+  const cfgT = loadConfig({ TAVILY_API_KEY: 'tvly-test' });
+  assert.equal(tavily.available(cfgT), true);
+  calls.length = 0;
+  out = await tavily.search('nepal election', { http: fake({ answer: 'ignored', results: [{ title: 'T', url: 'https://example.org/a', content: 'Snippet', published_date: '2026-11-10' }] }), cfg: cfgT, fresh: 'day' });
+  assert.deepEqual(out[0], { title: 'T', url: 'https://example.org/a', snippet: 'Snippet', date: '2026-11-10', provider: 'tavily', kind: 'web' });
+  assert.deepEqual([calls[0].body.include_answer, calls[0].body.include_raw_content, calls[0].body.time_range, calls[0].body.topic, calls[0].opts.headers.Authorization], [false, false, 'day', 'news', 'Bearer tvly-test']);
+  await assert.rejects(tavily.search('q', { http: fake(new HttpError('HTTP 432', 'http_432', 432)), cfg: cfgT }), (e) => e.code === 'refused');
+  // no key ever reaches the browser-facing provider list
+  assert.ok(!JSON.stringify(Object.values(PROVIDERS).map((p) => [p.id, p.note])).includes('tvly-test'));
+
+  // failover: a refused keyed provider rests, the next one answers
+  resetCooling();
+  const cfgBoth = loadConfig({ TAVILY_API_KEY: 'bad', FIRECRAWL_API_KEY: 'fc-ok', DISABLE_PROVIDERS: 'ddg_html,mwmbl,marginalia,wiby' });
+  const three = { success: true, data: { web: [1, 2, 3].map((i) => ({ url: `https://site${i}.org/`, title: `t${i}`, description: 'd' })) } };
+  const net = { postJSON: async (url) => { if (url.includes('tavily')) throw new HttpError('HTTP 401', 'http_401', 401); return { json: three }; } };
+  const log = [];
+  const res = await webSearch('q', { http: net, cfg: cfgBoth }, (e) => log.push(e));
+  assert.equal(res.length, 3);
+  assert.deepEqual(log.map((e) => [e.provider, e.ok]), [['tavily', false], ['firecrawl', true]]);
+  assert.ok(providerCooling('tavily'));
+  log.length = 0;
+  await webSearch('q2', { http: net, cfg: cfgBoth }, (e) => log.push(e));
+  assert.equal(log[0].code, 'cooling');
+  resetCooling();
+  assert.ok(WEB_CHAIN.indexOf('firecrawl') > WEB_CHAIN.indexOf('ddg_html') && !WEB_CHAIN.includes('google_cse'));
+});
+
 test('HTML parser tolerates invalid markup', () => {
   const root = parseHTML('<div><p>One<p>Two <b>bold <i>both</b> tail</i><ul><li>a<li>b</ul><script>var s = "</p><p>no";</script><table><tr><td>x<td>y</table> &amp; &eacute; &#x41; &bogus;');
   assert.equal(findAll(root, (e) => e.tag === 'p').length, 2);
@@ -121,6 +190,50 @@ test('extraction removes boilerplate and hidden text, keeps structure and metada
   // a JavaScript shell is reported as such instead of being treated as content
   const shell = extractPage('<html><body><div id="root"></div><script src="a.js"></script><script src="b.js"></script><script src="c.js"></script><script src="d.js"></script><noscript>You need to enable JavaScript to run this app.</noscript></body></html>', 'https://example.org/app');
   assert.ok(shell.quality.jsRequired && shell.quality.chars < 200);
+});
+
+test('extraction: bold-paragraph headings, numbered sections become steps, commands stay with their list item', () => {
+  const html = `<html><head><title>How to build a widget: a guide</title></head><body><article>
+    <p>Getting started is easier than it sounds, and this guide walks through the key steps one after another.</p>
+    <p><strong>1. Start with the problem </strong></p><p>Begin with the job, not the technology. Then talk with the people who will use it every day.</p>
+    <p><b>2. Decide where to begin</b></p><p>Before building, check what already exists in your organisation today.</p>
+    <p><strong>3. Test and share</strong></p><p>Test the widget in real scenarios and refine it as often as needed.</p>
+    <p><strong>This whole sentence is bold but it is an ordinary sentence that ends with a full stop.</strong></p>
+    <p><strong><a href="/more">Read more about widgets and related articles here</a></strong></p>
+    <h2>Install</h2>
+    <ol><li>Open a terminal and install the tool:<pre><code>winget install Example.Tool</code></pre></li><li>Verify it:<pre>tool --version</pre><ul><li>Nested note<pre>nested --only</pre></li></ul></li><li>Done, no command here.</li></ol>
+  </article></body></html>`;
+  const page = extractPage(html, 'https://guides.example.org/widget');
+  const heads = page.blocks.filter((b) => b.type === 'heading').map((b) => b.text);
+  assert.deepEqual(heads, ['1. Start with the problem', '2. Decide where to begin', '3. Test and share', 'Install']);
+  assert.ok(page.blocks.some((b) => b.type === 'p' && b.text.startsWith('This whole sentence is bold')));          // a bold sentence stays a sentence
+  assert.equal(page.blocks.find((b) => b.type === 'p' && b.text.startsWith('Before building')).heading, '2. Decide where to begin');
+  const steps = page.blocks.find((b) => b.type === 'list' && b.derived === 'numbered-sections');
+  assert.ok(steps && steps.ordered && steps.structured);
+  assert.deepEqual(steps.items.map((i) => i.text), ['Start with the problem: Begin with the job, not the technology.', 'Decide where to begin: Before building, check what already exists in your organisation today.', 'Test and share: Test the widget in real scenarios and refine it as often as needed.']);
+  const install = page.blocks.find((b) => b.type === 'list' && !b.derived);
+  assert.deepEqual(install.items.map((i) => [i.text, i.depth, i.code || null]), [['Open a terminal and install the tool:', 0, ['winget install Example.Tool']], ['Verify it:', 0, ['tool --version']], ['Nested note', 1, ['nested --only']], ['Done, no command here.', 0, null]]);
+  // numbered titles that do not count up from 1, or fewer than three of them, are left alone
+  const two = extractPage('<html><body><article><h3>1. One thing to know about this topic</h3><p>Some text that is long enough to be kept as a paragraph.</p><h3>2. Another thing to know</h3><p>More text that is long enough to be kept as a paragraph.</p><h3>7. Out of order</h3><p>Even more text that is long enough to be kept.</p></article></body></html>', 'https://guides.example.org/x');
+  assert.ok(!two.blocks.some((b) => b.derived));
+});
+
+test('news topics: whole phrase, initials or the name\'s adjective; feeds chosen by scope', () => {
+  const ai = topicMatcher('artificial intelligence');
+  assert.equal(ai('Minister survives vote. An intelligence briefing was cancelled.'), false);       // one word of the phrase is not the topic
+  assert.equal(ai('How AI worsens online violence'), true);
+  assert.equal(ai('OpenAI posts record revenue'), false);                                            // "AI" inside another word does not count
+  assert.equal(ai('Artificial intelligence rules agreed in Brussels'), true);
+  const china = topicMatcher('China');
+  assert.deepEqual(['Chinese carmaker expands', 'China’s lead on green energy', 'A chin injury ends the match', 'Chinook helicopters grounded'].map(china), [true, true, false, false]);
+  assert.deepEqual(['German election called', 'Talks in Germany', 'Germane remarks'].map(topicMatcher('Germany')), [true, true, false]);
+  assert.equal(topicMatcher('France')('French strikes continue'), true);
+  assert.equal(topicMatcher('')('anything'), true);
+  const names = (q) => selectFeeds(q).map((f) => `${f.feed.name}${f.regional ? '*' : ''}`);
+  assert.ok(names('Latest news about artificial intelligence').some((n) => n === 'Ars Technica'));     // tag "ai" via initials; stories must still mention the topic
+  assert.ok(names('latest technology news').includes('Ars Technica*'));                               // the feed as a whole is about technology
+  assert.ok(names('What happened in Nepal today?').includes('The Kathmandu Post*'));
+  assert.ok(names('news about China today').includes('BBC News — Asia'));                             // carries China stories, but is not only about China
 });
 
 test('feed parser reads RSS and Atom', () => {

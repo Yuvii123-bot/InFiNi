@@ -107,7 +107,7 @@ export function matchRelations(questionText, qtype) {
 
 export async function searchEntities(name, ctx, limit = 3) {
   const { json } = await ctx.http.getJSON(`${API}?action=wbsearchentities&search=${enc(name)}&language=en&uselang=en&type=item&limit=${limit}&format=json`, { signal: ctx.signal, timeoutMs: ctx.timeoutMs || 5000, hostLimit: 3, ttlMs: 60 * 60000 });
-  return (json.search || []).map((e) => ({ id: e.id, label: e.label || '', description: e.description || '' }));
+  return (json.search || []).map((e) => ({ id: e.id, label: e.label || '', description: e.description || '', matched: (e.match && e.match.text) || '' }));
 }
 
 /** Entity document via the Linked Data interface (no API budget; CDN cached). */
@@ -248,14 +248,17 @@ function overlapCount(a, b) { let n = 0; for (const x of a) if (b.has(x)) n++; r
  */
 export async function chooseSenses(items, contextStems, ctx) {
   const lists = await Promise.all(items.map((it) => searchEntities(it, ctx, 6).catch(() => [])));
-  const cands = lists.map((l, i) => l.filter((c) => c.description && !NOISE_DESC.test(c.description) && c.label.toLowerCase().split(/[^\p{L}\p{N}]+/u).includes(items[i].toLowerCase().split(/[^\p{L}\p{N}]+/u)[0])).map((c, rank) => ({ ...c, rank, stems: descStems(c.description) })));
+  // a candidate qualifies when its label contains the name, or when the name is exactly one of its aliases ("TCP" → Transmission Control Protocol)
+  const named = (c, it) => c.label.toLowerCase().split(/[^\p{L}\p{N}]+/u).includes(it.toLowerCase().split(/[^\p{L}\p{N}]+/u)[0]) || (c.matched || '').toLowerCase() === it.toLowerCase();
+  const cands = lists.map((l, i) => l.filter((c) => c.description && !NOISE_DESC.test(c.description) && named(c, items[i])).map((c, rank) => ({ ...c, rank, stems: descStems(c.description) })));
   // Wikidata's own ordering is a weak signal of salience; an exact label match ("Mercury") outranks a longer one ("Mercury Records")
-  const prior = (c) => 0.3 / (1 + c.rank) + (items.some((it) => it.toLowerCase() === c.label.toLowerCase()) ? 0.5 : 0) + 0.6 * overlapCount(c.stems, contextStems);
+  const prior = (c) => 0.3 / (1 + c.rank) + (items.some((it) => it.toLowerCase() === c.label.toLowerCase() || it.toLowerCase() === (c.matched || '').toLowerCase()) ? 0.5 : 0) + 0.6 * overlapCount(c.stems, contextStems);
   let pick = cands.map((l) => l.slice().sort((a, b) => prior(b) - prior(a))[0] || null);
   if (items.length >= 2 && cands[0].length && cands[1].length) {
     let best = -1;
     for (const a of cands[0]) for (const b of cands[1]) {
-      const sc = overlapCount(a.stems, b.stems) + prior(a) + prior(b);
+      // being of one kind counts once: two prominent senses that share a class word ("protocol") beat two obscure ones that share two ("chemical compound")
+      const sc = Math.min(1, overlapCount(a.stems, b.stems)) + prior(a) + prior(b);
       if (sc > best) { best = sc; pick[0] = a; pick[1] = b; }
     }
     for (let k = 2; k < items.length; k++) if (cands[k].length) pick[k] = cands[k].slice().sort((x, y) => (overlapCount(y.stems, pick[0].stems) + prior(y)) - (overlapCount(x.stems, pick[0].stems) + prior(x)))[0];

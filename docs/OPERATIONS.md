@@ -22,12 +22,14 @@ node cli.js --depth deep --json "Compare Python and Rust"
 | Variable | Default | Meaning |
 |---|---|---|
 | `PORT`, `HOST` | `8787`, `0.0.0.0` | Listen address. |
-| `INFINI_CONTACT` | empty | A URL or e-mail of the operator, placed in the User-Agent. **Set this in production**: Wikimedia APIs allow identified clients 200 requests/min; without it the limit is 10/min and the engine budgets itself to 9/min (answers degrade to page fetches and other sources when the budget is used up). |
+| `INFINI_CONTACT` | empty | A URL or e-mail of the operator. It is sent **only to Wikimedia hosts** (in the User-Agent, as their API policy asks); every other site gets a generic User-Agent. **Set this in production**: Wikimedia APIs allow identified clients 200 requests/min; without it the limit is 10/min and the engine budgets itself to 9/min (answers degrade to page fetches and other sources when the budget is used up). |
 | `INFINI_USER_AGENT` | derived | Full User-Agent override. |
-| `BRAVE_API_KEY` | empty | Enables the Brave Search API as first web provider. Server-side only. |
+| `TAVILY_API_KEY` | empty | Tavily Search (free key, no payment method, about 1,000 searches a month). Server-side only; only result links are requested. |
+| `FIRECRAWL_API_KEY` | empty | Firecrawl Search works **without** a key inside a daily allowance per server address; a free key (no payment method, 1,000 credits a month) replaces that allowance with the account’s quota. Set it when the keyless route is refused or used up on your host. |
+| `BRAVE_API_KEY` | empty | Brave Search API. Still supported, but Brave now asks for a payment method even for its free credit, so it is not the recommended route. |
 | `SEARXNG_URL` | empty | URL of *your own* SearXNG instance (JSON format enabled). May be a private address; it is exempt from the public-address rule for exactly that origin. |
 | `MARGINALIA_API_KEY`, `STACKEXCHANGE_KEY` | empty | Personal keys for higher quotas (both work without a key at low volume). |
-| `DISABLE_PROVIDERS` | empty | Comma-separated provider ids to switch off: `wikipedia, ddg_instant, brave, searxng, ddg_html, mwmbl, marginalia, wiby, stackexchange, mdn, arxiv, hackernews, feeds, gdelt`. |
+| `DISABLE_PROVIDERS` | empty | Comma-separated provider ids to switch off: `wikipedia, ddg_instant, searxng, tavily, brave, ddg_html, firecrawl, mwmbl, marginalia, wiby, stackexchange, mdn, arxiv, hackernews, feeds, gdelt`. |
 | `EXTRA_FEEDS` | empty | Extra RSS/Atom URLs used for news questions. |
 | `RATE_LIMIT_PER_MIN`, `RATE_LIMIT_BURST` | `20`, `8` | Per-client-address token bucket for `/api/ask` and `/api/preview`. |
 | `MAX_CONCURRENT_ASKS` | `4` | Questions processed at once per process (others get 503 + Retry-After). |
@@ -82,7 +84,7 @@ Open the HTTPS deployment in Chrome → menu → *Install app*. The app shell wo
 ## Operations notes
 
 * **Capacity:** one question uses ~0.2–0.4 s of CPU and reads 0.5–4 MB; a 1-vCPU instance handles a few questions per second in bursts but is bounded by upstream rate limits long before CPU.
-* **Upstream etiquette:** identify yourself (`INFINI_CONTACT`), keep the default budgets, keep robots.txt handling on. The DuckDuckGo HTML interface and the public Marginalia key are best-effort; for dependable web search configure Brave or your own SearXNG.
+* **Upstream etiquette:** identify yourself (`INFINI_CONTACT`), keep the default budgets, keep robots.txt handling on. The DuckDuckGo HTML interface, Firecrawl’s keyless allowance and the public Marginalia key are best-effort; for dependable web search add a free Tavily key or run your own SearXNG.
 * **Monitoring:** `/api/status` → `totals.insufficient / totals.asks` (share of unanswered questions) and cache hit counters; request logs are JSON lines.
 * **Data protection:** the server stores nothing about users. Conversations, saved answers and statistics live in the user’s browser and are cleared from Settings.
 * **Updating word lists and rules:** `engine/nlp/lexicon.js` (language), `engine/providers/feeds.js` (feed catalogue), `engine/evidence/evidence.js` (publisher classes), `engine/providers/wikidata.js` (relation lexicon), `engine/plan/plan.js` (routing vocabulary).

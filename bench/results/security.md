@@ -1,4 +1,4 @@
-# Security audit — 2026-11-11T13:44Z
+# Security audit — 2026-11-11T16:21Z
 
 19 of 19 automated checks passed.
 
@@ -10,7 +10,7 @@
 | PASS | SSRF | public hostname resolving to loopback is refused (live DNS: localtest.me) | private_address |
 | PASS | SSRF | redirects are re-validated hop by hop (trusted origin → private target refused) | bad_port |
 | PASS | Resource limits | response size cap enforced | 10000 bytes kept of 300 kB |
-| PASS | Resource limits | request timeout enforced | timeout after 501 ms |
+| PASS | Resource limits | request timeout enforced | timeout after 502 ms |
 | PASS | Resource limits | HTML parser survives a nesting bomb and a 2 MB attribute |  |
 | PASS | Untrusted content | hidden text, comments and scripts are dropped during extraction | 3 blocks kept |
 | PASS | Untrusted content | visible injected instructions are treated as data: they do not change behaviour | answer is built only from sentences relevant to the question; the engine has no instruction-following path |
