@@ -1,0 +1,106 @@
+{
+ "date": "2026-11-11T13:44:59.455Z",
+ "node": "v20.20.2",
+ "cpu": "Intel(R) Xeon(R) Processor @ 2.60GHz",
+ "cores": 2,
+ "totalRamMB": 1983,
+ "coldStart": {
+  "engineImportMs": 50.3,
+  "rssMB": 49.8,
+  "heapMB": 6.4
+ },
+ "server": {
+  "readyMs": 92,
+  "idleRssMB": 50.1,
+  "rssAfterQuestionsMB": 108.7
+ },
+ "footprint": {
+  "engineKB": 384,
+  "engineFiles": 25,
+  "serverKB": 11,
+  "publicKB": 164,
+  "clientJsKB": 41,
+  "clientCssKB": 20,
+  "runtimeDependencies": 0,
+  "nodeModules": false
+ },
+ "extraction": {
+  "inputKB": 585,
+  "msPerPage": 66.4,
+  "mbPerSec": 8.6,
+  "blocks": 1500
+ },
+ "analysis": {
+  "usPerQuestion": 271
+ },
+ "ranking": {
+  "sentences": 4000,
+  "passages": 1600,
+  "ms": 190.9
+ },
+ "live": [
+  {
+   "q": "Why do stars shine?",
+   "coldMs": 1711,
+   "warmMs": 261,
+   "cpuMs": 880,
+   "stages": {
+    "understanding": 28,
+    "planning": 3,
+    "searching": 742,
+    "reading": 730,
+    "comparing": 182,
+    "constructing": 5
+   },
+   "searches": 5,
+   "pages": 4,
+   "kB": 3134,
+   "cachedPagesOnRepeat": 4,
+   "confidence": "medium"
+  },
+  {
+   "q": "What is the capital of Nepal?",
+   "coldMs": 2752,
+   "warmMs": 840,
+   "cpuMs": 980,
+   "stages": {
+    "understanding": 8,
+    "planning": 3,
+    "searching": 596,
+    "reading": 1939,
+    "comparing": 184,
+    "constructing": 17
+   },
+   "searches": 5,
+   "pages": 4,
+   "kB": 2860,
+   "cachedPagesOnRepeat": 4,
+   "confidence": "medium"
+  },
+  {
+   "q": "What happened in Nepal today?",
+   "coldMs": 3495,
+   "warmMs": 123,
+   "cpuMs": 260,
+   "stages": {
+    "understanding": 4,
+    "planning": 1,
+    "searching": 1582,
+    "reading": 1876,
+    "comparing": 23,
+    "constructing": 3
+   },
+   "searches": 5,
+   "pages": 4,
+   "kB": 369,
+   "cachedPagesOnRepeat": 4,
+   "confidence": "medium"
+  }
+ ],
+ "cache": {
+  "entries": 26,
+  "bytes": 6802903,
+  "hits": 25,
+  "misses": 29
+ }
+}

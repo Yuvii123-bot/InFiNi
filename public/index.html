@@ -1,0 +1,50 @@
+<!doctype html>
+<html lang="en" data-theme="light">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#ffffff">
+<meta name="description" content="INFINI AI — an assistant that answers from live web retrieval and cites every sentence. No language model.">
+<title>INFINI AI</title>
+<link rel="manifest" href="/manifest.webmanifest">
+<link rel="icon" href="/icons/icon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="/icons/icon-192.png">
+<link rel="stylesheet" href="/app.css">
+</head>
+<body>
+<div id="app">
+  <aside id="sidebar" aria-label="Conversations">
+    <div class="brand"><span class="logo" aria-hidden="true">∞</span><span class="brand-name">INFINI AI</span></div>
+    <button id="newChat" class="btn primary block" type="button"><span aria-hidden="true">＋</span> New chat</button>
+    <input id="histSearch" class="input" type="search" placeholder="Search history" autocomplete="off" aria-label="Search history">
+    <nav id="chatList" aria-label="Chat history"></nav>
+    <div class="side-foot">
+      <button id="openSettings" class="link-btn" type="button">Settings</button>
+      <button id="openAbout" class="link-btn" type="button">About</button>
+    </div>
+  </aside>
+  <div id="scrim" hidden></div>
+  <main id="main">
+    <header id="topbar">
+      <button id="menuBtn" class="icon-btn" type="button" aria-label="Open conversations">☰</button>
+      <h1 id="chatTitle">New chat</h1>
+      <button id="clearBtn" class="icon-btn" type="button" title="Clear this conversation" aria-label="Clear this conversation">⌫</button>
+    </header>
+    <div id="scroll"><div id="thread" aria-live="polite"></div></div>
+    <footer id="composer">
+      <form id="askForm" autocomplete="off">
+        <textarea id="q" rows="1" maxlength="600" placeholder="Ask anything — I’ll search, read and cite" aria-label="Your question"></textarea>
+        <button id="sendBtn" class="send" type="submit" aria-label="Send">↑</button>
+        <button id="stopBtn" class="send stop" type="button" aria-label="Stop retrieval" hidden>■</button>
+      </form>
+      <p class="fineprint">No language model. Answers are assembled from sources retrieved just now — check the citations.</p>
+    </footer>
+  </main>
+  <aside id="drawer" hidden aria-label="Details"><div class="drawer-head"><h2 id="drawerTitle"></h2><button id="drawerClose" class="icon-btn" type="button" aria-label="Close">✕</button></div><div id="drawerBody"></div></aside>
+  <div id="modal" hidden role="dialog" aria-modal="true"><div class="modal-card"><div class="drawer-head"><h2 id="modalTitle"></h2><button id="modalClose" class="icon-btn" type="button" aria-label="Close">✕</button></div><div id="modalBody"></div></div></div>
+  <div id="toast" role="status" hidden></div>
+</div>
+<noscript><p class="noscript">INFINI AI needs JavaScript in the browser for its interface. The engine itself can also be used from the command line: <code>node cli.js "your question"</code>.</p></noscript>
+<script type="module" src="/app.js"></script>
+</body>
+</html>

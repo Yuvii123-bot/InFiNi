@@ -1,0 +1,121 @@
+{
+ "date": "2026-11-11T13:44:54.102Z",
+ "pass": 19,
+ "total": 19,
+ "results": [
+  {
+   "area": "SSRF",
+   "name": "33 hostile URL forms rejected by the URL guard",
+   "ok": true,
+   "info": ""
+  },
+  {
+   "area": "SSRF",
+   "name": "public URLs still allowed",
+   "ok": true,
+   "info": ""
+  },
+  {
+   "area": "SSRF",
+   "name": "DNS rebinding: host with one private A record is refused",
+   "ok": true,
+   "info": "private_address"
+  },
+  {
+   "area": "SSRF",
+   "name": "public hostname resolving to loopback is refused (live DNS: localtest.me)",
+   "ok": true,
+   "info": "private_address"
+  },
+  {
+   "area": "SSRF",
+   "name": "redirects are re-validated hop by hop (trusted origin → private target refused)",
+   "ok": true,
+   "info": "bad_port"
+  },
+  {
+   "area": "Resource limits",
+   "name": "response size cap enforced",
+   "ok": true,
+   "info": "10000 bytes kept of 300 kB"
+  },
+  {
+   "area": "Resource limits",
+   "name": "request timeout enforced",
+   "ok": true,
+   "info": "timeout after 501 ms"
+  },
+  {
+   "area": "Resource limits",
+   "name": "HTML parser survives a nesting bomb and a 2 MB attribute",
+   "ok": true,
+   "info": ""
+  },
+  {
+   "area": "Untrusted content",
+   "name": "hidden text, comments and scripts are dropped during extraction",
+   "ok": true,
+   "info": "3 blocks kept"
+  },
+  {
+   "area": "Untrusted content",
+   "name": "visible injected instructions are treated as data: they do not change behaviour",
+   "ok": true,
+   "info": "answer is built only from sentences relevant to the question; the engine has no instruction-following path"
+  },
+  {
+   "area": "Untrusted content",
+   "name": "answers are plain structured text (no HTML reaches the client); client never uses innerHTML/eval",
+   "ok": true,
+   "info": ""
+  },
+  {
+   "area": "Untrusted content",
+   "name": "calculator cannot execute code",
+   "ok": true,
+   "info": ""
+  },
+  {
+   "area": "Secrets",
+   "name": "API keys and internal URLs never appear in any public endpoint or page",
+   "ok": true,
+   "info": ""
+  },
+  {
+   "area": "Input validation",
+   "name": "malformed, oversized and wrongly typed requests are rejected",
+   "ok": true,
+   "info": "415 400 400 413 405 400"
+  },
+  {
+   "area": "Input validation",
+   "name": "hostile context/learned payloads are sanitised",
+   "ok": true,
+   "info": ""
+  },
+  {
+   "area": "SSRF",
+   "name": "preview endpoint cannot reach private addresses",
+   "ok": true,
+   "info": "403 403 403 403"
+  },
+  {
+   "area": "Static files",
+   "name": "path traversal blocked",
+   "ok": true,
+   "info": "404 404 404 404"
+  },
+  {
+   "area": "Headers",
+   "name": "CSP, nosniff, frame and referrer policies are sent",
+   "ok": true,
+   "info": ""
+  },
+  {
+   "area": "Rate limiting",
+   "name": "per-address token bucket rejects a burst",
+   "ok": true,
+   "info": "23 of 25 rapid requests rejected with 429"
+  }
+ ]
+}
