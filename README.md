@@ -1,5 +1,7 @@
 # INFINI AI
 
+**Live:** https://infini-ai.vercel.app — a question can be linked directly, e.g. `https://infini-ai.vercel.app/?q=Why+do+stars+shine%3F`
+
 **An AI that does not know the world until it searches the world.**
 
 INFINI AI is a complete chatbot whose answers come from live internet retrieval and its own rule-based processing.

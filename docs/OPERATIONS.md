@@ -77,6 +77,28 @@ npx vercel --prod     # production; then set INFINI_CONTACT (and optional keys) 
 ```
 Serverless notes: rate limiting and the page cache are per warm instance (best effort); add platform-level rate limiting for a public deployment. Egress IPs are shared, which makes `INFINI_CONTACT` and/or a keyed search provider more important.
 
+#### Deploying without Git (how the live site https://infini-ai.vercel.app was published)
+
+When only the Vercel API is available (inline text files, no Git, no CLI), the source bundle cannot be sent directly. The procedure used:
+
+1. Project settings: framework preset `vite`, build command `node bootstrap.mjs`, install command `echo no-install-needed`, output directory `public`; environment variables `INFINI_CONTACT`, `TRUST_PROXY=1` (plus optional keys).
+2. `tar czf bundle.tgz api server engine public scripts package.json` and note its SHA-256.
+3. Deploy a temporary stage to production: a placeholder page plus a key-protected upload relay function; `PUT` the bundle to it. (Only production domains are public; preview URLs sit behind Vercel’s login.) The site shows the placeholder for about a minute.
+4. Deploy the real stage: a single `bootstrap.mjs` that downloads the bundle, verifies the SHA-256, unpacks it and runs `scripts/vercel-build.mjs` (Build Output API v3: static files + one streaming function). The relay does not exist in this deployment; delete the temporary one.
+
+Known limits: “Redeploy” in the Vercel dashboard re-runs `bootstrap.mjs`, which can no longer download the bundle, so it fails (the running site is unaffected). Environment-variable changes therefore need a new deployment made this way, or — recommended for the long term — a Git repository connected to the project, after which `vercel.json` and `api/` are used and none of this is needed. `scripts/vercel-build.mjs` can also place the bundle under `/source-bundle/<random>-<hash>.tgz` so that a redeploy could fetch it from the live site; this is **not yet deployed or tested** (`/_src/`, tried first, is reserved by Vercel).
+
+### Web search providers that need no payment method
+
+Order of the failover chain: `searxng → tavily → brave → ddg_html → firecrawl → mwmbl → marginalia → wiby` (Firecrawl moves up next to Tavily once it has a key). A provider that answers with a human check rests 10 minutes, one that rate-limits rests for the time it asks (up to 6 hours), one that refuses the address or key rests 15 minutes; every attempt and skip is shown in the answer’s research details.
+
+* **Firecrawl** — `POST https://api.firecrawl.dev/v2/search`. Keyless use is documented by Firecrawl and capped per network address per day (requests and credits); on shared hosting addresses the allowance may be consumed by others or refused. A free account key (`FIRECRAWL_API_KEY`) uses the account quota instead.
+* **Tavily** — `POST https://api.tavily.com/search` with `include_answer: false`; needs a free key (`TAVILY_API_KEY`). Not yet exercised against the live service.
+* **Marginalia** — free non-commercial key by e-mail to the project (results are licensed CC BY-NC-SA 4.0).
+* **SearXNG** — your own instance (`SEARXNG_URL`); public instances block automated use.
+
+Looked at and deliberately not used: Google’s Custom Search JSON API (closed to new customers, discontinued on 1 January 2027); Bing’s and Google News’ RSS output (terms limit them to personal feed-reader use); services that resell scraped Google result pages (this project only uses access the search engine itself offers); search products that return generated answers.
+
 ### Installing on Android
 
 Open the HTTPS deployment in Chrome → menu → *Install app*. The app shell works offline; answering needs a connection.

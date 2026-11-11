@@ -1,5 +1,43 @@
 # INFINI AI — Evaluation
 
+## Update — version 1.1.0 (2026-11-11, later the same day)
+
+Live deployment: https://infini-ai.vercel.app (Vercel, region iad1). What changed and what was measured:
+
+**Intelligence benchmark, same 36 items, three runs**
+
+| Run | Expected fact in the opening | Hallucination avoidance | Citation validity | Median latency |
+|---|---|---|---|---|
+| 1.0.0 — no web-search key, no contact (first build) | 29 / 36 (81%) | 83% | 97% | 1.5 s |
+| + Firecrawl keyless search and contact set, before the other fixes | 32 / 36 (89%) | 89% | 98% | 1.7 s |
+| 1.1.0 — all fixes; Firecrawl’s keyless allowance had run out during this run, so mostly fallback providers | 34 / 36 (94%) | 94% | 98% | 1.7 s |
+
+Scoring is still the crude keyword proxy described below, not human grading. Still failing: “What does the map method do in
+JavaScript?” (opens with a vague sentence instead of the definition) and “Is Pluto a planet?” when only Wikipedia is reachable
+(the answer hedges and does not open with “dwarf planet”; with Firecrawl results it does).
+
+**Fixed in 1.1.0 (each reproduced before and after):** news digests listed off-topic stories as “about” the topic (a topic of
+several words now has to be present as a whole, by its initials, or as the adjective of a name; a feed only counts as being
+about the topic when the topic is its scope); acronyms such as TCP/UDP were not resolved to their Wikidata entries; how-to
+answers missed steps written as numbered section titles or bold paragraphs, dropped the commands inside list items, opened
+with an unrelated sentence and could pick a “without X” list.
+
+**Web search without a key.** Firecrawl’s keyless search answered from this sandbox and from Vercel. From the sandbox address
+the allowance ran out after roughly 80 searches (HTTP 429, `reason: credits`, retry after about 24 hours); the exact cap is not
+published. The Tavily adapter follows Tavily’s published API reference and is covered by unit tests with recorded response
+shapes, but **was not exercised against the live service** (no key available).
+
+**User interface, first real-browser check.** Screenshots of the live site at 1280 px and 500 px width (welcome screen and a
+finished answer, `docs/screenshots/`) show the intended layout. Not checked: a true phone width below 500 px (the screenshot
+service’s minimum), dark-mode, and interaction beyond the page load. The screenshots clip about 15 px at the right edge;
+the stylesheet contains nothing that would cause it, so this is believed to be the capture tool’s scrollbar allowance — unconfirmed.
+
+**Tests:** 21 unit tests, 19 UI smoke checks and the 19-point security audit pass on 1.1.0.
+
+---
+
+The sections below describe the first build (1.0.0).
+
 Everything below was measured on 2026-11-11 in a 2-vCPU / 2 GB sandbox (Node 20.20, no GPU), **without** `INFINI_CONTACT`
 (so Wikimedia APIs were limited to 10 requests/min) and **without** any search key. DuckDuckGo’s HTML interface showed a
 human-verification page to this sandbox for the whole session (never bypassed), so general web search ran on the fallback

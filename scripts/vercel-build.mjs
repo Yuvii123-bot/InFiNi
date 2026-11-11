@@ -11,8 +11,8 @@ fs.cpSync('public', `${out}/static`, { recursive: true });
 // so that pressing "Redeploy" in the Vercel dashboard (for example after changing an environment variable) can rebuild itself.
 const bundle = process.env.INFINI_SRC_BUNDLE || '', bundleName = process.env.INFINI_SRC_NAME || '';
 if (bundle && /^[a-f0-9]{32,64}-[a-f0-9]{16}\.tgz$/.test(bundleName) && fs.existsSync(bundle)) {
-  fs.mkdirSync(`${out}/static/_src`, { recursive: true });
-  fs.copyFileSync(bundle, `${out}/static/_src/${bundleName}`);
+  fs.mkdirSync(`${out}/static/source-bundle`, { recursive: true });
+  fs.copyFileSync(bundle, `${out}/static/source-bundle/${bundleName}`);
 }
 
 const fn = `${out}/functions/api/index.func`;
@@ -31,7 +31,7 @@ fs.writeFileSync(`${out}/config.json`, JSON.stringify({
   routes: [
     { src: '^/(.*)$', headers: security, continue: true },
     { src: '^/(sw\\.js|index\\.html|manifest\\.webmanifest)?$', headers: { 'Cache-Control': 'no-cache' }, continue: true },
-    { src: '^/_src/(.*)$', headers: { 'X-Robots-Tag': 'noindex, nofollow', 'Cache-Control': 'no-store' }, continue: true },
+    { src: '^/source-bundle/(.*)$', headers: { 'X-Robots-Tag': 'noindex, nofollow', 'Cache-Control': 'no-store' }, continue: true },
     { handle: 'filesystem' },
     { src: '^/api/(.*)$', dest: '/api/index?__path=$1', check: true },
   ],
