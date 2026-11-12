@@ -1,7 +1,7 @@
 {
- "date": "2026-11-12T06:12:55.767Z",
- "pass": 20,
- "total": 20,
+ "date": "2026-11-12T12:48:13.687Z",
+ "pass": 21,
+ "total": 21,
  "results": [
   {
    "area": "SSRF",
@@ -43,7 +43,7 @@
    "area": "Resource limits",
    "name": "request timeout enforced",
    "ok": true,
-   "info": "timeout after 501 ms"
+   "info": "timeout after 502 ms"
   },
   {
    "area": "Resource limits",
@@ -116,6 +116,12 @@
    "name": "CSP, nosniff, frame and referrer policies are sent",
    "ok": true,
    "info": ""
+  },
+  {
+   "area": "Rate limiting",
+   "name": "a hostile depth value cannot break the limiter (the depth sets the cost of a request)",
+   "ok": true,
+   "info": "after 6 requests with hostile depth values (200 200 200 200 200 200), 12 of 12 further requests were rejected with 429"
   },
   {
    "area": "Rate limiting",

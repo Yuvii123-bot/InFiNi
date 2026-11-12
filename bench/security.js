@@ -60,6 +60,18 @@ await check('Input validation', 'hostile context/learned payloads are sanitised'
 await check('SSRF', 'preview endpoint cannot reach private addresses', async () => { const codes = []; for (const u of ['http://127.0.0.1:22/', 'http://169.254.169.254/latest/meta-data/', 'http://localhost/admin', 'http://[::1]/']) codes.push((await post('/api/preview', JSON.stringify({ url: u }))).status); return { ok: codes.every((c) => c === 403), info: codes.join(' ') }; });
 await check('Static files', 'path traversal blocked', async () => { const codes = []; for (const p of ['/..%2f..%2fpackage.json', '/%2e%2e/%2e%2e/server/app.js', '/icons/..%2f..%2f.env', '/....//....//etc/passwd']) codes.push((await fetch(base + p)).status); return { ok: codes.every((c) => c === 403 || c === 404), info: codes.join(' ') }; });
 await check('Headers', 'CSP, nosniff, frame and referrer policies are sent', async () => { const h = (await fetch(base + '/')).headers; return /default-src 'self'/.test(h.get('content-security-policy')) && /script-src 'self'/.test(h.get('content-security-policy')) && h.get('x-content-type-options') === 'nosniff' && h.get('x-frame-options') === 'SAMEORIGIN' && h.get('referrer-policy') === 'no-referrer'; });
+await check('Rate limiting', 'a hostile depth value cannot break the limiter (the depth sets the cost of a request)', async () => {
+  const fresh = createApp(loadConfig({ RATE_LIMIT_PER_MIN: '30', RATE_LIMIT_BURST: '6' }));
+  const s2 = http.createServer((req, res) => fresh.handle(req, res));
+  await new Promise((r) => s2.listen(0, '127.0.0.1', r));
+  const ask = (settings) => fetch(`http://127.0.0.1:${s2.address().port}/api/ask`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ question: 'what is 1+1', settings }) }).then((r) => r.status);
+  const codes = [];
+  for (const depth of ['__proto__', 'constructor', 'toString', { valueOf: 1 }, -5, 'research'.repeat(50)]) codes.push(await ask({ depth }));
+  let limited = 0;
+  for (let i = 0; i < 12; i++) if ((await ask({ depth: 'auto' })) === 429) limited++;
+  s2.closeAllConnections(); s2.close(); fresh.engine.close();
+  return { ok: limited === 12, info: `after 6 requests with hostile depth values (${codes.join(' ')}), ${limited} of 12 further requests were rejected with 429` };
+});
 await check('Rate limiting', 'per-address token bucket rejects a burst', async () => { let limited = 0; for (let i = 0; i < 25; i++) if ((await post('/api/ask', JSON.stringify({ question: 'what is 1+1' }))).status === 429) limited++; return { ok: limited >= 10, info: `${limited} of 25 rapid requests rejected with 429` }; });
 srv.closeAllConnections(); srv.close(); app.engine.close(); local.closeAllConnections(); local.close();
 

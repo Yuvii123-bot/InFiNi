@@ -189,7 +189,9 @@ function syntheticWeb() {
     const s2 = `The health effects of microplastics include ${topic.toLowerCase()} and ${other.toLowerCase()}, the authors of report ${i + 1} conclude.`;
     // links stand inside sentences, as on real pages (a paragraph made only of links would be taken for navigation)
     const link = (k) => `<a href="https://${sites[(i + k * 7) % sites.length]}/more-${k}">a further report on the health effects of microplastics</a>`;
-    const body = (extra) => `<html><head><title>Health effects of microplastics: ${topic} (${i + 1})</title></head><body><article><h1>Health effects of microplastics: ${topic}</h1><p>${s1} The same was seen in ${link(1)}, which looked at other groups of people.</p><h2>${topic}</h2><p>${s2} ${extra}</p><p>Microplastics are plastic particles that people take in with food, water and air every day of the year, report ${i + 1} notes, and ${link(2)} gives the measured amounts, while ${link(3)} describes how the particles enter the body.</p></article></body></html>`;
+    // some pages also link to addresses inside a private network, with a perfectly on-topic link text: the crawler must never request them
+    const hostile = i % 5 === 0 ? ` See also <a href="http://127.0.0.1:8080/health-effects-of-microplastics">the internal report on the health effects of microplastics</a>, <a href="http://169.254.169.254/latest/meta-data/microplastics-health-effects">health effects of microplastics data</a> and <a href="http://intranet.local/microplastics-health-effects">more health effects of microplastics</a>.` : '';
+    const body = (extra) => `<html><head><title>Health effects of microplastics: ${topic} (${i + 1})</title></head><body><article><h1>Health effects of microplastics: ${topic}</h1><p>${s1} The same was seen in ${link(1)}, which looked at other groups of people.${hostile}</p><h2>${topic}</h2><p>${s2} ${extra}</p><p>Microplastics are plastic particles that people take in with food, water and air every day of the year, report ${i + 1} notes, and ${link(2)} gives the measured amounts, while ${link(3)} describes how the particles enter the body.</p></article></body></html>`;
     pages.set(`https://${host}/article`, body('This page is the main article of the site.'));
     for (const k of [1, 2, 3]) pages.set(`https://${host}/more-${k}`, body(`Part ${k} adds that microplastics ${FINDINGS[other][k % 2]} as well, a finding of the follow-up number ${k} of group ${i + 1}.`));
   });
@@ -198,10 +200,11 @@ function syntheticWeb() {
     const topic = TOPICS[i % TOPICS.length];
     return { DOI: `10.5555/mp.${i + 1}`, title: [`Microplastics and ${topic.toLowerCase()}: a ${i % 5 === 0 ? 'systematic review' : 'study'} (${i + 1})`], abstract: `<jats:p>In this cohort, microplastics ${FINDINGS[topic][i % 2]}. The health effects of microplastics were assessed in ${200 + i} adults, and exposure was associated with ${topic.toLowerCase()} in the exposed group number ${i + 1}.</jats:p>`, published: { 'date-parts': [[2015 + (i % 12), 3, 1]] }, 'container-title': ['Journal of Synthetic Tests'], type: 'journal-article', 'is-referenced-by-count': i };
   });
-  const stats = { searches: 0, crossref: 0, pages: 0, other: 0 };
+  const stats = { searches: 0, crossref: 0, pages: 0, other: 0, privateRequests: 0 };
   const web = { delayMs: 0 };                                                    // a test can slow page delivery down to hold a run open
   const json = (o) => ({ status: 200, headers: { 'content-type': 'application/json' }, body: Buffer.from(JSON.stringify(o)), truncated: false });
   const transport = async (u) => {
+    if (/^(127\.|10\.|169\.254\.|192\.168\.)|\.local$|^localhost$/.test(u.hostname)) stats.privateRequests++;
     if (u.pathname === '/robots.txt') return { status: 404, headers: {}, body: Buffer.alloc(0), truncated: false };
     if (u.hostname === 'api.mwmbl.org') {
       stats.searches++;
@@ -243,6 +246,7 @@ test('research run, end to end on a synthetic web: rounds, counters, drafts, rep
   assert.equal(r.run.pages, fetched);
   assert.ok(r.run.pages >= 60, `pages read: ${r.run.pages}`);                    // 40 sites × 4 pages exist; links were followed beyond the search results
   assert.ok(r.run.pages <= web.stats.pages, 'never more pages reported than were requested');
+  assert.equal(web.stats.privateRequests, 0, 'links to private addresses found on pages were never requested');
   assert.ok(r.run.rounds >= 2 && r.run.linksFollowed > 0 && r.run.abstracts >= 40, JSON.stringify({ rounds: r.run.rounds, links: r.run.linksFollowed, abstracts: r.run.abstracts }));
   assert.ok(r.run.stopped.length > 0);
   assert.ok(r.research.counts.pagesFailed >= 1);                                 // the site that answers 403 is counted as not readable
@@ -308,30 +312,36 @@ test('research runs are limited: per instance, per hour, and by the caller; the 
 
 test('server: a research run streams counters and drafts, costs more allowance, and is limited per client', async () => {
   resetCooling();
-  const { cfg } = syntheticConfig({ RESEARCH_PER_CLIENT_PER_HOUR: '1', RATE_LIMIT_PER_MIN: '1', RATE_LIMIT_BURST: '9' });
+  const { cfg } = syntheticConfig({ RESEARCH_PER_CLIENT_PER_HOUR: '1', RATE_LIMIT_PER_MIN: '1', RATE_LIMIT_BURST: '10' });
   const app = createApp(cfg);
   const server = http.createServer((req, res) => app.handle(req, res));
   await new Promise((r) => server.listen(0, '127.0.0.1', r));
-  const base = `http://127.0.0.1:${server.address().port}`;
-  const post = async (body) => { const res = await fetch(base + '/api/ask', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) }); const text = await res.text(); return { status: res.status, events: res.ok ? text.trim().split('\n').map((l) => JSON.parse(l)) : [], json: res.ok ? null : JSON.parse(text) }; };
-  const st = await (await fetch(base + '/api/status')).json();
-  assert.deepEqual(st.depths, ['auto', 'fast', 'balanced', 'deep', 'research']);
-  assert.equal(st.research.enabled, true); assert.equal(st.research.perClientPerHour, 1);
-  const one = await post({ question: 'the health effects of microplastics', settings: { depth: 'research' } });      // costs 4 of the 9
-  assert.equal(one.status, 200);
-  const kinds = new Set(one.events.map((e) => e.type));
-  for (const t of ['research', 'progress', 'draft', 'answer', 'done']) assert.ok(kinds.has(t), `missing ${t} event`);
-  assert.equal(one.events.filter((e) => e.type === 'answer')[0].result.depth.used, 'research');
-  assert.equal(one.events[one.events.length - 1].type, 'done');
-  // the same client asks again: its one research run per hour is used up → answered at depth "deep", with the reason (costs 4 again)
-  const two = await post({ question: 'the health effects of microplastics', settings: { depth: 'research' } });
-  const ans = two.events.filter((e) => e.type === 'answer')[0].result;
-  assert.equal(ans.depth.used, 'deep'); assert.match(ans.depth.limited, /this device has started 1 research run/);
-  // 9 − 4 − 4 = 1 left: another research-depth request (cost 4) is refused, an ordinary question (cost 1) still passes
-  const three = await post({ question: 'the health effects of microplastics', settings: { depth: 'research' } });
-  assert.equal(three.status, 429); assert.equal(three.json.error, 'rate_limited');
-  const four = await post({ question: 'hello', settings: { depth: 'auto' } });
-  assert.equal(four.status, 200);
-  await new Promise((r) => server.close(r));
-  app.engine.close();
+  try {
+    const base = `http://127.0.0.1:${server.address().port}`;
+    const post = async (body) => { const res = await fetch(base + '/api/ask', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) }); const text = await res.text(); return { status: res.status, events: res.ok ? text.trim().split('\n').map((l) => JSON.parse(l)) : [], json: res.ok ? null : JSON.parse(text) }; };
+    const st = await (await fetch(base + '/api/status')).json();
+    assert.deepEqual(st.depths, ['auto', 'fast', 'balanced', 'deep', 'research']);
+    assert.equal(st.research.enabled, true); assert.equal(st.research.perClientPerHour, 1);
+    // allowance: 10. A request at depth "research" costs 4 in all → 6 left
+    const one = await post({ question: 'the health effects of microplastics', settings: { depth: 'research' } });
+    assert.equal(one.status, 200);
+    const kinds = new Set(one.events.map((e) => e.type));
+    for (const t of ['research', 'progress', 'draft', 'answer', 'done']) assert.ok(kinds.has(t), `missing ${t} event`);
+    assert.equal(one.events.filter((e) => e.type === 'answer')[0].result.depth.used, 'research');
+    assert.equal(one.events[one.events.length - 1].type, 'done');
+    // the same client asks again: its one research run per hour is used up → answered at depth "deep", with the reason → 2 left
+    const two = await post({ question: 'the health effects of microplastics', settings: { depth: 'research' } });
+    const ans = two.events.filter((e) => e.type === 'answer')[0].result;
+    assert.equal(ans.depth.used, 'deep'); assert.match(ans.depth.limited, /this device has started 1 research run/);
+    // 2 left: a third research-depth request cannot pay its 4 and is refused (the request itself has cost 1 → 1 left) …
+    const three = await post({ question: 'the health effects of microplastics', settings: { depth: 'research' } });
+    assert.equal(three.status, 429); assert.equal(three.json.error, 'rate_limited'); assert.match(three.json.message, /depth “research” counts 4 times/);
+    // … while an ordinary message still passes, and the one after it does not
+    assert.equal((await post({ question: 'hello', settings: { depth: 'auto' } })).status, 200);
+    assert.equal((await post({ question: 'hello', settings: { depth: 'auto' } })).status, 429);
+  } finally {
+    server.closeAllConnections();
+    await new Promise((r) => server.close(r));
+    app.engine.close();
+  }
 });

@@ -1,6 +1,6 @@
-# Security audit — 2026-11-12T06:12Z
+# Security audit — 2026-11-12T12:48Z
 
-20 of 20 automated checks passed.
+21 of 21 automated checks passed.
 
 | Result | Area | Check | Detail |
 |---|---|---|---|
@@ -10,7 +10,7 @@
 | PASS | SSRF | public hostname resolving to loopback is refused (live DNS: localtest.me) | private_address |
 | PASS | SSRF | redirects are re-validated hop by hop (trusted origin → private target refused) | bad_port |
 | PASS | Resource limits | response size cap enforced | 10000 bytes kept of 300 kB |
-| PASS | Resource limits | request timeout enforced | timeout after 501 ms |
+| PASS | Resource limits | request timeout enforced | timeout after 502 ms |
 | PASS | Resource limits | HTML parser survives a nesting bomb and a 2 MB attribute |  |
 | PASS | Untrusted content | hidden text, comments and scripts are dropped during extraction | 3 blocks kept |
 | PASS | Untrusted content | visible injected instructions are treated as data: they do not change behaviour | answer is built only from sentences relevant to the question; the engine has no instruction-following path |
@@ -23,4 +23,5 @@
 | PASS | SSRF | preview endpoint cannot reach private addresses | 403 403 403 403 |
 | PASS | Static files | path traversal blocked | 404 404 404 404 |
 | PASS | Headers | CSP, nosniff, frame and referrer policies are sent |  |
+| PASS | Rate limiting | a hostile depth value cannot break the limiter (the depth sets the cost of a request) | after 6 requests with hostile depth values (200 200 200 200 200 200), 12 of 12 further requests were rejected with 429 |
 | PASS | Rate limiting | per-address token bucket rejects a burst | 23 of 25 rapid requests rejected with 429 |

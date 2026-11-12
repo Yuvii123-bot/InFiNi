@@ -26,7 +26,7 @@ export function createApp(cfg = loadConfig()) {
   const buckets = new Map();          // ip -> {tokens, ts}
   const researchStarts = new Map();   // ip -> [start times of research runs in the last hour]
   let active = 0;
-  const DEPTH_COST = { fast: 1, balanced: 1, auto: 1, deep: 2, research: 4 };
+  const DEPTH_COST = new Map([['fast', 1], ['balanced', 1], ['auto', 1], ['deep', 2], ['research', 4]]);      // a Map: the depth comes from the request body and must never reach an object's prototype
   /** '' when this client may start a research run now (and counts it), else the reason why not. */
   const researchAllowed = (ip) => {
     const now = Date.now();
@@ -44,6 +44,7 @@ export function createApp(cfg = loadConfig()) {
   };
   /** Token bucket per client address. Returns seconds to wait (0 = allowed). */
   const rateLimit = (ip, cost = 1) => {
+    if (!(Number.isFinite(cost) && cost > 0)) cost = 1;
     const now = Date.now();
     const b = buckets.get(ip) || { tokens: cfg.rate.burst, ts: now };
     b.tokens = Math.min(cfg.rate.burst, b.tokens + ((now - b.ts) / 60000) * cfg.rate.perMin);
@@ -82,12 +83,18 @@ export function createApp(cfg = loadConfig()) {
 
   async function ask(req, res) {
     const ip = clientIp(req);
+    // every request costs one of the client's allowance, before anything is parsed
+    const wait = rateLimit(ip);
+    if (wait) return json(res, 429, { error: 'rate_limited', message: `Too many questions from this address. Try again in ${wait} s.`, retryAfter: wait }, { 'Retry-After': String(wait) });
     if (active >= cfg.maxConcurrentAsks) return json(res, 503, { error: 'busy', message: 'The server is answering other questions right now. Please retry in a few seconds.' }, { 'Retry-After': '3' });
     const body = await parseJson(req);
-    // deeper searches cost more of the client's allowance (deep ×2, research ×4)
+    // a deeper search costs more: deep 2 in all, research 4 in all
     const askedDepth = body.settings && typeof body.settings === 'object' && typeof body.settings.depth === 'string' ? body.settings.depth : 'auto';
-    const wait = rateLimit(ip, Math.min(DEPTH_COST[askedDepth] || 1, cfg.rate.burst));
-    if (wait) return json(res, 429, { error: 'rate_limited', message: `Too many questions from this address. Try again in ${wait} s.`, retryAfter: wait }, { 'Retry-After': String(wait) });
+    const extra = Math.min((DEPTH_COST.get(askedDepth) || 1) - 1, Math.max(0, cfg.rate.burst - 1));
+    if (extra > 0) {
+      const more = rateLimit(ip, extra);
+      if (more) return json(res, 429, { error: 'rate_limited', message: `A search at depth “${askedDepth}” counts ${extra + 1} times against the limit on questions from one address, and that allowance is used up. Try again in ${more} s, or ask at a lower depth.`, retryAfter: more }, { 'Retry-After': String(more) });
+    }
     if (typeof body.question !== 'string' || !body.question.trim()) return json(res, 400, { error: 'bad_request', message: 'Field "question" (string) is required.' });
     if (body.question.length > 2000) return json(res, 400, { error: 'bad_request', message: 'The question is too long (limit: 2000 characters; the first 600 are analysed).' });
     const ac = new AbortController();
