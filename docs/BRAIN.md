@@ -14,7 +14,7 @@ reworded, to the web pipeline.
 The brain is **rules and data**. There is no language model and no neural network, in the app or behind
 it. Every reply is one of three things:
 
-1. a sentence written in advance (896 of them), chosen to fit the situation;
+1. a sentence written in advance (898 of them), chosen to fit the situation;
 2. such a sentence with remembered or computed values filled in ("Nice to meet you, Yuv!");
 3. the output of an exact function (the clock, a sum, a dice roll, a common-sense lookup).
 
@@ -29,11 +29,11 @@ of sending "how are you" to a search engine.
 
 | Step | What happens | Example |
 |---|---|---|
-| Normalise | lower-case, expand contractions and chat shorthand, fix typos against a 31,458-word vocabulary, read emoji | "heyyyy hw r u??" → "hey how are you" |
+| Normalise | lower-case, expand contractions and chat shorthand, fix typos against a 31,460-word vocabulary, read emoji | "heyyyy hw r u??" → "hey how are you" |
 | Explicit search | "search the web: …" always goes to the web | |
 | Safety | crisis wording, clearly harmful requests, sexual requests | "i want to die" → supportive reply and a helpline search for the user's country |
 | Pending question | if the brain asked something last turn, try the message as the answer | "How are you?" → "not bad" |
-| Exact phrase | the message is one of 49,416 stored phrasings | "who made you" |
+| Exact phrase | the message is one of 49,511 stored phrasings | "who made you" |
 | Feelings | "i am / i feel …" with a feeling word | "im so tired" |
 | Slot rules | 246 patterns with a variable part, each with a handler that may decline | "my name is {x}", "time in {x}" |
 | Common sense | the question is about an everyday thing the fact base knows | "can a penguin fly" |
@@ -114,9 +114,9 @@ Built files in `engine/brain/data/` (generated; do not edit by hand):
 
 | File | Size | Content |
 |---|---|---|
-| `dialogue.json` | 1.0 MB | 279 situations, 49,416 phrasings (29,056 written for this project, 20,360 imported), 246 slot rules, 896 replies, jokes, riddles, facts, stories |
+| `dialogue.json` | 1.0 MB | 280 situations, 49,511 phrasings (29,151 written for this project, 20,360 imported), 246 slot rules, 898 replies, jokes, riddles, facts, stories |
 | `commonsense.json` | 2.8 MB | 220,406 stored relations: 362 hand-written things with 4,437 facts; from WordNet 3.1, 178,259 "is a kind of" links, 23,630 synonyms and 2,452 opposites; and about 11,600 statements about abilities, properties, parts, uses and places from ConceptNet 5.7 and WordNet |
-| `vocab.txt` | 0.25 MB | 31,458 known words for the typo corrector, most frequent first |
+| `vocab.txt` | 0.25 MB | 31,460 known words for the typo corrector, most frequent first |
 | `spell-guard.txt` | 0.04 MB | 4,294 real but uncommon words and names that the spelling repair must leave alone |
 | `NOTICE.md`, `LICENSE-WordNet.txt` | | attributions and licences |
 

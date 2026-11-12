@@ -6,7 +6,7 @@
 
 INFINI AI has two parts, and neither is a large language model. None is hosted, downloaded or called; there is no LLM API key.
 
-* **The built-in brain** (new in 2.0.0) answers conversation: greetings, small talk, questions about itself, feelings, jokes, riddles and games. It remembers what you tell it during a chat, knows everyday common sense ("can a penguin fly"), tells the time and date, and understands casual typing, shorthand and typos. It is rules and data: 49,416 stored phrasings, 896 prepared replies, 220,406 common-sense relations.
+* **The built-in brain** (new in 2.0.0) answers conversation: greetings, small talk, questions about itself, feelings, jokes, riddles and games. It remembers what you tell it during a chat, knows everyday common sense ("can a penguin fly"), tells the time and date, and understands casual typing, shorthand and typos. It is rules and data: 49,511 stored phrasings, 898 prepared replies, 220,406 common-sense relations.
 * **The web pipeline** answers everything that needs knowledge. For every such question it:
   1. **Understands** it with rule-based language analysis (question type, topic, follow-up references);
   2. **Plans** sub-searches;

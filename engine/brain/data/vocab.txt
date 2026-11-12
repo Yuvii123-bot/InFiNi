@@ -30398,6 +30398,8 @@ github
 gitlab
 repository
 api
+sdk
+embed
 javascript
 c
 typescript

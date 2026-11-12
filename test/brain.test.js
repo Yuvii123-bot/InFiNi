@@ -170,8 +170,9 @@ test('honest about itself: no feelings, not conscious, no language model', () =>
     'do you have friends': ['bot.friends', /friend/], 'who is your best friend': ['bot.friends', /friend/], 'are you lonely': ['bot.lonely', /no feelings|don't have feelings/],
     'what data were you trained on': ['bot.training', /wasn't trained|Nobody trained me/], 'what is your knowledge cutoff': ['bot.training', /cut-off/],
     'can i install you': ['bot.install', /Add to Home screen/], 'are you on whatsapp': ['bot.install', /WhatsApp/], 'do you work offline': ['bot.install', /internet connection|online/],
-    'can you make mistakes': ['meta.sure', /can be wrong|sources/], 'are you reliable': ['meta.sure', /can be wrong|sources/],
+    'can you make mistakes': ['meta.sure', /can be wrong|sources/], 'are you reliable': ['meta.sure', /can be wrong|sources/], 'do you have an api': ['bot.api', /public/],
   };
+  for (let i = 0; i < 4; i++) assert.doesNotMatch(handled('do i have to pay').text, /^Yes/, 'the answer to “do I have to pay” must not open with “Yes”');
   for (const [q, [intent, re]] of Object.entries(about)) { const r = handled(q); assert.equal(r.intent, intent, q); assert.match(r.text, re, q); }
 });
 
