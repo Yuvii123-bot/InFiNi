@@ -20,6 +20,7 @@ import { composeReport, applyConsensus } from './synth/report.js';
 import { relatedQuestions } from './synth/related.js';
 import { queryModel, rankEvidence, feedbackTerms, stemsOf, lexicalOverlap, docStems } from './rank/rank.js';
 import { europepmc } from './providers/scholar.js';
+import { setMaxListeners } from 'node:events';
 import { runResearch, RESEARCH_BUDGET } from './research/run.js';
 import { digestDoc } from './research/digest.js';
 import { applySalience } from './research/salience.js';
@@ -150,6 +151,7 @@ export function createEngine(userCfg) {
     const now = Date.now();
     totals.asks++;
     const emit = (ev) => { if (onEvent) { try { onEvent(ev); } catch { /* listener errors never break retrieval */ } } };
+    if (signal) { try { setMaxListeners(0, signal); } catch { /* older runtimes: only a warning is at stake */ } }      // a research run has dozens of requests listening for "stop" at once
     const timings = {};
     const aborted = () => !!(signal && signal.aborted);
     const stage = async (name, fn, round) => {
@@ -718,14 +720,15 @@ export function createEngine(userCfg) {
             if (!draftFailed) { draftFailed = true; totals.draftErrors = (totals.draftErrors || 0) + 1; lastDraftError = `${String((e && e.message) || e).slice(0, 200)} ${String((e && e.stack) || '').split('\n')[1] || ''}`.trim(); if (process.env.INFINI_DEBUG) console.error('draft failed:', lastDraftError); }
           }
         };
-        emitDraft(0);
+        // rounds are counted with the quick first round as round 1, everywhere: stages, counters, drafts and the summary
+        emitDraft(1);
         try {
         research = await runResearch({
           cfg, http, off, signal, aborted, emit, now, t0, analysis, mode, budget, docs, addDoc, fetchLog, searchLog, logSearch, entityDocs, senses, learned, candidateLists, pctx, skipUrl, readLead, weakPart,
           recompare: async (round) => { await compare(round); return ranks; },
           draft: async (round, found) => {
             aspects = (found || []).map((a) => ({ label: a.label, stems: a.stems, source: a.source, heading: !!a.heading }));
-            emitDraft(round);
+            emitDraft(round + 1);
           },
         });
         } finally { if (holdsResearch) { holdsResearch = false; researchLoad.running = Math.max(0, researchLoad.running - 1); } }
@@ -733,7 +736,7 @@ export function createEngine(userCfg) {
         timings.reading = (timings.reading || 0) + (research.readMs || 0);
         timings.research = Date.now() - r0;
         aspects = (research.aspects || []).map((a) => ({ label: a.label, stems: a.stems, source: a.source, heading: !!a.heading }));
-        emit({ type: 'research', status: 'done', mode, rounds: research.rounds, pages: research.pages, abstracts: research.abstracts, stopped: research.stopped, ms: timings.research });
+        emit({ type: 'research', status: 'done', mode, rounds: research.rounds + 1, pages: research.pages, abstracts: research.abstracts, stopped: research.stopped, ms: timings.research });
         if (aborted()) throw Object.assign(new Error('Stopped'), { code: 'aborted' });
       }
     }
@@ -827,10 +830,10 @@ export function createEngine(userCfg) {
       const classification = analysis.intent === 'url' ? null : buildClassification(docs.filter((d) => !d.structured || d.sid), { now, themes, yesno, screened, failed, failures, maxItems: final ? 400 : 40 });
       if (classification && research && final && research.unread) classification.unread = research.unread.slice(0, 40);
       const run = wide && research ? {
-        mode, rounds: research.rounds, pages: okPages, relevant: classification ? classification.totals.relevant : 0, abstracts: research.abstracts, sites: classification ? classification.totals.sites : 0, screened, seconds: Math.round((Date.now() - t0) / 1000), stopped: research.stopped,
+        mode, rounds: research.rounds + 1, pages: okPages, relevant: classification ? classification.totals.relevant : 0, abstracts: research.abstracts, sites: classification ? classification.totals.sites : 0, screened, seconds: Math.round((Date.now() - t0) / 1000), stopped: research.stopped,
         queries: research.queries.slice(0, 60), subtopics: (report ? report.sections : []).map((x) => x.label), found: aspects.map((a) => ({ label: a.label, from: a.source })), linksFollowed: research.linksFollowed, references: research.references, budget: { pages: (research.frontier && RESEARCH_BUDGET[mode] ? (mode === 'research' ? cfg.research.maxPages : RESEARCH_BUDGET[mode].maxPages) : 0), seconds: mode === 'research' ? cfg.research.maxSeconds : Math.round(RESEARCH_BUDGET[mode].maxMs / 1000) },
         report: report ? { sections: report.sections.length, figures: report.figures, timeline: report.timeline, differences: report.differences, uncertain: report.gaps } : null,
-      } : wide ? { mode, rounds: 0, pages: okPages, relevant: classification ? classification.totals.relevant : 0, abstracts: 0, sites: classification ? classification.totals.sites : 0, screened, seconds: Math.round((Date.now() - t0) / 1000), stopped: '', queries: [], subtopics: [], found: [], budget: null, report: null } : null;
+      } : wide ? { mode, rounds: 1, pages: okPages, relevant: classification ? classification.totals.relevant : 0, abstracts: 0, sites: classification ? classification.totals.sites : 0, screened, seconds: Math.round((Date.now() - t0) / 1000), stopped: '', queries: [], subtopics: [], found: [], budget: null, report: null } : null;
 
       // conversation context for follow-ups (kept by the client, sent back with the next question)
       const newEntities = [];

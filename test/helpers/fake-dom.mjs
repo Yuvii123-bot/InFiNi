@@ -20,6 +20,10 @@ class El extends Node_ {
   set textContent(v) { this.childNodes = [new Text_(v)]; }
   append(...nodes) { for (const n of nodes) { const node = typeof n === 'string' ? new Text_(n) : n; node.parentNode = this; this.childNodes.push(node); } }
   replaceChildren(...nodes) { this.childNodes = []; this.append(...nodes); }
+  remove() { const p = this.parentNode; if (p) { p.childNodes = p.childNodes.filter((n) => n !== this); this.parentNode = null; } }
+  after(...nodes) { const p = this.parentNode; if (!p) return; const list = nodes.map((n) => (typeof n === 'string' ? new Text_(n) : n)); for (const n of list) n.parentNode = p; p.childNodes.splice(p.childNodes.indexOf(this) + 1, 0, ...list); }
+  replaceWith(...nodes) { const p = this.parentNode; if (!p) return; const list = nodes.map((n) => (typeof n === 'string' ? new Text_(n) : n)); for (const n of list) n.parentNode = p; p.childNodes.splice(p.childNodes.indexOf(this), 1, ...list); this.parentNode = null; }
+  contains(other) { for (let n = other; n; n = n.parentNode) if (n === this) return true; return false; }
   setAttribute(k, v) { this.attrs[k] = String(v); if (k === 'hidden') this._hidden = true; if (k === 'class') this.className = String(v); if (k === 'checked') this.checked = true; if (k === 'disabled') this.disabled = true; }
   getAttribute(k) { return k in this.attrs ? this.attrs[k] : null; }
   addEventListener(t, fn) { (this.listeners[t] = this.listeners[t] || []).push(fn); }
@@ -42,6 +46,7 @@ export function installDom(baseUrl) {
     getElementById: (id) => ids[id] || (ids[id] = Object.assign(new El(id === 'q' ? 'textarea' : 'div'), { id })),
     querySelector: () => new El('meta'), addEventListener() {},
   };
+  doc.getElementById('composerBar').append(doc.getElementById('depthBtn'));          // the depth menu is inserted after its button
   const store = new Map();
   Object.assign(globalThis, {
     document: doc, window: { matchMedia: () => ({ matches: false }) },

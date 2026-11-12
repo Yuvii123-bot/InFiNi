@@ -32,6 +32,8 @@ const ICONS = {
   clock: 'M12 3a9 9 0 1 0 0 18 9 9 0 0 0 0-18zM12 7v5l3 2',
   chat: 'M4 5h16v11H10l-5 4v-4H4z', spark: 'M12 3l1.9 5.1L19 10l-5.1 1.9L12 17l-1.9-5.1L5 10l5.1-1.9zM18.5 16l.8 2.2 2.2.8-2.2.8-.8 2.2-.8-2.2-2.2-.8 2.2-.8z',
   smile: 'M12 3a9 9 0 1 0 0 18 9 9 0 0 0 0-18zM8.5 14a4 4 0 0 0 7 0M9 9.5v.5M15 9.5v.5',
+  layers: 'M12 3l9 5-9 5-9-5zM3 12.5l9 5 9-5M3 17l9 5 9-5', filter: 'M4 5h16l-6 8v5l-4 2v-7z', search: 'M11 4a7 7 0 1 0 0 14 7 7 0 0 0 0-14zM20 20l-4-4',
+  book: 'M5 4h10a3 3 0 0 1 3 3v13H8a3 3 0 0 1-3-3zM5 17a3 3 0 0 1 3-3h10',
 };
 function icon(name, size = 16, cls = '') {
   const svg = document.createElementNS(SVG_NS, 'svg');
@@ -45,6 +47,8 @@ function icon(name, size = 16, cls = '') {
 const safeUrl = (u) => { try { const x = new URL(u); return x.protocol === 'http:' || x.protocol === 'https:' ? x.href : ''; } catch { return ''; } };
 const fmtDate = (iso) => { if (!iso) return ''; const d = new Date(iso); return Number.isNaN(d.getTime()) ? String(iso).slice(0, 10) : d.toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' }); };
 const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
+const num = (n) => Number(n || 0).toLocaleString('en-US');
+const plural = (n, one, many) => `${num(n)} ${n === 1 ? one : many || one + 's'}`;
 const normQ = (q) => q.toLowerCase().replace(/[^\p{L}\p{N}\s]/gu, ' ').replace(/\s+/g, ' ').trim();
 const plain = (o) => JSON.parse(JSON.stringify(o, (k, v) => (k[0] === '_' ? undefined : v)));     // drop DOM references before storing
 const TIMEY = /\b(today|tonight|now|latest|current|currently|news|headlines|yesterday|this (week|month|year)|recent|recently|price|weather|score|live|update|updates)\b/i;
@@ -78,7 +82,7 @@ const idb = (() => {
   };
 })();
 
-const DEFAULTS = { depth: 'balanced', theme: 'light', autoExpand: false, providersOff: [], feeds: [] };
+const DEFAULTS = { depth: 'auto', theme: 'light', autoExpand: false, providersOff: [], feeds: [] };
 const state = { chats: [], chat: null, busy: false, abort: null, settings: { ...DEFAULTS, ...LS.get('infini.settings', {}) }, learned: { domains: {}, providers: {}, vocab: {}, ...LS.get('infini.learned', {}) }, status: null, filter: '' };
 const saveSettings = () => LS.set('infini.settings', state.settings);
 const saveLearned = () => LS.set('infini.learned', state.learned);
@@ -214,7 +218,14 @@ function spansEl(spans, result) {
     if (!s.text && !(s.cites && s.cites.length)) return;
     const cls = [s.meta ? 'meta-span' : '', s.nature === 'hedged' || s.nature === 'opinion' ? 'hedged' : ''].join(' ').trim();
     if (s.text) out.push(s.strong ? h('strong', { class: cls || null, text: s.text }) : cls ? h('span', { class: cls, title: s.nature ? `The source states this as ${s.nature === 'opinion' ? 'an opinion' : 'likely/possible, not certain'}` : null, text: s.text }) : s.text);
-    for (const c of s.cites || []) { const src = result.sources.find((x) => x.id === c); out.push(h('button', { class: 'cite', type: 'button', title: src ? `${src.title} — ${src.domain}` : 'Source', 'aria-label': `Source ${c}`, onclick: () => src && openSource(src, result), text: String(c) })); }
+    const citeBtn = (c) => { const src = result.sources.find((x) => x.id === c); return h('button', { class: 'cite', type: 'button', title: src ? `${src.title} — ${src.domain}` : 'Source', 'aria-label': `Source ${c}`, onclick: () => src && openSource(src, result), text: String(c) }); };
+    for (const c of s.cites || []) out.push(citeBtn(c));
+    // after a research run a statement may be backed by many independent sources: the first few are shown, the rest on request
+    if (s.more && s.more.length) {
+      const more = h('button', { class: 'cite more', type: 'button', title: `Supported by ${s.support || (s.cites.length + s.more.length)} independent sources — show the others`, 'aria-label': `Show ${s.more.length} more sources`, text: `+${s.more.length}` });
+      more.addEventListener('click', () => more.replaceWith(...s.more.map(citeBtn)));
+      out.push(more);
+    }
     if (i < spans.length - 1 && s.text && !/[\s(“]$/.test(s.text)) out.push(' ');
   });
   return out;
@@ -223,13 +234,22 @@ function answerEl(result) {
   const box = h('div', { class: 'answer' });
   for (const b of result.answer.blocks) {
     if (b.type === 'paragraph') box.append(h('p', null, spansEl(b.spans, result)));
-    else if (b.type === 'heading') box.append(h('h3', { class: b.level === 2 ? 'part' : null, text: b.text }));
+    else if (b.type === 'heading') box.append(h('h3', { class: [b.level === 2 ? 'part' : '', b.subtopic ? 'subtopic' : ''].join(' ').trim() || null, text: b.text }));
+    else if (b.type === 'tally') box.append(tallyEl(b));
     else if (b.type === 'list') box.append(h(b.ordered ? 'ol' : 'ul', null, b.items.map((it) => h('li', { class: it.depth ? `d${Math.min(2, it.depth)}` : null }, spansEl(it.spans, result), (it.code || []).map((c) => h('pre', null, h('code', { text: c })))))));
     else if (b.type === 'table') box.append(h('div', { class: 'table-wrap' }, h('table', null, b.caption ? h('caption', null, b.caption, ' ', spansEl([{ text: '', cites: b.cites || [] }], result)) : null, h('thead', null, h('tr', null, b.header.map((c) => h('th', { text: c })))), h('tbody', null, b.rows.map((r) => h('tr', null, r.map((c) => h('td', { text: c }))))))));
     else if (b.type === 'code') { box.append(h('pre', null, h('code', { text: b.text }))); if (b.cites && b.cites.length) box.append(h('p', { class: 'code-cite' }, 'Code quoted from ', spansEl([{ text: '', cites: b.cites }], result))); }
     else if (b.type === 'note') box.append(h('div', { class: 'note' + (b.tone === 'warn' ? ' warn' : ''), text: b.text }));
   }
   return box;
+}
+/** How the sources lean on a yes/no question: one bar, three counted groups. */
+function tallyEl(t) {
+  const total = Math.max(1, t.sources || (t.yes + t.no + t.qualified));
+  const part = (n, cls) => { if (!n) return null; const i = h('i', { class: cls }); i.style.width = `${(n / total) * 100}%`; return i; };
+  return h('div', { class: 'tally', role: 'img', 'aria-label': `Of ${total} independent sources, ${t.yes} lean yes, ${t.no} lean no, ${t.qualified} are qualified or uncertain` },
+    h('div', { class: 'tally-bar' }, part(t.yes, 'yes'), part(t.qualified, 'mid'), part(t.no, 'no')),
+    h('div', { class: 'tally-key' }, h('span', { class: 'yes' }, h('b', { text: String(t.yes) }), ' lean yes'), h('span', { class: 'mid' }, h('b', { text: String(t.qualified) }), ' qualified'), h('span', { class: 'no' }, h('b', { text: String(t.no) }), ' lean no')));
 }
 function confidenceEl(conf) {
   if (!conf) return null;
@@ -253,6 +273,126 @@ function sourcesEl(result) {
       h('span', { class: 'tags' }, h('span', { class: 'tag ' + (s.sourceType === 'primary' ? 'primary' : s.sourceType === 'community' ? 'community' : ''), text: s.sourceType }), (s.published || s.modified) ? h('span', { class: 'tag', text: fmtDate(s.published || s.modified) }) : null, s.partial ? h('span', { class: 'tag', text: 'summary only' }) : null)))));
 }
 
+/** Live counters of a research run. Only numbers the server reports. */
+function createProgress() {
+  const title = h('span', { class: 'rp-title', text: 'Research run' }), clock = h('span', { class: 'rp-clock' });
+  const counts = h('div', { class: 'rp-counts' }), sub = h('div', { class: 'rp-sub' }), latest = h('div', { class: 'rp-latest' }), topics = h('div', { class: 'rp-topics' });
+  const el = h('div', { class: 'research-progress', role: 'status', hidden: true }, h('div', { class: 'rp-head' }, h('span', { class: 'rp-spin', 'aria-hidden': 'true' }), title, clock), h('div', { class: 'rp-bar', 'aria-hidden': 'true' }, h('i')), counts, sub, latest, topics);
+  let t0 = 0, timer = null, budget = null, mode = 'research';
+  const tick = () => { if (t0) clock.textContent = `${Math.round((Date.now() - t0) / 1000)} s${budget && budget.seconds ? ` of up to ${budget.seconds} s` : ''}`; };
+  const stat = (n, label) => h('span', null, h('b', { text: num(n) }), ` ${label}`);
+  return {
+    el,
+    onEvent(ev) {
+      if (ev.type === 'research' && ev.status === 'start') {
+        mode = ev.mode; budget = ev.budget || null; t0 = Date.now(); el.hidden = false;
+        title.textContent = mode === 'research' ? 'Research run' : mode === 'deep' ? 'Deep search' : 'Widening the search';
+        counts.replaceChildren(h('span', { text: budget && budget.pages ? `Reading up to ${num(budget.pages)} pages…` : 'Reading more pages…' }));
+        tick(); timer = setInterval(tick, 1000);
+      } else if (ev.type === 'progress') {
+        if (el.hidden) { el.hidden = false; t0 = Date.now() - (ev.elapsedMs || 0); timer = timer || setInterval(tick, 1000); }
+        if (ev.round) title.textContent = `${mode === 'research' ? 'Research run' : mode === 'deep' ? 'Deep search' : 'Widening the search'} · round ${ev.round}`;
+        counts.replaceChildren(...[stat(ev.read, ev.read === 1 ? 'page read' : 'pages read'), ev.abstracts ? stat(ev.abstracts, 'abstracts') : null, stat(ev.screened, 'results screened')].filter(Boolean));
+        sub.textContent = [ev.failed ? `${num(ev.failed)} could not be read` : '', ev.waiting ? `${num(ev.waiting)} waiting` : '', `${num(ev.searches)} searches`, ev.bytes ? `${(ev.bytes / 1048576).toFixed(1)} MB` : ''].filter(Boolean).join(' · ');
+        if (ev.latest && ev.latest.length) latest.textContent = 'Just read: ' + [...new Set(ev.latest)].slice(-4).join(' · ');
+        if (ev.subtopics && ev.subtopics.length) topics.replaceChildren(h('span', { class: 'rp-k', text: 'Sub-topics found:' }), ...ev.subtopics.slice(0, 8).map((t) => h('span', { class: 'tag', text: t.label || String(t) })));
+      } else if (ev.type === 'research' && ev.status === 'done') { this.stop(); title.textContent = 'Writing the report'; }
+    },
+    stop() { if (timer) { clearInterval(timer); timer = null; } el.classList.add('done'); },
+  };
+}
+/** The interim answer shown while a research run goes on. */
+function renderDraft(box, ev) {
+  const r = ev.result, run = r.run || {};
+  const what = ev.round > 1 ? `Draft after round ${ev.round}` : 'First draft, from the quick first round';
+  const read = run.pages ? ` · ${plural(run.pages, 'page')}${run.abstracts ? ` and ${plural(run.abstracts, 'abstract')}` : ''} so far` : r.sources ? ` · ${plural(r.sources.length, 'source')} so far` : '';
+  box.replaceChildren(h('div', { class: 'draft-banner' }, icon('clock', 14), `${what}${read}. Still reading — the answer will be rebuilt.`), answerEl(r));
+  box.hidden = false;
+}
+const STOP_WHY = { 'page budget used': 'the page budget was used up', 'time budget used': 'the time budget was used up', 'the remaining leads were no longer relevant': 'the leads that remained were no longer relevant', 'every relevant lead was read': 'every relevant lead had been read', 'new searches were no longer bringing new material': 'new searches were no longer bringing new material', 'direct evidence found': 'direct evidence had been found', 'nothing new to read': 'there was nothing new to read', 'round limit reached': 'the round limit was reached', stopped: 'it was stopped' };
+/** One honest line about what a deep or research run did. */
+function runLineEl(r) {
+  const run = r.run;
+  if (!run || !run.mode) return null;
+  const name = run.mode === 'research' ? 'Research run' : run.mode === 'deep' ? 'Deep search' : 'Widened search';
+  const bits = [run.rounds ? plural(run.rounds, 'round') : '', `${plural(run.pages, 'page')} read`, run.abstracts ? plural(run.abstracts, 'abstract') : '', run.sites ? plural(run.sites, 'site') : '', run.screened ? `${num(run.screened)} results screened` : '', `${run.seconds} s`].filter(Boolean);
+  return h('div', { class: 'run-line' }, icon('layers', 14), h('span', null, h('b', { text: name }), ` · ${bits.join(' · ')}`, run.stopped ? h('span', { class: 'sub', text: ` — ended because ${STOP_WHY[run.stopped] || run.stopped}.` }) : null,
+    r.depth && r.depth.limited ? h('span', { class: 'sub', text: ' A full research run was not started (limit reached).' }) : null));
+}
+const itemFacet = { source: (it) => it.s, doc: (it) => it.k, study: (it) => it.st, stance: (it) => it.z, recency: (it) => it.rc, reliability: (it) => it.rl, access: (it) => it.a, region: (it) => it.g, relevance: (it) => it.tier };
+const itemHas = (it, facetId, valueId) => (facetId === 'theme' ? (it.th || []).includes(Number(valueId)) : itemFacet[facetId] ? itemFacet[facetId](it) === valueId : false);
+/** Compact overview of everything a question brought in; the full list opens in the side panel. */
+function overviewEl(r) {
+  const C = r.classification;
+  if (!C || !C.totals || C.totals.documents < 8) return null;
+  const T = C.totals;
+  const numEl = (n, label) => h('div', { class: 'ov-num' }, h('b', { text: num(n) }), h('span', { text: label }));
+  const bars = (facetId, max) => {
+    const f = (C.facets || []).find((x) => x.id === facetId);
+    if (!f || !f.values.length) return null;
+    const top = Math.max(...f.values.map((v) => v.count));
+    return h('div', { class: 'ov-facet' }, h('div', { class: 'ov-cap', text: f.label }),
+      f.values.slice(0, max).map((v) => { const bar = h('i'); bar.style.width = `${Math.max(3, (v.count / top) * 100)}%`; return h('button', { class: 'ov-row', type: 'button', title: `Show these ${v.count}`, onclick: () => openExplorer(r, { [facetId]: v.id }) }, h('span', { class: 'ov-label', text: v.label }), h('span', { class: 'ov-bar' }, bar), h('span', { class: 'ov-count', text: num(v.count) })); }));
+  };
+  const years = (C.timeline || []).filter((y) => y.year >= 1900);
+  let hist = null;
+  if (years.length >= 4) {
+    const recent = years.slice(-16), top = Math.max(...recent.map((y) => y.count));
+    hist = h('div', { class: 'ov-facet' }, h('div', { class: 'ov-cap', text: `Year of publication${years.length > recent.length ? ` (the last ${recent.length} years with documents)` : ''}` }),
+      h('div', { class: 'ov-hist', role: 'img', 'aria-label': recent.map((y) => `${y.year}: ${y.count}`).join(', ') }, recent.map((y) => { const col = h('i', { title: `${y.year}: ${y.count}` }); col.style.height = `${Math.max(4, (y.count / top) * 100)}%`; return h('span', null, col); })),
+      h('div', { class: 'ov-axis' }, h('span', { text: String(recent[0].year) }), h('span', { text: String(recent[recent.length - 1].year) })));
+  }
+  return h('section', { class: 'overview' },
+    h('div', { class: 'block-head' }, icon('layers', 14), 'Everything that was found', h('small', { text: 'sorted by rule; tap a bar to see the documents' })),
+    h('div', { class: 'ov-nums' }, numEl(T.documents, T.documents === 1 ? 'document' : 'documents'), numEl(T.fullText, 'read in full'), T.abstracts ? numEl(T.abstracts, 'abstracts or summaries') : null, numEl(T.sites, T.sites === 1 ? 'site' : 'sites'), T.screened ? numEl(T.screened, 'results screened') : null, T.failed ? numEl(T.failed, 'pages not readable') : null),
+    h('div', { class: 'ov-grid' }, bars('source', 5), bars('doc', 5), bars('theme', 6) || bars('study', 5), hist),
+    h('button', { class: 'btn small', type: 'button', onclick: () => openExplorer(r, {}) }, icon('filter', 14), `Explore all ${num(T.documents)} documents`));
+}
+/** Side panel: every document, filterable by the classification. */
+function openExplorer(r, preset) {
+  const C = r.classification, T = C.totals, items = C.items || [];
+  const picked = new Map(Object.entries(preset || {}));          // facet id → value id (one value per facet)
+  const openFacets = new Set(), closedByUser = new Set();
+  let text = '';
+  const facetsBox = h('div', { class: 'ex-facets' }), listBox = h('div', { class: 'ex-list' }), countEl = h('div', { class: 'ex-count' });
+  const search = h('input', { class: 'input', type: 'search', placeholder: 'Filter by title or site', 'aria-label': 'Filter documents' });
+  search.addEventListener('input', () => { text = search.value.trim().toLowerCase(); draw(); });
+  const matches = (it) => { for (const [f, v] of picked) if (!itemHas(it, f, v)) return false; return !text || `${it.t} ${it.d}`.toLowerCase().includes(text); };
+  function draw() {
+    // one foldable group per way of sorting; a group stays open once it has been opened or used
+    facetsBox.replaceChildren(...(C.facets || []).map((f, i) => {
+      const chosen = f.values.find((v) => picked.get(f.id) === v.id);
+      if (!openFacets.has(f.id) && !closedByUser.has(f.id) && (chosen || i < 1)) openFacets.add(f.id);
+      const body = h('div', { class: 'pill-row', hidden: !openFacets.has(f.id) }, f.values.map((v) => h('button', { type: 'button', class: 'fchip' + (picked.get(f.id) === v.id ? ' on' : ''), 'aria-pressed': String(picked.get(f.id) === v.id), onclick: () => { if (picked.get(f.id) === v.id) picked.delete(f.id); else picked.set(f.id, v.id); draw(); } },
+        h('span', { text: v.label || 'not stated' }), h('b', { text: num(v.count) }), v.cited ? h('small', { text: `${v.cited} cited` }) : null)));
+      const head = h('button', { type: 'button', class: 'ex-cap' + (openFacets.has(f.id) ? ' open' : ''), 'aria-expanded': String(openFacets.has(f.id)), title: f.note || null, onclick: () => { if (openFacets.has(f.id)) openFacets.delete(f.id); else openFacets.add(f.id); closedByUser.add(f.id); draw(); } },
+        h('span', { class: 'chev' }, icon('chevron', 13)), f.label, h('small', { text: chosen ? ` — ${chosen.label}` : ` — ${f.values.length} ${f.values.length === 1 ? 'class' : 'classes'}` }));
+      return h('div', { class: 'ex-facet' }, head, openFacets.has(f.id) && f.note ? h('div', { class: 'ex-note', text: f.note }) : null, body);
+    }));
+    const shown = items.filter(matches);
+    const filtered = picked.size || text;
+    countEl.textContent = filtered ? `${num(shown.length)} of the ${num(items.length)} listed documents match` : items.length < T.documents ? `The ${num(items.length)} best-ranked of ${num(T.documents)} documents are listed; the counts above cover all of them.` : `${num(items.length)} documents`;
+    listBox.replaceChildren(...[...(shown.length ? shown.slice(0, 200).map((it) => {
+      const url = safeUrl(it.u);
+      const meta = [it.d, it.y ? String(it.y) : '', it.st || '', it.a === 'full text read' ? 'read in full' : it.a === 'abstract or summary only' ? 'abstract only' : it.a || '', it.rl ? `reliability ${it.rl}` : '', it.cb ? `cited by ${num(it.cb)} works` : '', it.z ? { supports: 'leans yes', contradicts: 'leans no', qualified: 'qualified' }[it.z] || '' : ''].filter(Boolean).join(' · ');
+      const src = it.c ? r.sources.find((x) => x.id === it.c) : null;
+      return h('div', { class: 'ex-item' + (it.tier === 'read, not relevant' ? ' off' : '') },
+        it.c ? h('button', { class: 'cite', type: 'button', title: 'Cited in the answer — show the passages', onclick: () => src && openSource(src, r), text: String(it.c) }) : h('span', { class: 'ex-dot', 'aria-hidden': 'true' }),
+        h('div', null, url ? h('a', { href: url, target: '_blank', rel: 'noopener noreferrer nofollow', text: it.t || it.d }) : h('span', { text: it.t || it.d }), h('span', { class: 'sub', text: meta })));
+    }) : [h('div', { class: 'empty-hint', text: 'No listed document matches these filters.' })]), shown.length > 200 ? h('div', { class: 'empty-hint', text: `${num(shown.length - 200)} more match — narrow the filters to see them.` }) : null].filter(Boolean));
+  }
+  draw();
+  const fails = Object.entries(T.failures || {}).sort((a, b) => b[1] - a[1]);
+  openDrawer('Everything that was found', [
+    h('p', { class: 'ex-intro', text: `${num(T.documents)} documents from ${num(T.sites)} sites were kept out of ${num(T.screened || T.documents)} results screened: ${num(T.fullText)} read in full, ${num(T.abstracts)} as abstracts or summaries. ${num(T.cited)} are cited in the answer. The sorting below is done by fixed rules from each document’s address, type and wording.` }),
+    facetsBox, search, countEl, listBox,
+    fails.length ? h('div', { class: 'sec', text: `Pages that could not be read (${num(T.failed)})` }) : null,
+    fails.length ? h('div', { class: 'pill-row' }, fails.map(([k, v]) => h('span', { class: 'tag', text: `${num(v)} × ${k}` }))) : null,
+    C.unread && C.unread.length ? h('div', { class: 'sec', text: `Found but not read (${C.unread.length} shown)` }) : null,
+    C.unread && C.unread.length ? h('ul', { class: 'row-list' }, C.unread.slice(0, 40).map((u) => { const url = safeUrl(u.url); return h('li', null, url ? h('a', { href: url, target: '_blank', rel: 'noopener noreferrer nofollow', text: u.title || u.domain }) : (u.title || u.domain), h('span', { class: 'sub', text: u.domain })); })) : null,
+  ]);
+}
+
 function botEl(m) {
   const body = h('div', { class: 'bot-body' });
   const el = h('div', { class: 'msg bot' }, h('div', { class: 'bot-head' }, h('img', { class: 'avatar', src: '/icons/mark.svg', width: '26', height: '26', alt: '' }), h('span', { class: 'bot-name', text: 'INFINI AI' })), body);
@@ -270,7 +410,7 @@ function fillBot(m) {
     const act = createActivity(state.settings.autoExpand);
     for (const ev of m.events) act.onEvent(ev);
     const c = r.research ? r.research.counts : null;
-    act.finish(c ? `Searched ${c.searches} source${c.searches === 1 ? '' : 's'} · read ${c.pagesFetched} page${c.pagesFetched === 1 ? '' : 's'} · ${(r.elapsedMs / 1000).toFixed(1)} s` : `Done in ${(r.elapsedMs / 1000).toFixed(1)} s`);
+    act.finish(c ? `${plural(c.searches, 'search', 'searches')} · read ${plural(c.pagesFetched, 'page')}${c.abstracts ? ` and ${plural(c.abstracts, 'abstract')}` : ''} · ${(r.elapsedMs / 1000).toFixed(1)} s` : `Done in ${(r.elapsedMs / 1000).toFixed(1)} s`);
     body.append(act.el);
   }
   if (r && r.interpretation && r.interpretation.rewrites && r.interpretation.rewrites.length) {
@@ -280,12 +420,14 @@ function fillBot(m) {
       respelled && m.question ? h('button', { class: 'as-typed', type: 'button', text: 'Search as typed', title: `Search for “${String(m.question).slice(0, 120)}” exactly`, onclick: () => { if (!state.busy) run(m.question, { replace: m, context: m.contextBefore || {}, route: 'web' }); } }) : null));
   }
   if (m.status === 'error') body.append(h('div', { class: 'error-box', text: m.error || 'Something went wrong.' }));
-  if (m.status === 'stopped') body.append(h('div', { class: 'note', text: 'Stopped. Retrieval was cancelled, so no answer was built.' }));
+  if (m.status === 'stopped') body.append(h('div', { class: 'note' + (r ? ' warn' : ''), text: r ? `Stopped early. This is the draft that had been built until then${r.run && r.run.pages ? ` (${plural(r.run.pages, 'page')} read)` : ''}; the run was not finished, so it may be incomplete.` : 'Stopped. Retrieval was cancelled, so no answer was built.' }));
   const isBrain = !!r && r.kind === 'brain';
   if (r) {
     body.append(answerEl(r));
     if (isBrain && ORIGIN[r.origin]) body.append(h('div', { class: 'origin' }, icon(ORIGIN[r.origin][0], 13), ORIGIN[r.origin][1]));
     const conf = confidenceEl(r.confidence); if (conf) body.append(conf);
+    const runLine = runLineEl(r); if (runLine) body.append(runLine);
+    const over = overviewEl(r); if (over) body.append(over);
     const src = sourcesEl(r); if (src) body.append(src);
   }
   const acts = h('div', { class: 'actions' });
@@ -295,7 +437,7 @@ function fillBot(m) {
   // the brain answered by itself: one tap sends the same message to the web instead, in case it misjudged
   if (m.question && isBrain && r.origin !== 'safety' && !(r.suggestions || []).some((t) => /^Search the web: /.test(String(t)))) acts.append(act('globe', 'Search the web instead', { title: 'Send this message to web search instead', onclick: () => { if (!state.busy) run(m.question, { replace: m, context: m.contextBefore || {}, route: 'web' }); } }));
   if (r && r.research) acts.append(act('panel', 'Research details', { onclick: () => openResearch(r) }));
-  if (r && r.kind === 'retrieval' && r.confidence && r.confidence.level !== 'insufficient') {
+  if (r && r.kind === 'retrieval' && r.confidence && r.confidence.level !== 'insufficient' && !r.draft) {
     const key = normQ(r.interpretation && r.interpretation.resolved ? r.interpretation.resolved : m.question);
     const save = act('bookmark', m.saved ? 'Saved' : 'Save', { title: 'Keep this answer on this device and reuse it for the same question' });
     save.classList.toggle('on', !!m.saved);
@@ -385,8 +527,10 @@ async function openSettings() {
   const auto = h('input', { type: 'checkbox', checked: S.autoExpand });
   auto.addEventListener('change', () => { S.autoExpand = auto.checked; saveSettings(); });
   const nDomains = Object.keys(state.learned.domains).length, nVocab = Object.keys(state.learned.vocab).length;
+  const depthNote = h('small', { class: 'depth-note', text: depthInfo(S.depth) });
   openModal('Settings', [
-    h('div', { class: 'field' }, h('span', { class: 'lbl', text: 'Search depth' }), seg(DEPTHS, S.depth, (v) => { S.depth = v; saveSettings(); renderDepth(); }), h('small', { text: 'Fast reads about 3 pages, Balanced about 6, Deep about 10 and tries reformulated queries. Deeper is slower and uses more data.' })),
+    h('div', { class: 'field' }, h('span', { class: 'lbl', text: 'Search depth' }), seg(DEPTHS, S.depth, (v) => { S.depth = v; saveSettings(); renderDepth(); depthNote.textContent = depthInfo(v); }), depthNote,
+      h('small', { text: `Auto is the default. Deep and Research take longer and count more against the limit on questions per minute${state.status && state.status.research ? `; each device may start ${state.status.research.perClientPerHour} research runs per hour` : ''}. Pages that refuse automated reading are skipped and counted, never bypassed.` })),
     h('div', { class: 'field' }, h('span', { class: 'lbl', text: 'Appearance' }), seg([['light', 'Light'], ['dark', 'Dark'], ['system', 'System']], S.theme, (v) => { S.theme = v; saveSettings(); applyTheme(); })),
     h('div', { class: 'field' }, h('label', { class: 'check' }, auto, h('span', null, 'Show research activity expanded', h('small', { text: 'Otherwise it collapses to one line under each answer.' })))),
     h('div', { class: 'field' }, h('span', { class: 'lbl', text: 'Sources' }), h('small', { text: 'Search providers are interchangeable; if one fails the next is tried. Untick any you do not want used.' }), ...prov),
@@ -410,7 +554,14 @@ function openAbout() {
       'It never invents facts. When a message needs real knowledge it hands it to the web pipeline, and when it is unsure it says so and offers a web search.',
       'It is not conscious and has no feelings. It says so itself when asked.']),
     h('div', { class: 'sec', text: 'How a web answer is made' }),
-    ul(['Understanding — rule-based language analysis classifies the question, finds its topic and resolves follow-ups such as “he” or “that”.', 'Planning — the question is split into sub-searches for different providers.', 'Searching — Wikipedia, Wikidata, a web search service, open web indexes, publisher news feeds and specialist sources are queried live, with automatic failover. A search service only supplies links: every page is then read by this app.', 'Reading — pages are fetched, cleaned of navigation and ads, and split into passages.', 'Comparing — passages are ranked, sources are checked for agreement, copies and contradictions.', 'Constructing — the answer is assembled from sentences found in the sources. Each one carries its citation.', 'Related questions — fixed question templates, offered only when a page that was just read has a section on that aspect.']),
+    ul(['Understanding — rule-based language analysis classifies the question, finds its topic and resolves follow-ups such as “he” or “that”.', 'Planning — the question is split into sub-searches for different providers.', 'Searching — Wikipedia, Wikidata, a web search service, open web indexes, scholarly indexes, publisher news feeds and specialist sources are queried live, with automatic failover. A search service only supplies links: every page is then read by this app.', 'Reading — pages are fetched, cleaned of navigation and ads, and split into passages.', 'Comparing — passages are ranked, sources are checked for agreement, copies and contradictions.', 'Constructing — the answer is assembled from sentences found in the sources. Each one carries its citation.', 'Related questions — fixed question templates, offered only when a page that was just read has a section on that aspect.']),
+    h('div', { class: 'sec', text: 'Deep search and research runs' }),
+    ul([`Depth is set beside the message box. Auto decides by itself; Deep reads up to 70 pages; Research reads up to ${num(maxPages())} pages over many rounds. Writing “do deep research on …” starts a research run as well.`,
+      'A run works in rounds: search many services at once, read the pages, compare everything, find the sub-topics the sources share, then search again for those. It also follows links and reference lists from the pages it read, and takes in abstracts of scientific papers from open indexes (OpenAlex, Crossref, Europe PMC).',
+      'It ends when the page or time budget is used up, or earlier when new searches stop bringing new material. The reason is stated under the answer.',
+      'Everything found is sorted by fixed rules: kind of source, kind of document, study design, year, reliability tier, sub-topic, and how much was read. “Everything that was found” under the answer shows the counts and lets you filter the list.',
+      'The numbers are counted, not estimated. An abstract is counted as an abstract, never as a page read. Many sites refuse automated reading or need JavaScript; those pages are skipped and counted as not readable, never bypassed. How many pages a run reaches therefore depends on how many readable leads the topic has — the budget is a ceiling, not a promise.',
+      'The report is built from the sources’ own sentences. On a yes-or-no question it counts how the independent sources lean; that is a count of statements read by rule, not a judgement of who is right.']),
     h('div', { class: 'sec', text: 'What it cannot do' }),
     ul(['It cannot write original essays, poems or code, translate, draw, or act on your device or accounts.', 'It cannot reason beyond what sources state. If the sources it can reach do not answer the question, it says “I could not verify this from the sources I found.”', 'It can be wrong: when sources are wrong, when the best page cannot be retrieved, or when its rules misread a message. A chat reply has a “Search the web instead” button for that case. Check the citations.', 'It “learns” only in a narrow sense: it stores which sites worked, words that co-occur with your topics, and answers you choose to save — all on this device, all clearable in Settings.']),
     h('div', { class: 'sec', text: 'Privacy' }),
@@ -437,10 +588,31 @@ function absorb(learn) {
   if (keys.length > 400) for (const k of keys.slice(0, keys.length - 400)) delete state.learned.vocab[k];
   saveLearned();
 }
-const DEPTHS = [['fast', 'Fast'], ['balanced', 'Balanced'], ['deep', 'Deep']];
-const DEPTH_NOTE = { fast: 'Fast: reads about 3 pages', balanced: 'Balanced: reads about 6 pages', deep: 'Deep: reads about 10 pages and tries reformulated queries' };
-function renderDepth() { $('depthLabel').textContent = (DEPTHS.find(([v]) => v === state.settings.depth) || DEPTHS[1])[1]; }
-function cycleDepth() { const i = DEPTHS.findIndex(([v]) => v === state.settings.depth); state.settings.depth = DEPTHS[(i + 1) % DEPTHS.length][0]; saveSettings(); renderDepth(); toast(DEPTH_NOTE[state.settings.depth]); }
+const DEPTHS = [['auto', 'Auto'], ['fast', 'Fast'], ['balanced', 'Balanced'], ['deep', 'Deep'], ['research', 'Research']];
+const maxPages = () => Number(state.status && state.status.research && state.status.research.maxPages) || 1500;
+const researchOff = () => !!(state.status && state.status.research && state.status.research.enabled === false);
+const depthInfo = (d) => ({
+  auto: 'Decides by itself: a quick search first, more reading when the first pages do not answer, and a full research run when you ask for one (“do deep research on …”).',
+  fast: 'Reads about 3 pages. A few seconds.',
+  balanced: 'Reads about 6 pages. A few seconds.',
+  deep: 'Several rounds: up to 70 pages and 60 abstracts of scientific papers, sorted into sub-topics. About 20 seconds.',
+  research: researchOff() ? 'Switched off on this server; such requests are answered at depth Deep.' : `A full research run: up to ${num(maxPages())} pages and hundreds of abstracts over many rounds, everything classified, and a report. One to three minutes.`,
+}[d]);
+function renderDepth() { if (!DEPTHS.some(([v]) => v === state.settings.depth)) state.settings.depth = 'auto'; $('depthLabel').textContent = DEPTHS.find(([v]) => v === state.settings.depth)[1]; $('depthBtn').classList.toggle('strong', state.settings.depth === 'research' || state.settings.depth === 'deep'); }
+let depthMenu = null;
+function closeDepthMenu() { if (depthMenu) { depthMenu.remove(); depthMenu = null; } $('depthBtn').setAttribute('aria-expanded', 'false'); }
+function toggleDepthMenu() {
+  if (depthMenu) return closeDepthMenu();
+  const pick = (v) => { state.settings.depth = v; saveSettings(); renderDepth(); closeDepthMenu(); $('q').focus(); };
+  const menu = depthMenu = h('div', { id: 'depthMenu', class: 'depth-menu', role: 'menu', 'aria-label': 'Search depth' },
+    h('div', { class: 'depth-head', text: 'How far to search' }),
+    DEPTHS.map(([v, label]) => h('button', { type: 'button', role: 'menuitemradio', 'aria-checked': String(v === state.settings.depth), class: v === state.settings.depth ? 'on' : '', onclick: () => pick(v) },
+      h('span', { class: 'dm-label' }, label, v === state.settings.depth ? icon('check', 14) : null), h('span', { class: 'dm-note', text: depthInfo(v) }))));
+  $('depthBtn').after(menu);
+  $('depthBtn').setAttribute('aria-expanded', 'true');
+  const first = menu.querySelector('button.on') || menu.querySelector('button');
+  if (first) first.focus();
+}
 function setBusy(b) { state.busy = b; $('sendBtn').hidden = b; $('stopBtn').hidden = !b; $('sendBtn').disabled = !$('q').value.trim(); }
 function regenerate(m) { if (state.busy) return; const i = state.chat.messages.indexOf(m); if (i < 0) return; run(m.question, { regenerate: true, replace: m, context: m.contextBefore || {} }); }
 function ask(text) { const q = (text || $('q').value).trim(); if (!q || state.busy) return; $('q').value = ''; autoGrow(); run(q, {}); }
@@ -459,7 +631,7 @@ async function run(question, { regenerate: regen = false, replace = null, contex
   if (!chat.messages.length) $('thread').replaceChildren();
   const ctxBefore = context || chat.context || {};
   let m;
-  if (replace) { m = replace; Object.assign(m, { status: 'working', result: null, events: [], error: '', cached: null, saved: false, voted: null }); m._body.replaceChildren(); }
+  if (replace) { m = replace; Object.assign(m, { status: 'working', result: null, events: [], error: '', cached: null, saved: false, voted: null, depth: undefined }); m._body.replaceChildren(); }
   else {
     const u = { id: uid(), role: 'user', text: question };
     chat.messages.push(u); $('thread').append(userEl(u)); $('clearBtn').hidden = false;
@@ -476,8 +648,12 @@ async function run(question, { regenerate: regen = false, replace = null, contex
   // so a chat reply from the brain never flashes a list of search stages.
   const act = createActivity(state.settings.autoExpand);
   const typing = h('div', { class: 'typing', role: 'status', 'aria-label': 'INFINI AI is replying' }, h('i'), h('i'), h('i'));
+  // a deep or research run shows live counters, and the answer built so far, while the reading goes on
+  const prog = createProgress();
+  const draftBox = h('div', { class: 'draft', hidden: true });
+  let draft = null;
   act.el.hidden = true;
-  m._body.append(typing, act.el);
+  m._body.append(typing, prog.el, act.el, draftBox);
   const reveal = () => { if (act.el.hidden) { act.el.hidden = false; typing.hidden = true; } };
   scrollDown(true);
   setBusy(true);
@@ -498,15 +674,24 @@ async function run(question, { regenerate: regen = false, replace = null, contex
         let ev; try { ev = JSON.parse(line); } catch { continue; }
         if (ev.type === 'answer') m.result = ev.result;
         else if (ev.type === 'error') m.error = ev.message;
-        else if (ev.type !== 'done') { if (m.events.length < 120) m.events.push(ev); act.onEvent(ev); if (ev.type !== 'stage' || ev.stage !== 'understanding') reveal(); scrollDown(); }
+        else if (ev.type === 'progress') prog.onEvent(ev);                               // live counters only: not kept with the conversation
+        else if (ev.type === 'draft') { draft = ev.result; renderDraft(draftBox, ev); }
+        else if (ev.type !== 'done') {
+          if (ev.type === 'research') { prog.onEvent(ev); if (ev.status === 'start') act.el.classList.add('compact'); }
+          if (m.events.length < 160 || ev.type === 'stage' || ev.type === 'research') m.events.push(ev);
+          act.onEvent(ev); if (ev.type !== 'stage' || ev.stage !== 'understanding') reveal(); scrollDown();
+        }
       }
     }
     const newest = chat.messages[chat.messages.length - 1] === m;      // redoing an older reply must not rewind what the conversation knows
     if (m.result) { m.status = 'done'; if (newest && m.result.context && Object.keys(m.result.context).length) chat.context = m.result.context; absorb(m.result.learn); }
     else { m.status = 'error'; m.error = m.error || 'The connection closed before an answer arrived.'; }
   } catch (e) {
-    if (e.name === 'AbortError') m.status = 'stopped'; else { m.status = 'error'; m.error = e.message === 'Failed to fetch' ? 'Could not reach the server. Check your connection and retry.' : e.message; }
+    // stopping a long run keeps what it had worked out so far: the last draft becomes the answer, marked as unfinished
+    if (e.name === 'AbortError') { m.status = 'stopped'; if (draft) m.result = draft; }
+    else { m.status = 'error'; m.error = e.message === 'Failed to fetch' ? 'Could not reach the server. Check your connection and retry.' : e.message; if (draft && !m.result) { m.result = draft; m.status = 'stopped'; } }
   }
+  prog.stop();
   state.abort = null;
   setBusy(false);
   fillBot(m);
@@ -525,8 +710,10 @@ async function init() {
   $('q').addEventListener('keydown', (e) => { if (e.key === 'Enter' && !e.shiftKey && !e.isComposing) { e.preventDefault(); ask(); } });
   $('stopBtn').addEventListener('click', () => { if (state.abort) state.abort.abort(); });
   for (const id of ['newChat', 'newChatTop']) $(id).addEventListener('click', () => { if (state.busy) return toast('Wait for the current answer or press stop'); newChat(); });
-  $('depthBtn').addEventListener('click', cycleDepth);
+  $('depthBtn').addEventListener('click', (e) => { e.stopPropagation(); toggleDepthMenu(); });
+  document.addEventListener('click', (e) => { if (depthMenu && !depthMenu.contains(e.target)) closeDepthMenu(); });
   renderDepth();
+  fetch('/api/status').then((res) => (res.ok ? res.json() : null)).then((st) => { if (st) state.status = st; }).catch(() => { /* the limits are then described with their defaults */ });
   $('menuBtn').addEventListener('click', openNav);
   $('scrim').addEventListener('click', closeNav);
   $('histSearch').addEventListener('input', (e) => { state.filter = e.target.value; renderChatList(); });
@@ -536,7 +723,7 @@ async function init() {
   $('modalClose').addEventListener('click', closeModal);
   $('modal').addEventListener('click', (e) => { if (e.target === $('modal')) closeModal(); });
   $('clearBtn').addEventListener('click', async () => { if (state.busy || !state.chat.messages.length) return; if (!confirm('Clear this conversation and its context?')) return; await idb.del('chats', state.chat.id); state.chats = state.chats.filter((c) => c.id !== state.chat.id); newChat(); });
-  document.addEventListener('keydown', (e) => { if (e.key === 'Escape') { closeDrawer(); closeModal(); closeNav(); } });
+  document.addEventListener('keydown', (e) => { if (e.key === 'Escape') { closeDepthMenu(); closeDrawer(); closeModal(); closeNav(); } });
   const stored = await idb.all('chats');
   state.chats = stored.map((c) => ({ id: c.id, title: c.title, updatedAt: c.updatedAt, text: c.messages.map((m) => m.text || (m.result && m.result.answer.text) || '').join(' ').slice(0, 4000).toLowerCase() })).sort((a, b) => b.updatedAt - a.updatedAt);
   newChat();

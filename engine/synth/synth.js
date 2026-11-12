@@ -111,7 +111,7 @@ function composeExtractive(env, { leadFilter = null, bullets = null, heading = '
   const topScore = env.top.score;
   // after a research run, statements that something is not yet known get a place of their own in the report, and sentences about how a paper was written are left out
   const wide = !!env.ctx.wide;
-  const plain = (s) => !wide || !(s.gapOnly || s.proc);
+  const plain = (s) => !wide || !((s.gapOnly === undefined ? s.gap : s.gapOnly) || s.proc);      // (the first draft is built before the answers' vocabulary is known: any "not yet known" sentence is then held back)
   if (wide) minRel = Math.min(minRel, part.answerType === 'reason' ? 0.3 : 0.4);
   let cands = ranked.sentences.filter((s) => s.score >= topScore * minRel && s.cov >= 0.3 && !/[?:]\s*$/.test(s.text) && plain(s));       // a sentence ending in a colon introduces something that would not be shown
   if (!cands.length) cands = ranked.sentences.filter((s) => s.score >= topScore * minRel && s.cov >= 0.3 && !/[?:]\s*$/.test(s.text));
@@ -347,7 +347,8 @@ function composeYesNo(env) {
       const items = [];
       for (const v of picks.sort((a, b) => order.indexOf(a.stance) - order.indexOf(b.stance))) { const sp = env.quote(v.s, { allowDangling: true }); if (sp) items.push({ spans: [span(`${label[v.stance]} — `, [], { strong: true }), sp] }); }
       if (items.length >= 2) {
-        const blocks = [para([span(verdict, [], { strong: true })]), { type: 'list', ordered: false, items }, note('How each source leans is read by rule from the wording of its most direct sentence (negations, and words such as “limited evidence” or “disputed”). It is a count of statements, not a judgement of who is right — read the passages.', tone)];
+        // the count as a block of its own, so that the interface can draw it (text-only readers get it from the sentence above)
+        const blocks = [para([span(verdict, [], { strong: true })]), { type: 'tally', sources: N, yes, no, qualified: mid }, { type: 'list', ordered: false, items }, note('How each source leans is read by rule from the wording of its most direct sentence (negations, and words such as “limited evidence” or “disputed”). It is a count of statements, not a judgement of who is right — read the passages.', tone)];
         return { blocks, claims: env.claims, stats: { directness: clamp(0.35 + 0.65 * direct[0].directCov), keyClaims: env.claims.length, corroborated: Math.max(env.corroborated, Math.min(items.length, Math.max(yes, no, mid)) - 1), conflicts: yes && no && Math.min(yes, no) >= 0.25 * N ? 1 : 0 }, lead: verdict, tally: { sources: N, yes, no, qualified: mid } };
       }
     }

@@ -42,7 +42,7 @@ check('common-sense answer is labelled and can be checked on the web', /can't fl
 const jokeMsg = dom.find($('thread'), '.msg').filter((m) => m.classList.contains('bot'))[1];
 const before = dom.find($('thread'), '.msg').length;
 await dom.find(jokeMsg, '.act').find((b) => /Search the web instead/.test(b.attrs['aria-label'] || '')).click(); await waitIdle();
-check('“Search the web instead” redoes that reply with web retrieval, in place', dom.find($('thread'), '.msg').length === before && dom.find(jokeMsg, '.activity').length === 1 && /Searched \d+ source/.test(dom.text(dom.find(jokeMsg, '.activity')[0])) && dom.find(jokeMsg, '.origin').length === 0, dom.text(dom.find(jokeMsg, '.activity-summary')[0] || jokeMsg).slice(0, 80));
+check('“Search the web instead” redoes that reply with web retrieval, in place', dom.find($('thread'), '.msg').length === before && dom.find(jokeMsg, '.activity').length === 1 && /\d+ search(?:es)? · read \d+ pages?/.test(dom.text(dom.find(jokeMsg, '.activity')[0])) && dom.find(jokeMsg, '.origin').length === 0, dom.text(dom.find(jokeMsg, '.activity-summary')[0] || jokeMsg).slice(0, 80));
 await ask('what is my name');
 check('redoing an earlier reply does not erase what the brain remembers', /Yuv/.test(dom.text(dom.find(lastBot(), '.answer')[0])), dom.text(dom.find(lastBot(), '.answer')[0]).slice(0, 80));
 $('newChat').click(); await new Promise((r) => setTimeout(r, 30));
@@ -51,7 +51,7 @@ $('newChat').click(); await new Promise((r) => setTimeout(r, 30));
 await ask(process.argv[2] || 'Who invented the telephone?');
 bot = lastBot();
 check('answer rendered', dom.find(bot, '.answer').length === 1, dom.text(dom.find(bot, '.answer')[0]).slice(0, 110));
-check('activity summary shows real work', /Searched \d+ source/.test(dom.text(dom.find(bot, '.activity')[0])), dom.text(dom.find(bot, '.activity-summary')[0]));
+check('activity summary shows real work', /\d+ search(?:es)? · read \d+ pages?/.test(dom.text(dom.find(bot, '.activity')[0])), dom.text(dom.find(bot, '.activity-summary')[0]));
 check('all six stages reported done', dom.find(bot, '.stage').filter((s) => s.classList.contains('done')).length === 6);
 check('citation chips present', dom.find(bot, '.cite').length > 0, `${dom.find(bot, '.cite').length} chips`);
 check('source cards present', dom.find(bot, '.src').length > 0, dom.find(bot, '.src').map((s) => dom.text(s).slice(0, 30)).join(' | ').slice(0, 120));
@@ -88,9 +88,66 @@ check('calculator answer without retrieval', /84/.test(dom.text(lastBot())) && d
 // stop mid-retrieval
 $('q').value = 'Why is the sky blue?'; const p = $('askForm').fire('submit'); await new Promise((r) => setTimeout(r, 250)); await $('stopBtn').click(); await p; await waitIdle();
 check('stop cancels retrieval', /Stopped/.test(dom.text(lastBot())), dom.text(lastBot()).slice(0, 70));
+// --- depth: the menu beside the message box
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+const bar = $('composerBar');
+const pickDepth = async (name) => { await $('depthBtn').click(); const menu = dom.find(bar, '.depth-menu')[0]; const b = menu && menu.children.find((x) => x.tagName === 'BUTTON' && dom.text(x).startsWith(name)); if (b) await b.click(); return menu; };
+await $('depthBtn').click();
+let menu = dom.find(bar, '.depth-menu')[0];
+check('depth menu offers five depths, each with what it does', !!menu && menu.children.filter((x) => x.tagName === 'BUTTON').length === 5 && /full research run/i.test(dom.text(menu)) && /Decides by itself/.test(dom.text(menu)), menu ? menu.children.filter((x) => x.tagName === 'BUTTON').map((x) => dom.text(x).split(' ')[0]).join(' · ') : 'no menu');
+await menu.children.find((x) => x.tagName === 'BUTTON' && dom.text(x).startsWith('Deep')).click();
+check('choosing a depth closes the menu and shows on the chip', dom.find(bar, '.depth-menu').length === 0 && dom.text($('depthLabel')) === 'Deep', dom.text($('depthLabel')));
+// --- a deep search on a yes/no question: counted sources, what was read, everything classified
+$('q').value = 'Is intermittent fasting good for weight loss?'; await $('askForm').fire('submit'); await waitIdle(120000);
+bot = lastBot();
+check('deep search states what it read', dom.find(bot, '.run-line').length === 1 && /Deep search · \d+ rounds? · \d+ pages? read/.test(dom.text(dom.find(bot, '.run-line')[0])), dom.text(dom.find(bot, '.run-line')[0] || bot).slice(0, 150));
+check('yes/no question: the sources are counted and drawn as a bar', dom.find(bot, '.tally').length === 1 && /independent sources, \d+ leans? yes/.test(dom.text(dom.find(bot, '.answer')[0])), dom.text(dom.find(bot, '.answer')[0]).slice(0, 150));
+check('everything found is summarised with real counts', dom.find(bot, '.overview').length === 1 && /\d+\s*documents/.test(dom.text(dom.find(bot, '.ov-nums')[0] || bot)) && dom.find(bot, '.ov-row').length >= 4, dom.text(dom.find(bot, '.ov-nums')[0] || bot).slice(0, 140));
+await dom.find(dom.find(bot, '.overview')[0], 'button').find((b) => /Explore all/.test(dom.text(b))).click();
+const listed = dom.find($('drawerBody'), '.ex-item').length;
+check('the explorer lists the documents with their classification', dom.find($('drawerBody'), '.fchip').length >= 8 && listed >= 20 && /Kind of source/.test(dom.text($('drawerBody'))) && /Reliability tier/.test(dom.text($('drawerBody'))), `${dom.find($('drawerBody'), '.fchip').length} filter chips, ${listed} documents shown`);
+const chip = dom.find($('drawerBody'), '.fchip').find((c) => /abstract or summary only/.test(dom.text(c))) || dom.find($('drawerBody'), '.fchip')[0];
+await chip.click();
+check('choosing a class filters the list', dom.find($('drawerBody'), '.ex-item').length < listed && dom.find($('drawerBody'), '.ex-item').length > 0 && /of the \d+ listed documents match/.test(dom.text(dom.find($('drawerBody'), '.ex-count')[0])), dom.text(dom.find($('drawerBody'), '.ex-count')[0]));
+// --- a research run asked for in words, with the depth back on Auto
+await pickDepth('Auto');
+$('q').value = 'Do deep research on the health effects of microplastics';
+const pr = $('askForm').fire('submit');
+let sawProgress = '', sawDraft = false;
+for (const tR = Date.now(); Date.now() - tR < 240000;) {
+  await sleep(150);
+  if ($('stopBtn').hidden) break;
+  const b = lastBot(), rp = dom.find(b, '.research-progress')[0], d = dom.find(b, '.draft')[0];
+  if (rp && !rp.hidden && /\d+ pages? read/.test(dom.text(rp))) sawProgress = dom.text(rp).slice(0, 110);
+  if (d && !d.hidden && dom.find(d, '.answer').length) sawDraft = true;
+}
+await pr; await waitIdle();
+bot = lastBot();
+const runText = dom.text(dom.find(bot, '.run-line')[0] || bot);
+const pagesRead = Number((runText.match(/([\d,]+) pages? read/) || [])[1]?.replace(/,/g, '') || 0);
+const docsFound = Number((dom.text(dom.find(bot, '.ov-nums')[0] || bot).match(/([\d,]+)\s*documents/) || [])[1]?.replace(/,/g, '') || 0);
+check('“do deep research on …” starts a research run and the topic is taken from it', /Research run/.test(runText) && /Understood as:\s*The health effects of microplastics/i.test(dom.text(dom.find(bot, '.understood')[0] || bot)), runText.slice(0, 170));
+check('research run: live counters while it reads', !!sawProgress, sawProgress);
+check('research run: a draft answer is shown before the end', sawDraft);
+check('research run: many pages read, hundreds of documents classified', pagesRead >= 40 && docsFound >= 200, `${pagesRead} pages read, ${docsFound} documents`);
+check('research run: a report with sub-topic sections', dom.find(bot, '.subtopic').length >= 3, dom.find(bot, '.subtopic').map((x) => dom.text(x)).join(' · '));
+const moreBtn = dom.find(bot, '.more')[0];
+const citesBefore = dom.find(bot, '.cite').length;
+if (moreBtn) await moreBtn.click();
+// (whether any statement has more than three supporting sources depends on the material; when one has, the rest must open)
+check('a statement backed by more sources than fit shows the rest on request', !moreBtn || dom.find(bot, '.cite').length > citesBefore - 1, moreBtn ? `${dom.text(moreBtn)} expanded to ${dom.find(bot, '.cite').length - citesBefore + 1} sources` : 'no statement had more than three sources in this run');
+// --- stopping a research run keeps the draft built so far
+$('q').value = 'Do deep research on solid-state batteries';
+const ps = $('askForm').fire('submit');
+for (const tS = Date.now(); Date.now() - tS < 90000;) { await sleep(150); if ($('stopBtn').hidden) break; const d = dom.find(lastBot(), '.draft')[0]; if (d && !d.hidden && dom.find(d, '.answer').length) break; }
+await $('stopBtn').click(); await ps; await waitIdle();
+check('stopping a research run keeps the draft, marked as unfinished', /Stopped early/.test(dom.text(lastBot())) && dom.find(lastBot(), '.answer').length === 1 && dom.find(lastBot(), '.cite').length > 0, dom.text(lastBot()).slice(0, 120));
+await ask('can you do deep research?');
+check('asked about it, the brain explains research runs itself', /Research under Depth/.test(dom.text(dom.find(lastBot(), '.answer')[0])) && dom.find(lastBot(), '.activity').length === 0, dom.text(dom.find(lastBot(), '.answer')[0]).slice(0, 90));
 await $('openSettings').click(); await new Promise((r) => setTimeout(r, 300));
 check('settings lists providers and memory controls', /Search depth/.test(dom.text($('modalBody'))) && /Wikipedia/.test(dom.text($('modalBody'))) && /Clear saved knowledge/.test(dom.text($('modalBody'))));
 await $('openAbout').click();
+check('about page says how research runs work and what their numbers mean', /Deep search and research runs/.test(dom.text($('modalBody'))) && /never as a page read/.test(dom.text($('modalBody'))) && /a ceiling, not a promise/.test(dom.text($('modalBody'))));
 check('about page states there is no language model, explains the brain and credits its open data', /no large language model/i.test(dom.text($('modalBody'))) && /not conscious/.test(dom.text($('modalBody'))) && /ConceptNet 5/.test(dom.text($('modalBody'))) && /WordNet/.test(dom.text($('modalBody'))));
 check('history lists all three conversations', dom.find($('chatList'), '.chat-item').length === 3);
 $('histSearch').value = 'zzzz'; await $('histSearch').fire('input', { target: $('histSearch') });
