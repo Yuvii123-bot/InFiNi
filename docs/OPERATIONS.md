@@ -5,7 +5,7 @@
 Node.js ≥ 18.17 (developed and measured on 20.x). Nothing else: there are **no npm dependencies** and no build step.
 The built-in brain's data files (`engine/brain/data/`, 4 MB) are prebuilt and part of the repository.
 Outbound HTTPS must be allowed. No API key is required and no LLM key exists.
-Memory: about 115 MB resident once the brain's data is loaded (about 50 MB before the first chat message).
+Memory: 115 to 120 MB resident once the brain's data is loaded (about 50 MB before the first chat message).
 
 ## Run locally
 
@@ -86,7 +86,7 @@ Serverless notes: rate limiting and the page cache are per warm instance (best e
 When only the Vercel API is available (inline text files, no Git, no CLI), the source bundle cannot be sent directly. The procedure used:
 
 1. Project settings: framework preset `vite`, build command `node bootstrap.mjs`, install command `echo no-install-needed`, output directory `public`; environment variables `INFINI_CONTACT`, `TRUST_PROXY=1` (plus optional keys).
-2. `tar czf bundle.tgz api server engine public scripts package.json` and note its SHA-256. With the brain's data the bundle is about 1.3 MB; the upload relay accepts 2 MB.
+2. `tar czf bundle.tgz api server engine public scripts package.json` and note its SHA-256. With the brain's data the bundle is 1.35 MB; the upload relay accepts 2 MB.
 3. Deploy a temporary stage to production: a placeholder page plus a key-protected upload relay function; `PUT` the bundle to it. (Only production domains are public; preview URLs sit behind Vercel’s login.) The site shows the placeholder for about a minute.
 4. Deploy the real stage: a single `bootstrap.mjs` that downloads the bundle, verifies the SHA-256, unpacks it and runs `scripts/vercel-build.mjs` (Build Output API v3: static files + one streaming function). The relay does not exist in this deployment; delete the temporary one.
 

@@ -1,93 +1,153 @@
-# INFINI AI 1.2.0 — full report
+# INFINI AI 2.0.0 — full report
 
-Live site: **https://infini-ai.vercel.app** · released 12 November 2026 · Vercel deployment `dpl_8p76xdR7TCdRrgfxGnyrNgmtGvmF`
+Live site: **https://infini-ai.vercel.app** · released 12 November 2026 · Vercel deployment `dpl_BLF21bHZvmPoU812QT8EpsJuQ6BZ`
 
-This report covers what was built, how, what works (with the evidence), why it is built this way, and what does not work.
+The brief for this round was to give INFINI AI its own brain, so that it can hold a conversation instead of sending
+"how are you" to a search engine, and still contain no language model. This report covers what was built, how, what
+works (with the evidence), why it is built this way, and what does not work.
 
 ## 1. In short
 
-* **Tavily is now the main web search.** Your key is stored as an encrypted setting on Vercel and is used for every web question on the live site. It never appears in the code, the repository or any response.
-* **Answers are better.** On the 36-question benchmark the expected fact is in the opening of 36 of 36 answers (34 before this round). Seven kinds of wrong or weak answers found by live testing were fixed.
-* **New: related questions** under each answer, built by rule from the pages that were read.
-* **New logo**: a drawn infinity ribbon instead of the “∞” text character.
-* **New interface**: fits a phone screen, real icons, redesigned composer, source cards and actions.
-* Tests: 25 of 25 unit tests, 20 of 20 interface checks, 20 of 20 security checks.
+* **INFINI AI can now talk.** Greetings, small talk, questions about itself, feelings, jokes, riddles and small games are
+  answered at once by a built-in brain, without a web search.
+* **It remembers the conversation.** Tell it your name, where you live or what you like, and it uses that later in the
+  same chat. This memory stays on your device.
+* **It has everyday common sense and a few exact skills**: "can a penguin fly", the time and date in your time zone,
+  sums, dice, coins.
+* **It understands casual typing and typos.** "heyyy hw r u" is read as "hey how are you". A misspelled question such
+  as "what si a quantum conputer" is now searched as "what is a quantum computer".
+* **It is honest about what it is.** The brain is rules and prepared data. It is not a language model, it is not
+  conscious, and it has no feelings; it says so when asked. It never invents a fact: anything that needs knowledge still
+  goes to the live web and comes back with sources.
+* **Web answers are unchanged and were measured again**: 36 of 36 on the benchmark.
+* Tests on the released code: 45 of 45 unit tests, 33 of 33 interface checks, 20 of 20 security checks.
+* **One thing I still need from you:** the name to give when someone asks "who made you" (see section 7).
 
-## 2. What INFINI AI is and how an answer is made
+## 2. What INFINI AI is now
 
-INFINI AI answers questions from pages it retrieves at that moment. It contains no language model and calls none. Every sentence in an answer is either copied from a source page or is a fixed template filled with cited facts.
+Two parts, neither of which is a language model:
 
-| Stage | What happens | Code |
+| Part | Answers | How |
 |---|---|---|
-| 1. Understanding | Rules classify the question (who, why, how-to, compare, yes/no, news, prediction …), find its subject and resolve follow-ups such as “he” or “that”. | `engine/nlp/` |
-| 2. Planning | The question becomes a set of lookups for different sources. | `engine/plan/` |
-| 3. Searching | Wikipedia, Wikidata, a web search chain, news feeds and specialist sources (MDN, Stack Exchange, arXiv, Hacker News) are queried in parallel. | `engine/providers/` |
-| 4. Reading | Each page is fetched through a guarded HTTP client and reduced to headings, paragraphs, lists, tables and code. | `engine/net/`, `engine/extract/` |
-| 5. Comparing | Passages and sentences are ranked; copies, agreement and contradictions between sources are detected. | `engine/rank/`, `engine/evidence/` |
-| 6. Constructing | A composer for the question type assembles the answer from the best sentences, each with its citation, and computes a confidence level by fixed rules. | `engine/synth/` |
+| The built-in brain (`engine/brain/`) | Conversation, questions about itself, what you told it, everyday common sense, clock and calendar, small sums, jokes and games | Matches your message against 49,511 stored phrasings and picks one of 898 replies written in advance, fills in what it remembers, or runs an exact function. 220,406 stored common-sense relations. |
+| The web pipeline (the rest of `engine/`) | Everything that needs knowledge | As before: understands the question, searches, reads the pages, compares them, and builds an answer from sentences it found, each with its source. |
 
-Around the engine: a small HTTP server (`server/`), a serverless entry for Vercel (`api/`), a command-line tool (`cli.js`) and the browser app (`public/`), which is an installable web app with chat history stored on the device. The whole project is plain Node.js with **zero npm dependencies** and no build step.
+Every message goes to the brain first. It either replies itself or hands the message to the web pipeline.
 
-Version history:
+| What you type | What happens |
+|---|---|
+| "hi", "how are you", "tell me a joke" | The brain replies in well under a second, with suggestion chips. |
+| "my name is Yuv" … "what is my name?" | The brain stores it and recalls it ("Your name is Yuv"). |
+| "can a penguin fly" | "No. A penguin can't fly. It can swim, dive and walk, though." Labelled as built-in common sense, with a button to check it on the web. |
+| "who invented the telephone" | Goes to the web pipeline; a cited answer comes back. |
+| "thanks! who invented the telephone?" | "You're welcome!" followed by the cited answer. |
+| "are you sure?" after a web answer | "Fairly sure. That answer scored high confidence (76%) and rests on 4 sources …" with the real figures. |
+| "write an essay on global warming" | "I can't write an essay for you. I have no language model …" and an offer to gather cited key points instead. |
+| "set an alarm for 6 am" | "That one's outside my reach: I can't control your phone, apps or anything in the real world", and an offer to find instructions. |
+| "what si a quantum conputer" | Shown as "Understood as: What is a quantum computer?" with a "Search as typed" link, then answered. |
 
-| Version | Content | Benchmark (fact in the opening) |
+The detailed description is in [`BRAIN.md`](BRAIN.md).
+
+## 3. What was built in this round, and how
+
+### 3.1 The brain's logic
+
+A message passes through these steps, and the first one that produces a result wins:
+
+1. **Normalise** the text: lower case, contractions, chat shorthand, stretched letters ("heyyyy"), emoji.
+2. **Safety**: crisis wording gets a supportive reply and a helpline search for the user's country; clearly harmful
+   and sexual requests are declined.
+3. **Pending question**: if the brain asked something last turn ("How are you?"), the message is tried as the answer.
+4. **Exact phrase**: the message is one of the stored phrasings.
+5. **Feelings**: "i am / i feel …" with a feeling word.
+6. **Slot rules**: 246 patterns with a variable part ("my name is {x}", "time in {x}"), each with a handler that may decline.
+7. **Common sense**: a question about an everyday thing the fact base knows.
+8. **Triage**: everything else is sorted into "send to the web", "I can't do that", "I don't know that about myself"
+   or, for a short first-person statement only, a small-talk remark.
+
+Triage is deliberately conservative, because the worst failure for this design is a chat layer that talks over a
+question it should have looked up.
+
+### 3.2 The data
+
+| File | Content | Where it comes from |
 |---|---|---|
-| 1.0.0 | Engine, server, app, tests, first Vercel launch | 29 of 36 |
-| 1.1.0 | Free web-search providers (Firecrawl keyless; Tavily adapter written but untested), 12 answer fixes | 34 of 36 |
-| 1.2.0 | This round | 36 of 36 |
+| `dialogue.json` (1.0 MB) | 280 situations, 49,511 phrasings, 898 replies, jokes, riddles, stories | Every reply was written for this project. 29,151 phrasings were written for it too; 20,360 example phrasings come from two open datasets (Microsoft Personality Chat, CLINC150). |
+| `commonsense.json` (2.8 MB) | 220,406 relations about everyday things | A hand-written core of 362 things with 4,437 facts, plus "is a kind of" links, synonyms and opposites from WordNet 3.1, and filtered statements from ConceptNet 5.7. |
+| `vocab.txt`, `spell-guard.txt` | 31,460 known words; 4,294 real words the spelling repair must leave alone | A public word-frequency list and WordNet. |
 
-## 3. What was done in this round, and how
+How the common-sense data was kept trustworthy: the hand-written core always wins and is the only part answered
+plainly; long-tail answers are hedged, labelled as not checked on the web, and offer a search; crowd statements are used
+only with enough agreement, and crude or personal ones are dropped; anything safety-relevant ("can dogs eat chocolate")
+goes to the web.
 
-### 3.1 Tavily
+The licences are honoured: credits are in the app under About and in `engine/brain/data/NOTICE.md`, and the files
+derived from share-alike sources are marked CC BY-SA 4.0.
 
-* The key is a *sensitive* environment variable (`TAVILY_API_KEY`, production) on the Vercel project. It is read only by the server.
-* Search order is now `SearXNG → Tavily → Brave → Firecrawl → DuckDuckGo → Mwmbl → Marginalia → Wiby`. The first provider that returns at least three results is used. SearXNG and Brave are not configured, so Tavily answers first.
-* Tavily is asked for **links only** (`include_answer: false`). INFINI AI then fetches and reads every page itself, so the answer text never comes from Tavily.
-* If the key is rejected, Tavily rests for 15 minutes; if the monthly allowance is used up, it rests for 6 hours. In both cases the next provider takes over and the research panel shows what happened.
-* The security audit now sends a question with a deliberately rejected key and inspects the whole answer stream: an answer still arrives, and no key appears anywhere.
+### 3.3 Memory
 
-### 3.2 Answer quality
+The brain keeps a small record per conversation: name, age, place, likes, dislikes, short notes, what it asked last and
+which replies it has already used. It travels with the conversation, is stored on your device, and a new chat starts
+empty. The server stores nothing. Because it comes back from the browser, the server rebuilds it field by field on every
+message and treats it as untrusted input.
 
-Each item was reproduced live, fixed, and checked again.
+### 3.4 What it says about itself
 
-| What went wrong | Cause | Fix |
-|---|---|---|
-| “What does the map method do in JavaScript?” opened with a detail about chaining | Any sentence with an action verb scored the same; MDN’s defining paragraph was not extracted at all | “What does X do” is now its own question form. The sentence that defines X near the top of X’s own page is preferred. The extractor keeps opening paragraphs that sit in a page header beside the body. |
-| “What does the liver do?” opened with “The liver is also …” | Continuation sentences were allowed as openings | Sentences that lean on earlier text (“… is also …”, “If that …”) cannot open an answer. |
-| “How do I build an AI agent?” gave steps for making a phone call | The step list came from a page about agents but under an unrelated heading | The list’s own heading must match the action asked. Steps written as separate paragraphs (“1. …”, “2. …”) or as one list per item are joined back into one list. |
-| “Is Pluto a planet?” did not lead with “dwarf planet” | Bullets were in ranking order | The defining sentence of the subject’s own page comes first. |
-| “Who will win the 2040 World Cup?” was answered with an unrelated sentence once search results got richer | Future-tense “who” questions were treated as ordinary facts | Every future-tense question goes through the prediction rules. If a future year is named, the quoted sentence must mention it; otherwise the answer is “I could not verify this”. |
-| “When will the next solar eclipse happen?” quoted “April 8, 2024” | Old forecasts were not recognised | A forecast that names only past years is dropped. |
-| Key points contained tag lines, product pitches and half sentences | No filter for them | Keyword runs, sentences ending in a colon, headline fragments and sentences about a different product are no longer used. |
+You asked for an assistant with its own brain. What I built is honest about being a program:
 
-### 3.3 Related questions
+* Asked "are you conscious", it says it is not ("No, I'm not conscious …", or "Not in the way you are. I have no inner
+  experience."). Asked about feelings, it says it has none.
+* It does have a working description of itself: what it is, what it can and cannot do, how it works, whether its systems
+  are healthy, and fixed principles it follows, such as never inventing a fact. It can talk about all of that.
+* Asked whether it is ChatGPT or another model, it says no and explains how it differs.
+* It does not claim abilities it lacks. Requests to write, translate, draw, or act on your phone get a plain refusal and
+  an offer of what it can do instead.
 
-Under an answer the app now offers up to three follow-ups. They are fixed question templates (“How does … work?”, “What types of … are there?”). A template is offered only when a page **about the subject** that was just read has a top-level section on that aspect, or when the answer named a person or place. Hovering shows which section the suggestion came from. Nothing is generated.
+### 3.5 Spelling repair
 
-### 3.4 Logo
+The web pipeline matches words literally, so a typo used to ruin a search ("si" was read as Slovenia). A message on its
+way to the web now has its certain typos repaired. The rule is narrow on purpose, because a wrong "correction" is worse
+than a typo: it changes shorthand and slips only at the start of a question, a listed set of about 190 common
+misspellings, and longer non-words that are one swapped, missing or doubled letter away from exactly one common word.
+Names, real words, short words and anything ambiguous are left as typed. The app always shows what was understood and
+offers "Search as typed".
 
-* The old logo was the text character “∞” on a purple square, so it depended on each device’s font.
-* The new mark is a drawn infinity ribbon in which one strand passes over the other. It is two SVG strokes with a masked gap at the crossing.
-* Colours: cyan `#27C3F0` → indigo `#4458F5` → violet `#7C4DFF`.
-* Files in `public/icons/`: `icon.svg` (white mark on the gradient tile), `mark.svg` (gradient mark alone, used beside each answer), PNG icons at 192 and 512 px, a maskable 512 px icon with a safe margin for Android, and a 180 px Apple touch icon. The PNGs were rendered from the SVG with Chromium and compressed (4–39 kB).
+### 3.6 The app
 
-### 3.5 Interface
+* Chat replies show at once, with a small label saying where they came from (built-in memory, a built-in skill, built-in
+  common sense) and suggestion chips for a natural next message.
+* Every chat reply has **Search the web instead**; a repaired spelling has **Search as typed**.
+* Typing dots while a reply is prepared; the composer hint and the About page now describe both parts, and About lists
+  the data credits.
+* The command-line tool (`node cli.js "how are you"`) uses the brain as well.
+* Unchanged on purpose: no framework, no web fonts, no inline scripts or styles, the same strict content security policy.
 
-* **Welcome screen** fits a 390 × 844 phone without scrolling (before, the logo and headline were cut off). Suggestions are two columns on phones and three on desktop.
-* **Icons** are inline SVG drawn by the app (23 icons). Before, they were Unicode symbols and emoji; the copy symbol showed as an empty box.
-* **Composer** is a two-row card with a search-depth chip (tap to switch Fast, Balanced, Deep) and a clear focus ring. A “new chat” button was added to the phone top bar.
-* **Answers**: the assistant’s name and mark sit above the text instead of beside it, which gives the text about 42 px more width on a phone. After an answer arrives the view shows the question and the start of the answer (before, it jumped to the end).
-* **Sources** have a count header and coloured initials; actions have icons (labels are hidden on narrow phones but kept for screen readers).
-* **Colours and type** were rebuilt on a small set of tokens with one accent colour; the dark theme was re-tuned.
-* Unchanged on purpose: no framework, no web fonts, no inline scripts or styles, same strict content security policy.
+Screenshots of this version are in `docs/screenshots/`.
 
-Checked in Chromium at 360, 390, 820 and 1280 px: no horizontal overflow. Screenshots are in `docs/screenshots/`.
+### 3.7 Problems found by testing, and fixed
 
-**Correction:** in the last report I said screenshots were clipped by about 15 px at the right edge and that the cause was unconfirmed. It was the screenshot service. Real Chromium shows no overflow, in the old version either.
+I typed more than 500 messages at the brain during development and ran 1,200 utterances from a public dataset through it.
+The main defects found, all fixed and most now covered by a test:
 
-### 3.6 Release
+* A catch-all "chatty" reply answered 194 of the 1,200 out-of-scope utterances. It was replaced by the explicit triage.
+* "how do you peel a mango" was read as a question about the assistant.
+* A question the brain had asked swallowed the next message: "thanks" was stored as a place, and during a riddle "who
+  invented the telephone" was judged a wrong guess.
+* "again" always produced a joke; "ram ram" (a greeting) became "ram" (a name); "tell me some fake news" was taken as
+  an insult.
+* A saved answer reused in another chat replaced that chat's memory.
+* "what si a quantum conputer" returned "I could not verify this".
+* The first key point of that answer was an editorial aside, "(Note: This article describes …".
+* "are you open source" and "do I have to pay" were answered with the version number, and "do you have friends" with
+  hobbies. Each now has its own answer. After the first release of this version I found one more on the live site: "do I
+  have to pay" could be answered "Yes, I'm free to use". I fixed the wording and released again four minutes later.
 
-The project is deployed without a Git repository, in two stages: a temporary deployment holds the source bundle in memory, then the real deployment downloads it, verifies its SHA-256 and builds. The temporary deployment is deleted afterwards. This was done twice in this round (the second time for the keyword-line fix). The steps are in `docs/OPERATIONS.md`.
+### 3.8 Release
+
+The project is still deployed without a Git repository, in two stages (a temporary deployment holds the source bundle,
+the real one downloads it, checks its SHA-256 and builds). This was done twice in this round. The site showed a
+placeholder for under a minute each time. The bundle grew from 238 kB to 1.35 MB because it now carries the brain's data.
+Before each release the built function was run locally exactly as the platform calls it.
 
 ## 4. What is working, and how I know
 
@@ -95,67 +155,128 @@ The project is deployed without a Git repository, in two stages: a temporary dep
 
 | Check | Result |
 |---|---|
-| Unit tests (`npm test`) | 25 of 25 |
-| Interface smoke test against live retrieval (`npm run test:ui`) | 20 of 20 |
-| Security audit (`npm run audit:security`): SSRF, limits, injected page text, secrets, input validation, headers, rate limit | 20 of 20 |
+| Unit tests (`npm test`): 25 for the engine, 20 for the brain | 45 of 45 |
+| Interface smoke test, real client against a local server with live retrieval (`npm run test:ui`) | 33 of 33 |
+| Security audit (`npm run audit:security`) | 20 of 20 |
+| Real Chromium at 360, 390, 820 and 1280 px, light and dark | no horizontal overflow, no console errors |
 
-**Benchmark, 36 live questions**
+**Does the brain keep to its job?**
 
-| Run | Expected fact in the opening | Avoided unsupported answers | Valid citations | Median time |
+| Check | Result |
+|---|---|
+| 1,200 out-of-scope utterances from a public dataset (knowledge questions and device commands) | 1,079 go to the web. Of the 121 the brain answers, 70 are honest "I can't do that on your device or accounts" refusals. |
+| The web benchmark's 39 questions | 38 go to the web unchanged. "Is Pluto a planet?" is answered from the hand-written fact base. |
+| Spelling repair on 23,700 utterances from the same dataset | 51 changed, each read by hand: 37 corrections, 14 shorthand expansions, none harmful. |
+
+**Web benchmark, 36 live questions, Tavily enabled, one run**
+
+| Version | Expected fact in the opening | Avoided unsupported answers | Valid citations | Median time |
 |---|---|---|---|---|
-| 1.1.0, no Tavily | 34 (94%) | 94% | 98% | 1.7 s |
-| 1.2.0 with Tavily, first run | 35 (97%) | 97% | 98% | 2.7 s |
-| 1.2.0 with Tavily, after the prediction fix | 36 (100%) | 100% | 98% | 1.4 s |
-| 1.2.0 as released (re-run on the final code) | 36 (100%) | 100% | 98% | 1.4 s |
+| 1.2.0 | 36 (100%) | 100% | 98% | 1.4 s |
+| 2.0.0 | 36 (100%) | 100% | 98% | 2.7 s |
 
-Read this figure with care. The 36 questions were written during this project, they are scored by keyword match, and the engine was tuned on the ones that failed. The result shows that these 36 cases pass; accuracy on new questions is lower.
+The pipeline made the same searches as in 1.2.0, and the brain adds under a millisecond to a web question. The run was
+slower across all items. The first 1.2.0 run of the day was also 2.7 s and immediate re-runs were 1.4 s, so I believe the
+difference is the search service answering repeated queries faster, but I did not prove that. As before, read the 36 of
+36 with care: the questions were written during this project and the engine was tuned on them.
+
+**Speed and memory** (build sandbox, 2 CPUs)
+
+| Measure | Result |
+|---|---|
+| First chat reply after a cold start | about 155 ms (the data is loaded on first use) |
+| Later chat replies | about 0.4 ms on the server |
+| On the live site, including the network | 110 to 330 ms per chat reply, measured from the sandbox |
+| Server memory | 53 MB idle, about 120 MB once all brain data is loaded (1.x: about 50 MB idle, 109 MB after six questions) |
 
 **Checks on the live site after release**
 
-* `/api/health` reports 1.2.0; `/api/status` lists Tavily as configured.
-* “What does the map method do in JavaScript?” → MDN’s definition, high confidence, Tavily used (8 results), under 1 second.
-* “How do I build an AI agent?” → six steps from Coursera, Tavily used twice.
-* “Who will win the 2040 World Cup?” → “I could not verify this”.
-* “Who invented the telephone?” → answer from Wikidata and Wikipedia with related questions.
-* The key was searched for in every response body and public file: not present.
-* Security headers are unchanged; all icons and the manifest load.
+* `/api/health` reports 2.0.0; `/api/status` reports the brain's data (280 situations, 49,511 phrasings, 898 replies,
+  220,406 facts) and Tavily as configured.
+* In real Chromium against the live site, phone size: "hi", "how are you", "my name is Yuv", "what is my name?" →
+  "Your name is Yuv …". No console errors, no overflow.
+* "what si a quantum conputer" → "Understood as: What is a quantum computer?", high confidence (76%), 4 sources.
+* "thanks! who invented the telephone?" → "You're welcome!" and the cited answer; "when was he born" → 3 March 1847.
+* "are you sure?" → the real confidence and source count of the previous answer.
+* "are you conscious" → "No, I'm not conscious …". "write an essay on global warming" → an honest refusal.
+* The time is given in the device's time zone ("Kathmandu time").
+* The rate limit works (the ninth message in two seconds was refused with "try again in 2 s").
+* The temporary upload address is gone; the Tavily key appears in no response or public file; security headers are
+  unchanged.
+
+The benchmark and the resource figures were measured on the code just before the last wording fix (two reply texts
+and one added situation). The unit, interface and security tests were run again on the final code.
 
 ## 5. Why it is built this way
 
-* **Extractive answers, no language model.** This was the brief. It means an answer cannot contain a claim that no source made, and every sentence can be traced.
-* **Search services supply links only.** If the provider wrote the answer, INFINI AI would be a wrapper around someone else’s model and could not cite sentences.
-* **A chain of interchangeable providers.** Free services rate-limit and change terms. With a chain, losing one costs quality, not availability.
-* **Zero dependencies and no build step.** It starts in about 50 ms, runs on a small serverless function, and has nothing to keep updated.
-* **Rules that say “I could not verify this”.** A system without a model cannot judge plausibility, so it must refuse when the retrieved text does not address the question.
-* **Icons and logo as SVG.** Symbols from fonts differ between devices and can be missing; drawings do not.
-* **Key on the server only.** A key in browser code can be read by anyone who opens the page.
+* **Rules and data, not a model.** That was the brief, and it has a real benefit: the brain cannot produce a sentence
+  nobody wrote, so it cannot make things up, and every reply can be traced to a line in a text file.
+* **Brain first, web for knowledge.** A fixed set of prepared replies can be made good for conversation. It cannot be
+  made good for knowledge, so the brain is not allowed to try.
+* **Conservative routing.** When in doubt the message goes to the web, and the user can override the choice in one tap
+  in either direction.
+* **Memory on the device.** The server keeps nothing about anyone, which keeps the privacy promise of earlier versions.
+* **Data built ahead of time and loaded on first use.** Start-up stays fast and chat replies take under a millisecond.
+* **Open datasets, filtered hard.** Writing 49,000 phrasings and 220,000 facts by hand was not possible; using open data
+  blindly gave absurd answers ("a spider is a frying pan"). So the hand-written part always wins and the rest is filtered
+  and hedged.
+* **Narrow spelling repair.** A first, looser version changed "venmo" to "venom". A repair that damages names is worse
+  than no repair.
 
 ## 6. What does not work, or is limited
 
-* **It is not a chatbot with reasoning.** It cannot write essays or code, give opinions, or combine facts beyond a few fixed patterns.
-* **Key points can still be loosely related.** Example seen live: an analogy sentence (“If you have ever climbed a mountain …”) as the first key point for the map question.
-* **Related questions are templates.** Some read stiffly (“What is the history of the AI agent?”), and none appear when the subject’s own page was not read.
-* **Many sites refuse automated reading** (for example openai.com, britannica.com, hopkinsmedicine.org). They are listed as unavailable in the research panel.
-* **Tavily’s free allowance is about 1,000 searches a month.** A question at Balanced depth uses one or two. When it runs out, answers fall back to Wikipedia and the keyless providers, roughly the 1.1.0 level. Testing in this round used an estimated 200 searches; Tavily’s own counter showed 21 when last checked and appears to lag.
-* **The “Redeploy” button on Vercel fails**, because the project has no Git repository. Changing a setting such as the key needs a new deployment by the two-stage procedure, or a connected repository.
-* **During a deployment** the site shows a placeholder for about a minute, and one request in that window returned a 404.
-* **Not tested:** a physical phone (only Chromium’s phone emulation), Safari on iPhone, installing as an app on Android in this version, and screen readers.
-* The stylesheet uses recent CSS (`color-mix`, `dvh`). Browsers older than about 2023 show a plainer page.
+* **It is not conscious and not intelligent the way a language model is.** It answers what was prepared. An unusual
+  phrasing of a chat message can fall through to the web or get a generic remark. It cannot write essays, poems or code,
+  translate, or reason about new situations.
+* **English only.** A few romanised Nepali and Hindi greetings are recognised ("namaste", "k cha"); real conversation
+  in those languages is not.
+* **Memory is simple.** It understands plain statements ("my name is", "i like", "i live in"). It does not follow
+  stories or corrections like "no, I meant my brother". It lasts for one chat and does not carry over to the next.
+* **It does not learn from conversations.** Improving it means editing the text files in `tools/brain/` and rebuilding.
+* **Common sense covers common things only**, and long-tail answers can be odd. They are labelled and can be checked on
+  the web.
+* **Spelling repair misses a lot on purpose**: slips in short words ("ocen"), slips that produce another real word, and
+  misspelled names ("eifel tower"). A name missing from its guard list could still be changed; "Search as typed" is the
+  way out.
+* **Nobody outside this project has tested the brain.** All its tests were written by me, on phrasings I chose, plus one
+  public dataset. I cannot say how natural it feels to real users, or how often it misunderstands them.
+* **The server needs more memory** than before (about 120 MB instead of 50 MB), and the deployment bundle is 1.35 MB.
+* Limits from earlier versions still apply: key points can be loosely related; many sites refuse automated reading;
+  Tavily's free allowance is about 1,000 searches a month (this round used one benchmark run and six live
+  questions, an estimated 50 to 80 searches); the "Redeploy" button on Vercel fails because there is no Git repository.
+* **Not tested:** a physical phone (only Chromium's phone emulation), Safari on iPhone, installing as an app on Android in
+  this version, and screen readers.
 
 ## 7. Suggested next steps
 
-1. **Replace the Tavily key.** It was pasted into a chat, so treat it as exposed: create a new key in the Tavily dashboard and send it, or set it in Vercel yourself. A new deployment is needed for it to take effect.
-2. **Connect a Git repository to the Vercel project.** After that, every push deploys by itself and “Redeploy” works.
-3. Try it on your phone and tell me what looks wrong; that is the one check I could not do.
+1. **Tell me the creator name.** When asked "who made you", it currently says "an independent developer". Give me the
+   name to use (up to 60 characters) and I will set it and release again.
+2. **Replace the Tavily key.** It was pasted into a chat earlier, so treat it as exposed. This is still open from the
+   last report.
+3. **Use it, and send me the conversations that go wrong.** That is the fastest way to improve the brain: each
+   misunderstanding becomes a new phrasing or reply in a text file.
+4. **Connect a Git repository to the Vercel project**, after which every push deploys by itself.
 
 ## 8. Where things are
 
 | Path | Content |
 |---|---|
-| `engine/` | The answer engine (see section 2). New in this round: `engine/synth/related.js`. |
-| `public/` | The app: `index.html`, `app.css`, `app.js`, `sw.js`, `icons/`. |
-| `server/`, `api/`, `scripts/` | HTTP server, Vercel entry, build script. |
-| `test/`, `bench/` | Unit tests, interface smoke test, benchmark, security audit; results in `bench/results/`. |
-| `docs/` | This report, `ARCHITECTURE.md`, `OPERATIONS.md`, `EVALUATION.md`, `screenshots/`. |
+| `engine/brain/` | The brain: `index.js` (conversation logic), `normalize.js`, `pattern.js`, `store.js`, `sense.js` (common sense), `skills.js`, `spell.js`, `lexicon.js`, and `data/` (built files and licence notices). |
+| `tools/brain/` | What you edit to change the brain: `intents/*.txt` (situations and replies), `fun.txt`, `commonsense/`, `spell-names.txt`; `build.mjs` rebuilds the data; `dev/chat.mjs` replays a conversation in the terminal. |
+| `engine/` (the rest) | The web answer engine, unchanged in structure. |
+| `public/`, `server/`, `api/`, `scripts/`, `cli.js` | The app, the HTTP server, the Vercel entry, the build script, the command-line tool. |
+| `test/`, `bench/` | `unit.test.js`, `brain.test.js`, `ui-smoke.mjs`; benchmark, resource and security scripts, with results in `bench/results/`. |
+| `docs/` | This report, `BRAIN.md`, `ARCHITECTURE.md`, `OPERATIONS.md`, `EVALUATION.md`, `screenshots/`. |
 
-Older deployments still on Vercel: `dpl_4Ubr4ZQ7sq7ZhSsq8m4ZWpkFHkJe` (first 1.2.0 build, replaced minutes later), `dpl_HeD2x6rQupfMajUoyLCZKNG47BbD` (1.1.0), `dpl_74nxdP6QiSzZT3TPqeXfjKk1NkMs` (1.0.0).
+Version history:
+
+| Version | Content | Benchmark (fact in the opening) |
+|---|---|---|
+| 1.0.0 | Engine, server, app, tests, first Vercel launch | 29 of 36 |
+| 1.1.0 | Free web-search providers, 12 answer fixes | 34 of 36 |
+| 1.2.0 | Tavily as the main web search, answer fixes, related questions, new logo and interface | 36 of 36 |
+| 2.0.0 | The built-in brain: conversation, memory, common sense, skills, spelling repair | 36 of 36 |
+
+Older deployments still on Vercel: `dpl_2M7BNZvZYcZkEAmv3XnTSvzsggpT` (first 2.0.0 build, replaced four minutes later),
+`dpl_8p76xdR7TCdRrgfxGnyrNgmtGvmF` (1.2.0), `dpl_4Ubr4ZQ7sq7ZhSsq8m4ZWpkFHkJe` (first 1.2.0 build),
+`dpl_HeD2x6rQupfMajUoyLCZKNG47BbD` (1.1.0), `dpl_74nxdP6QiSzZT3TPqeXfjKk1NkMs` (1.0.0).

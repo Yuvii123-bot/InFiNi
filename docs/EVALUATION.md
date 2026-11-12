@@ -40,6 +40,10 @@ or citations by design, so it is left out of the retrieval columns and reported 
 
 As before, this benchmark is a regression set, not an accuracy estimate.
 
+The benchmark and the resource figures were measured on the code just before the last wording fix of the release (two
+reply texts and one added situation in the brain's data). The unit, interface and security tests were run again on the
+final code.
+
 **Resources (`npm run bench:resources`, keyless providers)**
 
 | Measure | 1.x | 2.0.0 |
@@ -51,7 +55,7 @@ As before, this benchmark is a regression set, not an accuracy estimate.
 | Memory with all brain data loaded | not applicable | 120 MB RSS, of which 31 MB JavaScript heap |
 | Server memory after 6 web questions | 109 MB | 134 MB |
 | Code and data | engine 384 kB in 25 files | engine 660 kB in 35 files, plus 4,037 kB of brain data in 8 files |
-| Deployment bundle (gzip) | 238 kB | about 1.3 MB |
+| Deployment bundle (gzip) | 238 kB | 1.35 MB |
 | Client | 41 kB JS + 20 kB CSS | 52 kB JS + 31 kB CSS |
 
 **Problems found by testing in this round, and fixed.** Each was reproduced first.

@@ -179,7 +179,7 @@ byte-identical `commonsense.json`.
 | The web benchmark's 39 questions, routed through the brain | 38 go to the web unchanged; 1 ("Is Pluto a planet?") is answered from the hand-written fact base |
 | Cold start | 60 to 75 ms to load the engine, 150 to 180 ms for the first chat reply (loads the data), 65 to 75 ms for the first common-sense reply |
 | Later replies | about 0.5 ms on average on the server; a spelling check takes about 0.02 ms |
-| Memory | about 115 MB resident with all data loaded (about 50 MB before the brain); 24 MB of that is JavaScript heap |
+| Memory | 115 to 120 MB resident with all data loaded (about 50 MB before the brain); 24 MB of that is JavaScript heap |
 
 These are routing and behaviour checks written by the author of the code, on phrasings the author chose
 plus one public dataset. They show the brain does what it was built to do; they are not an independent
