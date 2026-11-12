@@ -19,9 +19,9 @@ import { canonicalUrl, domainOf, uniq, squash, capitalize } from '../util/text.j
 
 export const RESEARCH_BUDGET = {
   // widen: used by "auto" when the first round left a part of the question without direct evidence
-  widen: { maxPages: 36, maxMs: 30000, concurrency: 14, perDomain: 3, rounds: 2, queries: 4, aspects: 0, refArticles: 1, related: 0, abstracts: 30, fullTexts: 2, oaPages: 3, linkDepth: 1, batchPages: 30, batchMs: 11000, sections: 0, perSection: 0, keep: 8 },
-  deep: { maxPages: 70, maxMs: 45000, concurrency: 18, perDomain: 4, rounds: 3, queries: 6, aspects: 5, refArticles: 1, related: 0, abstracts: 60, fullTexts: 12, oaPages: 8, linkDepth: 1, batchPages: 40, batchMs: 13000, sections: 3, perSection: 2, keep: 8 },
-  research: { maxPages: 1500, maxMs: 170000, concurrency: 40, perDomain: 12, rounds: 12, queries: 10, aspects: 8, refArticles: 3, refLater: 3, refMax: 12, related: 2, abstracts: 800, fullTexts: 240, oaPages: 300, linkDepth: 3, batchPages: 170, batchMs: 20000, firstBatchMs: 8000, sections: 6, perSection: 3, keep: 7 },
+  widen: { scholarMs: 8000, maxPages: 36, maxMs: 30000, concurrency: 14, perDomain: 3, rounds: 2, queries: 4, aspects: 0, refArticles: 1, related: 0, abstracts: 30, fullTexts: 2, oaPages: 3, linkDepth: 1, batchPages: 30, batchMs: 11000, sections: 0, perSection: 0, keep: 8 },
+  deep: { scholarMs: 12000, maxPages: 70, maxMs: 45000, concurrency: 18, perDomain: 4, rounds: 3, queries: 6, aspects: 5, refArticles: 1, related: 0, abstracts: 60, fullTexts: 12, oaPages: 8, linkDepth: 1, batchPages: 40, batchMs: 13000, sections: 3, perSection: 2, keep: 8 },
+  research: { scholarMs: 16000, maxPages: 1500, maxMs: 170000, concurrency: 40, perDomain: 12, rounds: 12, queries: 10, aspects: 8, refArticles: 3, refLater: 3, refMax: 12, related: 2, abstracts: 800, fullTexts: 240, oaPages: 300, linkDepth: 3, batchPages: 170, batchMs: 20000, firstBatchMs: 8000, sections: 6, perSection: 3, keep: 7 },
 };
 // How many times one question may call each search service during the loop (on top of the first round).
 const CALLS = {
@@ -129,6 +129,9 @@ export async function runResearch(x) {
   const can = (id) => (calls[id] || 0) > 0 && isEnabled(id, x.cfg, x.off) && !providerCooling(id);
   const spend = (id) => { calls[id]--; };
   const ctxFor = (extra) => ({ ...x.pctx, ...extra });
+  // The scholarly indexes are free services whose answer times vary widely (Crossref: 1 to 11 s measured on one day).
+  // Their searches run beside the reading, so a long run can afford to wait for them; never past the time budget.
+  const scholarWait = () => Math.max(3000, Math.min(B.scholarMs || 9000, timeLeft() - 4000));
 
   /** One query on every search service that still has budget, all in parallel. */
   async function searchEverywhere(query, { aspect = null, scholarly = true, wiki = true, fresh = null } = {}) {
@@ -148,17 +151,17 @@ export async function runResearch(x) {
     }
     if (scholarly && can('openalex')) {
       spend('openalex');
-      jobs.push(runProvider('openalex', query, ctxFor({ limit: mode === 'research' ? 100 : 40, timeoutMs: 9000 }), x.logSearch).then((res) => (res ? takeAbstracts(res, aspect) : 0)));
+      jobs.push(runProvider('openalex', query, ctxFor({ limit: mode === 'research' ? 100 : 40, timeoutMs: scholarWait() }), x.logSearch).then((res) => (res ? takeAbstracts(res, aspect) : 0)));
     }
     // Crossref is asked as well: it needs no key, and OpenAlex without a key answers only while its small daily allowance lasts
     if (scholarly && can('crossref')) {
       spend('crossref');
-      jobs.push(runProvider('crossref', query, ctxFor({ limit: mode === 'research' ? 100 : 40, timeoutMs: 9000 }), x.logSearch).then((res) => (res ? takeAbstracts(res, aspect) : 0)));
+      jobs.push(runProvider('crossref', query, ctxFor({ limit: mode === 'research' ? 100 : 40, timeoutMs: scholarWait() }), x.logSearch).then((res) => (res ? takeAbstracts(res, aspect) : 0)));
     }
     if (scholarly && BIOMED.test(whole) && can('europepmc')) {
       spend('europepmc');
       // the abstracts of the wider literature come from OpenAlex; Europe PMC is asked for articles whose full text it can deliver
-      jobs.push(runProvider('europepmc', query, ctxFor({ limit: mode === 'research' ? 100 : 40, timeoutMs: 10000, openAccess: mode !== 'widen' }), x.logSearch).then((res) => (res ? takeAbstracts(res, aspect) : 0)));
+      jobs.push(runProvider('europepmc', query, ctxFor({ limit: mode === 'research' ? 100 : 40, timeoutMs: scholarWait(), openAccess: mode !== 'widen' }), x.logSearch).then((res) => (res ? takeAbstracts(res, aspect) : 0)));
     }
     if (TECHY.test(whole) && can('hackernews')) {
       spend('hackernews');
@@ -192,8 +195,8 @@ export async function runResearch(x) {
         let useOa = oaUp;
         for (let i = 0; i < dois.length && summary.abstracts < B.abstracts; i += 40) {
           const batch = dois.slice(i, i + 40);
-          let works = useOa ? await logged('openalex', 'OpenAlex (abstracts of cited works)', `${batch.length} DOIs cited by “${title}”`, () => openalex.byDoi(batch, ctxFor({ timeoutMs: 9000 }))) : null;
-          if (!works) { useOa = false; if (crUp) works = await logged('crossref', 'Crossref (abstracts of cited works)', `${batch.length} DOIs cited by “${title}”`, () => crossref.byDoi(batch, ctxFor({ timeoutMs: 9000 }))); }
+          let works = useOa ? await logged('openalex', 'OpenAlex (abstracts of cited works)', `${batch.length} DOIs cited by “${title}”`, () => openalex.byDoi(batch, ctxFor({ timeoutMs: scholarWait() }))) : null;
+          if (!works) { useOa = false; if (crUp) works = await logged('crossref', 'Crossref (abstracts of cited works)', `${batch.length} DOIs cited by “${title}”`, () => crossref.byDoi(batch, ctxFor({ timeoutMs: scholarWait() }))); }
           if (works) takeAbstracts(works);
         }
       }

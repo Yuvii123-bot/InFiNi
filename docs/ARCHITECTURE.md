@@ -1,6 +1,6 @@
 # INFINI AI — Architecture
 
-INFINI AI has no language model. Since version 2.0.0 it has two parts:
+INFINI AI has no language model. It has two parts (the brain since version 2.0.0; deep search and research runs, section 3a, since 3.0.0):
 
 * a **built-in brain** (`engine/brain/`) for conversation, memory within a chat, everyday common sense and a few exact
   skills. It is rules and prepared data. Full description: [`BRAIN.md`](BRAIN.md);
@@ -16,7 +16,7 @@ and cannot fly). It holds nothing about people, places, events or anything recen
 | Constraint | Consequence |
 |---|---|
 | No pretrained LLM anywhere (hosted or local) | Understanding, ranking and synthesis are explicit rules and statistics. Web answers are extractive: a sentence is shown only if it was found in a retrieved source, or it is a template filled with a structured fact that carries its own citation, or it is fixed connective text. Conversation replies are sentences written in advance, chosen by matching the message against stored phrasings; nothing is generated. |
-| 2–6 GB RAM devices, no GPU, slow networks | Server process ≈ 115–120 MB RSS with the brain's data loaded (≈ 50 MB before it is first used), engine load < 0.1 s, first chat reply < 0.2 s, later chat replies ≈ 0.5 ms, zero runtime dependencies, client is 53 kB JS + 32 kB CSS unminified, no framework, no build step. The brain's data is 4 MB on disk (the whole deployment bundle is 1.35 MB compressed). |
+| 2–6 GB RAM devices, no GPU, slow networks | Server process ≈ 115–150 MB RSS for ordinary questions (≈ 50 MB before the brain is first used; a research run adds about 300 MB while it lasts), engine load < 0.1 s, first chat reply < 0.2 s, later chat replies ≈ 0.5 ms, zero runtime dependencies, client is 73 kB JS + 40 kB CSS unminified, no framework, no build step. The brain's data is 4 MB on disk (the whole deployment bundle is 1.35 MB compressed). |
 | Must be deployable immediately | `node server/server.js` runs it. Same code runs as a serverless function (`api/index.js`) and in a container. |
 | Retrieved pages are untrusted | One guarded HTTP client; extraction produces plain text blocks; the browser inserts text with `textContent` only; there is no code path that follows instructions found in pages. |
 | Free/open sources by default | Keyless providers with automatic failover; keyed providers are optional and server-side. |
@@ -56,6 +56,51 @@ Each stage emits events over the response stream as it happens; the interface sh
 If the first round finds no direct evidence, the engine reformulates the query once and repeats Searching → Reading → Comparing.
 Two-step questions (“When was the author of *X* born?”) run the whole pipeline twice: the answer entity of step 1 is substituted into step 2.
 
+### 3a. Deep search and research runs (3.0.0)
+
+A quick answer reads about six pages. A deep search or a research run puts a loop behind the first round:
+
+```
+first round (as above) ─▶ first draft
+        │
+        ▼
+   ┌─▶ EXPAND   one query on every service that still has budget, all at once: web search, Wikipedia titles, Crossref,
+   │            OpenAlex, Europe PMC (medical topics), Hacker News (technical topics); reference lists of the Wikipedia
+   │            articles on the topic; round 2 onwards: one query per sub-topic and per key term found so far
+   │   READ     a pool of workers takes leads from one queue (the “frontier”), best first: pages are fetched and
+   │            digested, abstracts become documents, open-access full texts are read through the Europe PMC API,
+   │            links inside relevant pages become new leads (up to 3 steps from a search result)
+   │   COMPARE  everything read so far is ranked again; the vocabulary of the best-matching sentences is worked out;
+   │            sub-topics are derived from it; a draft answer is emitted
+   └── until: page or time budget used · the leads that remain are no longer relevant · every relevant lead was read ·
+              two rounds in a row added almost nothing · stopped by the user
+        ▼
+   classification of every document  ─▶  report (opening, key points, a section per sub-topic, figures, dated
+                                          statements, what is still uncertain, where sources differ)
+```
+
+| Depth | When | Budget | Rounds |
+|---|---|---|---|
+| `auto` | default | the quick round; the loop in its smallest form (“widen”: 36 pages, 30 s) only when a part of the question got no direct evidence; a full research run when the message asks for one | 1–2 |
+| `deep` | chosen, or “tell me everything about …”, “what does the research say about …”, “investigate …” | 70 pages, 60 abstracts, 45 s | up to 3 |
+| `research` | chosen, or “do deep research on …”, “research …”, “detailed report on …”, “find everything you can about …”, “search the whole web for …” | 1,500 pages, 800 abstracts, 170 s, 40 pages at a time | up to 12 |
+
+**How the loop decides, without a language model**
+
+* *Which leads are worth reading* (`research/frontier.js`). Every result and every link is screened before it is fetched: its title, snippet, or — for a link — its link text and the sentence around it are compared with the question's terms and with the sub-topics found so far. Share and login links, tag and author listings and front pages are dropped. Each site has a page limit (12; 24 for a scholarly publisher) so that one site cannot fill the run. A lead whose site is busy or failing is passed over without holding up the others, and stays in the queue as “found but not read”.
+* *Which words belong to the answers* (`research/salience.js`). When hundreds of documents have been read, the sentences that match the question best share a vocabulary the question did not contain: for “health effects of microplastics” it is inflammation, oxidative stress, endocrine and so on. Words that recur across independent sources there, and are neither everyday words (a frequency list of 31,000 words) nor generic research prose, are the key terms. For questions of the form “effects / causes / uses of X”, a word counts more when it stands where the answer stands (after “cause”, “include”, “lead to”) than when it stands beside the topic's name (“microplastic pollution”). Sentences that carry key terms are preferred to sentences that merely repeat the question (“more research on the health effects is needed”).
+* *Which sub-topics there are* (`research/aspects.js`, `research/run.js`). Candidates are recurring two- and three-word phrases, recurring single key terms, headings that several independent sites share, and sections of a Wikipedia article devoted to the topic. Each must be supported by several independent sources; the standard parts of a paper (“Materials and methods”, “Statistical analysis”), questions, the people a study is about (“employees”, “patients”) and words built on the question's own are excluded. A sub-topic becomes a search in the next round, a class in the classification, and — when at least two sources have statements on it — a section of the report.
+* *What is not a statement about the world* (`rank/rank.js`). Sentences about how a paper was written (“this review aims to …”, “we searched PubMed …”, “articles … were included”), calls for more research, openings (“… has attracted growing attention”), page titles and references to other parts of a text (“as mentioned above”) are recognised by pattern and kept out of the opening, the key points and the sections. Statements that something is *not yet known* get a section of their own.
+* *When to stop* (`research/run.js`). A run goes on while new searches still bring pages worth reading. Two rounds in a row that add fewer than 3 % new pages end it; so do the budgets. The reason is part of the result.
+
+**Scholarly sources** (`providers/scholar.js`). One request to Crossref, OpenAlex or Europe PMC returns up to 100 works with abstracts, so a run can take in hundreds of studies in a few requests. One work found through several indexes is one document (matched by DOI). A document built from an abstract is marked “abstract or summary only” and never counted as a page read; when Europe PMC can deliver the open-access full text, the article is read and replaces its abstract.
+
+**Classification** (`classify/classify.js`). Every document is sorted on fixed axes from its address, its type as the index reports it, and its wording: kind of source (scholarly journal, preprint server, news organisation, encyclopedia, government, company …), kind of document (research article, review, meta-analysis, news report, explainer, FAQ …), study design (meta-analysis, systematic review, randomised trial, observational study, case report, laboratory or animal study …), age, reliability tier (a rating of the kind of source, not of the page), how much was read, country of the site (from country-code addresses only), sub-topic, relevance, and — on yes-or-no questions — which way its most direct sentence leans. The result carries the counts per class, a histogram of publication years, and up to 400 documents with their classes.
+
+**The report** (`synth/report.js`, `synth/synth.js`). Built from the sources' sentences only. After a loop the composer cites up to nine independent sources per statement (three shown, the rest on request), gives each source one statement in a list, and adds sections by rule: one per sub-topic; *Figures the sources report* (a figure repeated by a large share of the sources, such as “smaller than 5 mm”, is taken for part of the definition and left out); *Dated statements, in order*; *What the sources say is still uncertain*; *Where the sources differ*. On a yes-or-no question each independent source gets one vote, read from its most direct sentence (negation in the main clause → no; “limited evidence”, “disputed” → qualified), and the answer states the count.
+
+**Limits that protect the host and the sources.** At most `MAX_CONCURRENT_RESEARCH` runs at once and `RESEARCH_PER_HOUR` per hour per process, `RESEARCH_PER_CLIENT_PER_HOUR` per client address; a request beyond a limit is answered at depth `deep` and says so. Per site: two requests at a time, robots.txt and its Crawl-delay honoured, pages that refuse automated reading skipped and counted. Per API: request budgets below what each service publishes. A search endpoint that times out does not block other endpoints of the same host (separate circuit breakers).
+
 | Module | Role |
 |---|---|
 | `engine/brain/normalize.js`, `lexicon.js` | Turns casual typing into plain tokens: contractions, chat shorthand, stretched letters, emoji, vocatives and fillers. Word lists for feelings, crisis wording, rudeness. |
@@ -64,16 +109,22 @@ Two-step questions (“When was the author of *X* born?”) run the whole pipeli
 | `engine/brain/sense.js`, `skills.js` | Everyday common-sense questions answered from the fact base (hand-written core first, hedged long tail); exact skills: clock and calendar in the device's time zone, numbers, colours, shapes, words, dice and coins. |
 | `engine/brain/spell.js` | Careful spelling repair of a message on its way to the web (see `BRAIN.md`). |
 | `engine/nlp/lexicon.js`, `analyze.js` | Closed-class word lists, ~500 verb lemmas, irregular morphology, synonym groups (language knowledge, ≈9 kB — no world facts). Normalisation, meta/calculation detection, multi-part splitting, tagging and noun-phrase chunking, question classification (what/why/how/when/where/who/which/whether, comparison, explanation, prediction, recommendation, calculation, multi-part), temporal cues, weighted query terms, and reference resolution (pronouns, “do it”, “what about X?”, bare “why?”). |
-| `engine/plan/plan.js` | Turns the analysis into budgeted tasks: batched title lookup, Wikipedia search, web search chain, vertical sources chosen from the vocabulary of the question, structured-fact requests, news feeds. Three depths (fast / balanced / deep). |
+| `engine/plan/plan.js` | Turns the analysis into budgeted tasks for the first round: batched title lookup, Wikipedia search, web search chain, vertical sources chosen from the vocabulary of the question, structured-fact requests, news feeds. Three first-round budgets (fast / balanced / deep). |
+| `engine/research/run.js` | The loop of section 3a: budgets per depth, searches on every service, harvesting of reference lists, the crawl with its per-site limits, derivation of sub-topics, the next round's queries, the stop rules. |
+| `engine/research/frontier.js`, `digest.js` | The queue of leads (screening, scoring, per-site limits, duplicates) and the digest of a page that was read (relevance to the question and to the sub-topics, outline, statistics; only the passages that matter are kept). |
+| `engine/research/salience.js`, `aspects.js`, `directive.js` | The vocabulary of the answers; sub-topics from phrases, headings and article sections; recognition of research requests in a message (“do deep research on …”). |
+| `engine/classify/classify.js` | Classification of every document and the counted facets (section 3a). |
+| `engine/providers/scholar.js` | Crossref, OpenAlex and Europe PMC: search, look-up by DOI, abstracts, open-access full text (JATS XML → text blocks). |
 | `engine/providers/*` | Interchangeable adapters: Wikipedia (Action API + plain-page fallback), Wikidata (facts, comparison tables, word-sense choice), DuckDuckGo Instant Answers, DuckDuckGo HTML, Firecrawl Search (keyless or free key), Mwmbl, Marginalia, Wiby, Stack Exchange, MDN, arXiv, Hacker News, GDELT, publisher RSS/Atom feeds; optional Tavily (free key), SearXNG (self-hosted) and Brave. Hosted search APIs contribute links only — never generated text. Web providers form a failover chain; a provider that rate-limits or shows a human check is left alone for a cooling period (challenges are never bypassed). |
 | `engine/net/guard.js`, `http.js` | The only way out to the network. URL validation, private/reserved address blocking (IPv4/IPv6, encoded forms), DNS resolution once with the socket pinned to the validated address, per-hop redirect validation, GET only, size cap, timeouts, per-host and global concurrency, robots.txt, per-API politeness budgets, `Retry-After` handling, circuit breaker, LRU cache with TTL. |
 | `engine/extract/html.js`, `readable.js`, `feed.js` | A forgiving HTML/XML tokenizer and tree builder (not regex scraping); boilerplate, navigation, hidden-element and link-farm removal; headings, paragraphs, lists, tables, code; title/author/dates from JSON-LD, meta tags, `<time>` and URL; JS-shell detection; RSS/Atom parsing. |
 | `engine/rank/rank.js` | BM25-style statistics computed from the pages retrieved for *this* question, weighted query terms, term proximity, implicit-subject credit from headings and titles, predicate coverage, required aspects/ordinals, answer-type cue patterns, a rule that discounts common words appearing only inside capitalised names, topical prior per document, pseudo-relevance feedback, MMR selection, corroboration search. |
 | `engine/evidence/evidence.js` | Source classification (primary / secondary / reference / community), independence of origins (publisher family or near-duplicate text counts once), conflict detection (negation, dates, figures), fact/opinion/hedged and current/historical labels, the evidence graph, and the confidence score with explicit factors and caps. |
+| `engine/synth/report.js` | The report after a deep or research run: sub-topic sections, figures, dated statements, open questions, differences between sources. |
 | `engine/synth/synth.js` | Answer construction per answer type: definitions and explanations, reasons, mechanisms, steps, lists, factoids (structured fact + text vote), yes/no with a rule-derived reading, comparisons (Wikidata table + direct contrasts), news digests, predictions and recommendations as attributed views. Falls back to “I could not verify this from the sources I found.” |
 | `engine/math/calc.js` | Recursive-descent calculator: arithmetic, percentages, unit conversion, linear and quadratic equations, with working shown. No `eval`. |
 | `engine/index.js` | Orchestrator: asks the brain first, then runs the pipeline; multi-hop execution, conversation context, source list, research log. After a web answer it tells the brain the confidence and topic, so that "are you sure?" is answered with the real figures. |
-| `server/app.js` | Framework-free HTTP layer: NDJSON streaming, rate limiting, validation, security headers, static files. |
+| `server/app.js` | Framework-free HTTP layer: NDJSON streaming, rate limiting (a deeper search costs more), the per-client limit on research runs, validation, security headers, static files. |
 | `public/*` | The chat application (PWA). |
 
 ## 4. The kinds of memory (kept strictly apart)

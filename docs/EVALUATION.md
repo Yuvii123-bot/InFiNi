@@ -1,9 +1,120 @@
 # INFINI AI — Evaluation
 
+## Update — version 3.0.0 (2026-11-12): deep search and research runs
+
+Version 3.0.0 adds the loop described in `docs/ARCHITECTURE.md`, section 3a: searches in rounds, hundreds of pages and
+abstracts read for one question, everything classified, a report as the answer. Full account: `docs/REPORT.md`.
+All figures were measured on 12 November 2026 in the build sandbox (2 CPUs, 2 GB RAM, Node 20).
+
+**Automated checks**
+
+| Check | Result |
+|---|---|
+| Unit tests (`npm test`) | 58 of 58: 25 engine tests, 20 brain tests, 13 tests for deep search and research runs |
+| of which: a complete research run on a synthetic web of 40 sites and 60 papers, no network | rounds, counters, drafts, report sections, classification totals, “never more pages reported than requested”, links to private addresses never requested |
+| of which: the limits | per process at once, per process per hour, per client per hour; the cost of a request by depth; research switched off |
+| Interface smoke test, real client against a local server with live retrieval (`npm run test:ui`) | 49 of 49, including a deep search, a research run with live counters and drafts, the explorer, and stopping a run |
+| Security audit (`npm run audit:security`) | 21 of 21 |
+| Chromium at 390 and 1280 px, light and dark | no console errors; screenshots in `docs/screenshots/` |
+
+**Research benchmark (`npm run bench:research`, live, with a free Tavily key as on the live site)**
+
+<!-- research-table -->
+
+Every figure is counted by the engine. “Pages read” are pages whose text was fetched and read. An abstract delivered by
+an index is counted as an abstract. “Not readable” are pages that refused automated access, needed JavaScript, were
+closed by robots.txt, no longer existed or were too slow; they are counted and skipped. “Documents kept” is what
+remained after duplicates were merged and off-topic documents dropped. The exact figures of the run, the search
+services that answered, the failure counts and the report sections are in `bench/results/research.md`.
+
+Three things to know when reading the table:
+
+1. **The budget of 1,500 pages was never reached.** Each research run ended because “new searches were no longer
+   bringing new material”: the queue of relevant, readable leads was empty after 260 to 480 pages. More searches on a
+   metered service (`RESEARCH_KEYED_SEARCHES`) bring more leads; the default spares the monthly quota of a free key.
+2. **Roughly one page in three could not be read** (133 to 185 per research run). Nothing is done to get around a
+   refusal.
+3. **The numbers move from run to run and from day to day.** On the day of the measurement OpenAlex answered
+   “anonymous search is paused” for part of the time and Europe PMC's search timed out repeatedly; Crossref carried the
+   abstracts. Without any key, from the sandbox address, the same microplastics question read 170 to 290 pages and 370
+   to 800 abstracts in 34 to 86 s in six live runs.
+
+**What the reports are like** (read by hand; these are judgements, not measurements)
+
+* The opening sentences and key points of the five runs answer the question asked. Example (microplastics): “In vitro
+  experiments with human cells and in vivo data generated with mice showed that microplastics elicit adverse health
+  effects mainly by causing inflammation, oxidative stress …, lipid metabolism disturbances, gut microbiota dysbiosis,
+  and neurotoxicity.”
+* Sub-topic sections are mostly sensible: *Reproductive effects · Oxidative stress · Inflammation · Metabolic effects ·
+  Respiratory effects* (microplastics); *Benefits · Commuting · Job satisfaction · Isolation · Flexibility and autonomy ·
+  Retention* (remote work); *Energy density · Challenges · Advantages · Thin-film solid-state batteries · Materials ·
+  Uses* (solid-state batteries). A weak label still gets through now and then (“Pollution” for the health question in
+  one run).
+* The yes-or-no count for intermittent fasting read 51 yes, 3 no, 1 qualified of 55 independent sources. Reading the
+  listed statements by hand, most are classed correctly; a sentence that only mentions the topic favourably can be
+  counted as “yes” although it is not a finding.
+* The why-question (Roman Empire) gets explanations attributed to named historians, and no sub-topic sections — the
+  rules found none with enough independent support, and none is better than a forced one.
+* “Figures the sources report” is the weakest section: the figures are real and cited, but which four are shown is not
+  a judgement of importance.
+
+**Faults found by running it, and fixed before release** (each was seen in a real run)
+
+| Fault | Cause | Fix |
+|---|---|---|
+| Drafts never appeared | helper functions were declared after the code that built the draft; the error was swallowed | declarations moved; draft errors are now recorded |
+| “Solid-state batteries” got “I could not verify this” at every depth (also in 2.0.0) | a hyphenated word was kept as one search term that no text could match | hyphenated and dotted words are matched as their parts |
+| “How long do batteries last?” was read as a question about “long” (also in 2.0.0) | the degree word after “how” was taken for the topic | degree words and relation nouns (“impact of …”, “relationship between …”) are no longer the topic |
+| A research run read 57 pages instead of 220 | high-ranking leads of one slow site blocked the queue | busy sites are passed over; their leads wait |
+| All full-text reads failed after a few search timeouts | one circuit breaker per host | separate breakers per endpoint; any answer resets the count |
+| A hostile `depth` value (`__proto__`) switched the rate limiter off for that client | the cost of a request was looked up on a plain object | a `Map`, a guard on the cost, and a check in the security audit |
+| Sub-topics such as “Materials”, “Statistical analysis”, “Workers”, “Reduced”, “Exposure” | headings of every paper; participants; verb forms; words that describe the topic | excluded by rule (see architecture) |
+| Key points about method (“we searched PubMed”, “articles … were included”, “this review aims to”) | abstracts are full of such sentences | recognised by pattern and kept out |
+| “Leans no” for “weight loss occurs if intake is not sufficient to compensate” | a negation inside a condition | conditions and relative clauses are set aside before the reading |
+| “1300 — … 1300 mA h cm⁻³ …” in the dated statements | a quantity taken for a year | a number counts as a year only in a date-like context |
+| A mouse study as the first statement on a question about people | no notion of who a health question is about | findings in animals rank below statements about people, unless the question asks about animals |
+
+**Web benchmark on 3.0.0 (same 36 items, depth Auto, Tavily enabled, one run)**
+
+| Run | Expected fact in the opening | Hallucination avoidance | Citation validity | Median latency | Answered by the brain |
+|---|---|---|---|---|---|
+| 2.0.0 as released (depth Balanced) | 36 / 36 (100%) | 100% | 98% | 2.7 s | 1 of 36 |
+| 3.0.0 (depth Auto, the new default) | 36 / 36 (100%) | 100% | 98% | 2.7 s | 1 of 36 |
+
+Ordinary questions behave as before. The average rose from 2.8 s to 3.1 s because the three unanswerable items now
+widen the search before giving up (the invented-name item took 11 s and still, correctly, ended with “I could not verify
+this”). As before, this benchmark is a regression set, not an accuracy estimate. It was run before the last rule changes
+of the release, which concern long runs; the unit, interface and security tests were run again on the final code.
+
+**Resources (`npm run bench:resources` and `bench:research`)**
+
+| Measure | 2.0.0 | 3.0.0 |
+|---|---|---|
+| Engine cold start | 52 ms | 85 ms |
+| Server memory idle | 53 MB | 54 MB |
+| Server memory after 6 ordinary web questions | 134 MB | 150 MB |
+| Process memory during a research run (peak, whole process) | not applicable | 283 to 392 MB over three runs in one process |
+| Time of a research run | not applicable | 47 to 66 s (budget 170 s) |
+| Time to the first draft of a long run | not applicable | 1.5 to 7.7 s |
+| Data read in a research run | not applicable | 52 to 115 MB |
+| Size of a research result as sent to the browser | not applicable | 370 to 400 kB (drafts: about 25 kB, then about 95 kB each) |
+| Code and data | engine 660 kB in 35 files, plus 4,037 kB of brain data | engine 885 kB in 44 files, plus 4,045 kB of brain data |
+| Client | 52 kB JS + 31 kB CSS | 73 kB JS + 40 kB CSS |
+
+**Limits that are known and stated in the app**
+
+* The loop finds what search services, Wikipedia's reference lists, links between pages and three scholarly indexes
+  lead to. It has no index of its own. A topic with few readable pages gives a short run.
+* PDF files are not read. Many open-access papers are therefore present as abstracts only.
+* The classification reads addresses, index metadata and wording. A blog on a `.org` address is an “organisation”;
+  a study design is only found when the index or the title names it.
+* Reliability tiers rate kinds of sources, not pages.
+* Everything is in English.
+
 ## Update — version 2.0.0 (2026-11-12): the built-in brain
 
 Version 2.0.0 adds a rule-based brain in front of the web pipeline (conversation, memory within a chat, everyday common
-sense, small skills, spelling repair). Description: `docs/BRAIN.md`. Full account of the release: `docs/REPORT.md`.
+sense, small skills, spelling repair). Description: `docs/BRAIN.md`. Full account of the release: `docs/REPORT-2.0.0.md`.
 All figures below were measured on 12 November 2026 on the final code, in the build sandbox (2 CPUs, 2 GB RAM, Node 20).
 
 **Automated checks**
@@ -87,7 +198,7 @@ a physical phone, Safari on iOS, Android install of this version, screen readers
 
 ## Update — version 1.2.0 (2026-11-12)
 
-Tavily is now the first web-search provider on the live site. Full account of this release: `docs/REPORT.md`.
+Tavily is now the first web-search provider on the live site. (The report written for that release was replaced by later ones; it is in the repository history.)
 
 | Run (same 36 items) | Expected fact in the opening | Hallucination avoidance | Citation validity | Median latency |
 |---|---|---|---|---|

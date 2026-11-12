@@ -1,4 +1,4 @@
-# The built-in brain (version 2.0.0)
+# The built-in brain (introduced in 2.0.0; figures as of 3.0.0)
 
 INFINI AI now has two parts:
 
@@ -14,7 +14,7 @@ reworded, to the web pipeline.
 The brain is **rules and data**. There is no language model and no neural network, in the app or behind
 it. Every reply is one of three things:
 
-1. a sentence written in advance (898 of them), chosen to fit the situation;
+1. a sentence written in advance (902 of them), chosen to fit the situation;
 2. such a sentence with remembered or computed values filled in ("Nice to meet you, Yuv!");
 3. the output of an exact function (the clock, a sum, a dice roll, a common-sense lookup).
 
@@ -25,6 +25,12 @@ of sending "how are you" to a search engine.
 
 ## How a message is handled
 
+Since 3.0.0 one thing happens before the brain sees a message: an instruction to research (“do deep research on …”,
+“find everything you can about …”) is taken off (`engine/research/directive.js`), so that the brain and the question
+analysis get the topic alone. A question *about* research (“can you do deep research?”, “how many pages can you read?”)
+has no topic; the brain answers it itself from two prepared situations (`bot.research`, `bot.research_how`), with the
+page budget of the deployment filled in.
+
 `engine/brain/index.js`, in this order (the first step that produces a result wins):
 
 | Step | What happens | Example |
@@ -33,9 +39,9 @@ of sending "how are you" to a search engine.
 | Explicit search | "search the web: …" always goes to the web | |
 | Safety | crisis wording, clearly harmful requests, sexual requests | "i want to die" → supportive reply and a helpline search for the user's country |
 | Pending question | if the brain asked something last turn, try the message as the answer | "How are you?" → "not bad" |
-| Exact phrase | the message is one of 49,511 stored phrasings | "who made you" |
+| Exact phrase | the message is one of 52,938 stored phrasings | "who made you" |
 | Feelings | "i am / i feel …" with a feeling word | "im so tired" |
-| Slot rules | 246 patterns with a variable part, each with a handler that may decline | "my name is {x}", "time in {x}" |
+| Slot rules | 247 patterns with a variable part, each with a handler that may decline | "my name is {x}", "time in {x}" |
 | Common sense | the question is about an everyday thing the fact base knows | "can a penguin fly" |
 | Social opening | "thanks! what is …" → answer the opening, continue with the rest | |
 | Chain of small phrases | "ok cool thanks" → the phrase that matters most | |
@@ -114,7 +120,7 @@ Built files in `engine/brain/data/` (generated; do not edit by hand):
 
 | File | Size | Content |
 |---|---|---|
-| `dialogue.json` | 1.0 MB | 280 situations, 49,511 phrasings (29,151 written for this project, 20,360 imported), 246 slot rules, 898 replies, jokes, riddles, facts, stories |
+| `dialogue.json` | 1.0 MB | 282 situations, 52,938 phrasings (32,578 written for this project, 20,360 imported), 247 slot rules, 902 replies, jokes, riddles, facts, stories |
 | `commonsense.json` | 2.8 MB | 220,406 stored relations: 362 hand-written things with 4,437 facts; from WordNet 3.1, 178,259 "is a kind of" links, 23,630 synonyms and 2,452 opposites; and about 11,600 statements about abilities, properties, parts, uses and places from ConceptNet 5.7 and WordNet |
 | `vocab.txt` | 0.25 MB | 31,460 known words for the typo corrector, most frequent first |
 | `spell-guard.txt` | 0.04 MB | 4,294 real but uncommon words and names that the spelling repair must leave alone |
@@ -168,6 +174,9 @@ byte-identical `commonsense.json`.
 * Anything safety-relevant ("can dogs eat chocolate") is sent to the web, never answered from memory.
 
 ## What was measured (12 November 2026, in the build sandbox)
+
+The figures in this section are those of the 2.0.0 release, when the brain was built. With 3.0.0 the test counts are
+58 unit tests and 49 interface checks (`docs/EVALUATION.md`); the brain's own 20 tests are unchanged and pass.
 
 | Check | Result |
 |---|---|

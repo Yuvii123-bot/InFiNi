@@ -117,7 +117,7 @@ export const crossref = {
     const q = query.replace(/[",]/g, ' ').trim();
     const recent = ctx.fresh === 'year' || ctx.fresh === 'month' ? `,from-pub-date:${new Date((ctx.now || Date.now()) - 400 * 86400000).toISOString().slice(0, 10)}` : '';
     // only works that carry an abstract: a title alone tells too little to count as a source
-    const { json } = await ctx.http.getJSON(`https://api.crossref.org/works?query.bibliographic=${enc(q)}&filter=has-abstract:true${recent}&rows=${Math.min(ctx.limit || 10, 100)}&select=DOI,title,abstract,issued,published,container-title,type,is-referenced-by-count,author,publisher,group-title${mail}`, opts(ctx, { timeoutMs: Math.min(ctx.timeoutMs || 9000, 9000), circuit: 'search' }));
+    const { json } = await ctx.http.getJSON(`https://api.crossref.org/works?query.bibliographic=${enc(q)}&filter=has-abstract:true${recent}&rows=${Math.min(ctx.limit || 10, 100)}&select=DOI,title,abstract,issued,published,container-title,type,is-referenced-by-count,author,publisher,group-title${mail}`, opts(ctx, { timeoutMs: Math.min(ctx.timeoutMs || 9000, 20000), circuit: 'search' }));
     const list = json && json.message && json.message.items;
     if (!Array.isArray(list)) throw new ProviderError('Unexpected Crossref response', 'bad_response');
     const out = list.map(crWork).filter(Boolean);
@@ -190,7 +190,7 @@ export const europepmc = {
     // ctx.openAccess: only articles whose full text can be read through this API (open access, held by Europe PMC)
     const q = ctx.openAccess ? `(${words}) AND OPEN_ACCESS:y AND IN_EPMC:y` : words;
     // for full-text leads the short record is enough (title, identifiers) — a tenth of the size of the record with abstracts
-    const { json } = await ctx.http.getJSON(`https://www.ebi.ac.uk/europepmc/webservices/rest/search?query=${enc(q)}&format=json&resultType=${ctx.openAccess ? 'lite' : 'core'}&pageSize=${Math.min(ctx.limit || 10, ctx.openAccess ? 50 : 100)}`, opts(ctx, { timeoutMs: Math.min(ctx.timeoutMs || 9000, 8000), circuit: 'search' }));
+    const { json } = await ctx.http.getJSON(`https://www.ebi.ac.uk/europepmc/webservices/rest/search?query=${enc(q)}&format=json&resultType=${ctx.openAccess ? 'lite' : 'core'}&pageSize=${Math.min(ctx.limit || 10, ctx.openAccess ? 50 : 100)}`, opts(ctx, { timeoutMs: Math.min(ctx.timeoutMs || 8000, 12000), circuit: 'search' }));
     const list = json && json.resultList && json.resultList.result;
     if (!Array.isArray(list)) throw new ProviderError('Unexpected Europe PMC response', 'bad_response');
     const out = list.map(epmcWork).filter(Boolean);
