@@ -38,7 +38,7 @@ class El extends Node_ {
 export function installDom(baseUrl) {
   const ids = {};
   const doc = {
-    createElement: (t) => new El(t), createTextNode: (t) => new Text_(t), documentElement: new El('html'),
+    createElement: (t) => new El(t), createElementNS: (ns, t) => new El(t), createTextNode: (t) => new Text_(t), documentElement: new El('html'),
     getElementById: (id) => ids[id] || (ids[id] = Object.assign(new El(id === 'q' ? 'textarea' : 'div'), { id })),
     querySelector: () => new El('meta'), addEventListener() {},
   };

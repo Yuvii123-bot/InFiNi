@@ -1,7 +1,7 @@
 {
- "date": "2026-11-11T16:21:17.855Z",
- "pass": 19,
- "total": 19,
+ "date": "2026-11-12T02:31:53.586Z",
+ "pass": 20,
+ "total": 20,
  "results": [
   {
    "area": "SSRF",
@@ -43,7 +43,7 @@
    "area": "Resource limits",
    "name": "request timeout enforced",
    "ok": true,
-   "info": "timeout after 502 ms"
+   "info": "timeout after 500 ms"
   },
   {
    "area": "Resource limits",
@@ -78,6 +78,12 @@
   {
    "area": "Secrets",
    "name": "API keys and internal URLs never appear in any public endpoint or page",
+   "ok": true,
+   "info": ""
+  },
+  {
+   "area": "Secrets",
+   "name": "a whole answer stream (events, search log, provider errors) never contains a key, even when the provider rejects it",
    "ok": true,
    "info": ""
   },

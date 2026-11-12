@@ -27,6 +27,7 @@ check('all six stages reported done', dom.find(bot, '.stage').filter((s) => s.cl
 check('citation chips present', dom.find(bot, '.cite').length > 0, `${dom.find(bot, '.cite').length} chips`);
 check('source cards present', dom.find(bot, '.src').length > 0, dom.find(bot, '.src').map((s) => dom.text(s).slice(0, 30)).join(' | ').slice(0, 120));
 check('confidence pill present', dom.find(bot, '.conf').length === 1, dom.text(dom.find(bot, '.conf')[0]));
+check('related questions offered as buttons, icons are inline SVG', dom.find(bot, '.rel').length > 0 && dom.find(bot, 'svg').length > 5, dom.find(bot, '.rel').map((b) => dom.text(b)).join(' | ').slice(0, 110));
 check('chat title set from the question', dom.text($('chatTitle')).length > 5, dom.text($('chatTitle')));
 await dom.find(bot, '.cite')[0].click();
 check('citation opens the source drawer with passages', !$('drawer').hidden && /Address/.test(dom.text($('drawerBody'))), dom.text($('drawerTitle')).slice(0, 60));

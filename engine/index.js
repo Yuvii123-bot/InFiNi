@@ -14,6 +14,7 @@ import { entityFacts, compareEntities, getEntity, chooseSenses } from './provide
 import { extractPage } from './extract/readable.js';
 import { classifySource, originGroups, scoreConfidence, buildGraph } from './evidence/evidence.js';
 import { answerPart, summarizeDoc, topicMatcher } from './synth/synth.js';
+import { relatedQuestions } from './synth/related.js';
 import { queryModel, rankEvidence, feedbackTerms, stemsOf, lexicalOverlap } from './rank/rank.js';
 import { canonicalUrl, domainOf, truncate, uniq, capitalize, squash, splitSentences, hash, escapeRegex } from './util/text.js';
 import { formatDate } from './util/dates.js';
@@ -630,6 +631,16 @@ export function createEngine(userCfg) {
 
     const citedKeys = new Set(cited.map((d) => d.key));
     const httpStats = http.stats();
+    // follow-up suggestions: fixed templates, offered only for sections that exist in the pages just read
+    let related = [];
+    if (partsAnswered && lastPart && analysis.intent !== 'url' && !timeSensitive && !lastPart.compare) {
+      const topicEnt = newEntities.find((e) => lastPart.focus && e.name.toLowerCase() === lastPart.focus.toLowerCase()) || newEntities.find((e) => e.kind !== 'person' || !results.some((r) => r.answerEntity && r.answerEntity.name === e.name));
+      related = relatedQuestions({
+        question: analysis.resolved || question, focus: lastPart.focus || '', kind: topicEnt && lastPart.focus && topicEnt.name.toLowerCase() === lastPart.focus.toLowerCase() ? topicEnt.kind : '',
+        answerType: lastPart.answerType, plural: /[^s]s$/.test(lastPart.focus || ''), answer: results.map((r) => r.answerEntity).filter(Boolean)[0] || null,
+        docs: docs.filter((d) => !d.news && !d.structured).map((d) => ({ entity: !!d.entity, cited: citedKeys.has(d.key), sid: d.sid || null, title: d.title, blocks: d.blocks })),
+      });
+    }
     return finish({
       ...base, kind: analysis.intent === 'url' ? 'url' : 'retrieval', question: question.slice(0, 600),
       interpretation: { resolved: analysis.resolved || '', rewrites: analysis.rewrites, followUp: analysis.followUp, metaOf: analysis.metaOf || null, parts: analysis.parts.map((p) => ({ text: p.text, qtype: p.qtype, answerType: p.answerType, focus: p.focus, keywords: p.keywords })) },
@@ -643,7 +654,7 @@ export function createEngine(userCfg) {
         passages: allClaims.slice(0, 20).map((c) => ({ text: c.text, source: c.source, heading: c.heading, nature: c.nature, temporal: c.temporal, alsoSupportedBy: c.alsoSupportedBy })),
         http: { requests: httpStats.requests, cacheEntries: httpStats.cacheEntries },
       },
-      context: newContext, learn, answerEntities: results.map((r) => r.answerEntity).filter(Boolean),
+      context: newContext, learn, related, answerEntities: results.map((r) => r.answerEntity).filter(Boolean),
     });
   }
 

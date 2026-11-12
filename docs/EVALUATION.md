@@ -1,5 +1,33 @@
 # INFINI AI — Evaluation
 
+## Update — version 1.2.0 (2026-11-12)
+
+Tavily is now the first web-search provider on the live site. Full account of this release: `docs/REPORT.md`.
+
+| Run (same 36 items) | Expected fact in the opening | Hallucination avoidance | Citation validity | Median latency |
+|---|---|---|---|---|
+| 1.1.0, no Tavily | 34 / 36 (94%) | 94% | 98% | 1.7 s |
+| 1.2.0 with Tavily, first run | 35 / 36 (97%) | 97% | 98% | 2.7 s |
+| 1.2.0 with Tavily, after the prediction fix | 36 / 36 (100%) | 100% | 98% | 1.4 s |
+| 1.2.0 as released (re-run on the final code) | 36 / 36 (100%) | 100% | 98% | 1.4 s |
+
+The benchmark is a regression set, not an accuracy estimate: the items were written during development, scoring is by keyword
+match, and the engine was tuned on the items that failed. Accuracy on unseen questions is lower.
+
+**Fixed in 1.2.0 (each reproduced before and after):** “what does X do” questions opened with a detail instead of the definition;
+page-header opening paragraphs (MDN layout) were lost in extraction; how-to answers took a step list from an unrelated section;
+steps written as numbered paragraphs were not recognised as a list; yes/no answers did not lead with the subject’s defining
+sentence; future-tense “who/when” questions were answered as plain facts; out-of-date forecasts were quoted; keyword tag lines,
+headline fragments and product pitches appeared as key points.
+
+**Interface.** Checked with Chromium (Playwright) at 360, 390, 820 and 1280 px, light and dark: no horizontal overflow; the
+welcome screen fits 390 × 844 without scrolling. The 15 px right-edge clipping reported for 1.1.0 was an artifact of the
+screenshot service. Not checked: a physical phone, Safari on iOS, Android install of this version, screen readers.
+
+**Tests:** 25 unit tests, 20 UI smoke checks and the 20-point security audit pass on 1.2.0.
+
+---
+
 ## Update — version 1.1.0 (2026-11-11, later the same day)
 
 Live deployment: https://infini-ai.vercel.app (Vercel, region iad1). What changed and what was measured:

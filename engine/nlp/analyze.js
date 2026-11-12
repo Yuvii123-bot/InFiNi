@@ -229,6 +229,8 @@ function classify(l, hint) {
   }
   if (/^what\b/.test(l2)) {
     if ((m = l2.match(/^what (?:does|do|did) (.+?) (?:mean|means|stand for|stands for|refer to)$/))) return R('what', 'definition', { target: m[1] });
+    // "What does X do (in Y)?" asks for X's function: the answer is a sentence in which X performs an action
+    if ((m = l2.match(/^what (?:does|do|did) (?:the |a |an )?(.+?) (?:actually |really |exactly )?do(?: (?:in|on|for|with|when|to|inside|within) .+)?$/)) && m[1].split(' ').length <= 6) return R('what', 'description', { target: m[1], fn: true });
     if ((m = l2.match(/^what (?:is|are|was|were) (?:the )?(?:meaning|definition) of (.+)$/))) return R('what', 'definition', { target: m[1] });
     if ((m = l2.match(/^what (?:is|are|was|were) (?:some |the |all the |all |some of the )?(?:main |major |key |different |various |common |most common |primary |biggest |potential |possible |known )?([a-z-]+)(?: and ([a-z-]+))? (?:of|for|in|to|with|from|behind|associated with|between|about) (.+)$/)) && ASPECT_HEADS.has(m[1])) return R('what', 'list', { aspect: m[2] ? `${m[1]} ${m[2]}` : m[1], entity: m[3] });
     if ((m = l2.match(/^what (?:kind of |kinds of |sort of |types of )?((?:[a-z-]+ ){0,2}[a-z-]+) (?:do|does|did|can|could|will|would|should|might) (.+?) (?:create|cause|pose|have|bring|carry|introduce|raise|present|face|involve|entail|offer|provide|give|lead to|come with)$/)) && ASPECT_HEADS.has(m[1].split(' ').pop())) return R('what', 'list', { aspect: m[1], entity: m[2] });
@@ -364,7 +366,7 @@ function analyzePart(text, { now = Date.now(), hint = null } = {}) {
   const entities = uniq([...quoted.map((q) => ({ text: q, proper: true })), ...nonGeneric.filter((np) => np.proper).map((np) => ({ text: np.text, proper: true })), ...(cmp && !cmp.unresolved ? cmp.items.map((x) => ({ text: x, proper: false })) : []), ...(focus ? [{ text: focus, proper: false }] : [])], (e) => e.text.toLowerCase());
 
   return {
-    text, core: work, qtype: cls.qtype, lead: cls.lead || leadWh, answerType: cls.answerType, explain: !!cls.explain, person: !!cls.person,
+    text, core: work, qtype: cls.qtype, lead: cls.lead || leadWh, answerType: cls.answerType, explain: !!cls.explain, fn: !!cls.fn, person: !!cls.person,
     focus, attribute, phrase: cls.phrase ? targetOf(cls.phrase) || cls.phrase : '', quantityCue: cls.quantityCue || '',
     entities, nps: nonGeneric.map((np) => np.text), keywords,
     verb: mainVerb ? { lemma: mainVerb.lemma, surface: mainVerb.surface } : null, subject, object,

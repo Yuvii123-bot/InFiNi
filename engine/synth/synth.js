@@ -95,14 +95,15 @@ function insufficient(env, why) {
 const isWeak = (env) => !env.top || (env.top.directCov < 0.34 && env.top.cov < 0.5) || env.top.cov < 0.34 || !env.ranked.sentences.slice(0, 12).some((s) => s.predCov >= 0.5 && s.score >= env.top.score * 0.4);
 
 /** Lead sentence(s) + key points. The workhorse for definitions, explanations, reasons and mechanisms. */
-function composeExtractive(env, { leadFilter = null, bullets = null, heading = 'Key points', attribute = false, minRel = 0.5, bulletFilter = null, requireLead = false } = {}) {
+function composeExtractive(env, { leadFilter = null, bullets = null, heading = 'Key points', attribute = false, minRel = 0.5, bulletFilter = null, requireLead = false, openFirst = false } = {}) {
   const { ranked, style, docs, part } = env;
   if (isWeak(env)) return insufficient(env, 'The pages I retrieved mention the topic but none of them addresses this question directly.');
   const topScore = env.top.score;
-  const cands = ranked.sentences.filter((s) => s.score >= topScore * minRel && s.cov >= 0.3 && !/\?$/.test(s.text));
+  const cands = ranked.sentences.filter((s) => s.score >= topScore * minRel && s.cov >= 0.3 && !/[?:]\s*$/.test(s.text));       // a sentence ending in a colon introduces something that would not be shown
   // the page about the thing asked about gets the first chance to supply the opening sentence
   const leadPool = leadFilter ? ranked.sentences.filter((s) => s.score >= topScore * 0.35 && !/\?$/.test(s.text)).slice(0, 60) : [];
-  const strict = leadFilter ? leadPool.find((s) => docs[s.di].entity && leadFilter(s)) || leadPool.find(leadFilter) : null;
+  const opening = openFirst ? leadPool.find((s) => docs[s.di].entity && s.order === 0 && s.si === 0 && leadFilter(s)) : null;   // the sentence that introduces the subject on its own page
+  const strict = leadFilter ? opening || leadPool.find((s) => docs[s.di].entity && leadFilter(s)) || leadPool.find(leadFilter) : null;
   if (requireLead && !strict) return insufficient(env, requireLead);
   let lead = strict || cands.find((s) => (!s.dangling || s.si > 0) && s.predCov >= 0.5) || cands.find((s) => !s.dangling || s.si > 0) || cands[0];
   const blocks = [], leadSpans = [];
@@ -110,18 +111,26 @@ function composeExtractive(env, { leadFilter = null, bullets = null, heading = '
   const first = env.quote(lead, { allowDangling: true, prefix: pre(lead) });
   if (first) leadSpans.push(first);
   // keep reading the same paragraph while it stays on topic → a coherent opening from one source
-  const follow = style.brief ? 0 : part.answerType === 'definition' || part.explain || part.answerType === 'mechanism' || part.answerType === 'reason' ? 2 : 1;
+  const follow = style.brief ? 0 : part.answerType === 'definition' || part.explain || part.fn || part.answerType === 'mechanism' || part.answerType === 'reason' ? 2 : 1;
   const p = ranked.passages[lead.pi];
   for (let k = 1; k <= follow && p.type === 'p'; k++) {
     const nxt = ranked.sentences.find((s) => s.pi === lead.pi && s.si === lead.si + k);
-    if (!nxt || nxt.score < topScore * 0.3 || leadSpans.reduce((a, x) => a + x.text.length, 0) + nxt.text.length > 620) break;
+    const continues = opening && lead === opening && CUES.function.test(nxt ? nxt.text : '');   // "… is the primary processor. Its circuitry executes …"
+    if (!nxt || (nxt.score < topScore * 0.3 && !continues) || leadSpans.reduce((a, x) => a + x.text.length, 0) + nxt.text.length > 620) break;
     const sp = env.quote(nxt, { allowDangling: true });
     if (sp) leadSpans.push(sp);
   }
   blocks.push(para(leadSpans));
   const nB = bullets != null ? bullets : style.brief ? 0 : style.detail ? env.ctx.budget.sentences + 4 : env.ctx.budget.sentences;
   if (nB > 0) {
-    const picks = mmr(cands, nB + 4, { maxPerDoc: Math.max(2, Math.ceil(nB / 2)), filter: (s) => !env.used.has(`${s.pi}:${s.si}`) && s.type !== 'table' && simSets(s.stems, lead.stems) < 0.6 && (s.directCov >= lead.directCov * 0.6 || s.pi === lead.pi) && (s.predCov >= 0.5 || s.pi === lead.pi || part.answerType === 'definition' || part.explain) && (!bulletFilter || bulletFilter(s)) });
+    // "Amazon Braket is a fully managed quantum computing service." describes a product, not the topic that was asked about
+    const focusStems = new Set(stemsOf(part.focus || ''));
+    const aboutOther = (s) => {
+      if (!(part.answerType === 'definition' || part.explain || part.fn) || !focusStems.size) return false;
+      const m = /^((?:[A-Z][\w&.’'-]*\s+){1,3})(?:is|are|was|were|offers?|provides?|lets|helps?|enables?|gives?|makes?|delivers?)\b/.exec(s.text);
+      return !!m && !stemsOf(m[1]).some((w) => focusStems.has(w));
+    };
+    const picks = mmr(cands, nB + 4, { maxPerDoc: Math.max(2, Math.ceil(nB / 2)), filter: (s) => !env.used.has(`${s.pi}:${s.si}`) && s.type !== 'table' && simSets(s.stems, lead.stems) < 0.6 && (s.directCov >= lead.directCov * 0.6 || s.pi === lead.pi) && (s.predCov >= 0.5 || s.pi === lead.pi || part.answerType === 'definition' || part.explain) && (!bulletFilter || bulletFilter(s)) && !aboutOther(s) });
     const items = [];
     for (const s of picks) { if (items.length >= nB) break; const sp = env.quote(s, { prefix: pre(s) }); if (sp) items.push({ spans: [sp] }); }
     if (items.length) { blocks.push({ type: 'heading', text: heading }); blocks.push({ type: 'list', ordered: false, items }); }
@@ -288,7 +297,11 @@ function composeYesNo(env) {
   const topScore = env.top.score;
   const direct = ranked.sentences.filter((s) => s.directCov >= 0.55 && s.predCov >= 0.6 && s.score >= topScore * 0.45 && !/\?$/.test(s.text)).slice(0, 8);
   if (!direct.length) return insufficient(env, 'None of the retrieved passages speaks to this directly, so I will not guess yes or no.');
-  const picks = mmr(direct, Math.min(4, env.ctx.budget.sentences), { maxPerDoc: 2 });
+  let picks = mmr(direct, Math.min(4, env.ctx.budget.sentences), { maxPerDoc: 2 });
+  // "Is X a Y?" — the sentence with which X's own page defines it is the most direct evidence there is, so it comes first
+  const subject = env.ctx.entityDocs ? env.ctx.entityDocs.get((part.focus || '').toLowerCase()) : undefined;
+  const defining = subject != null ? ranked.sentences.find((s) => s.di === subject && s.type === 'p' && s.order <= 1 && s.si === 0 && s.predCov >= 0.6 && !/\?$/.test(s.text)) : null;
+  if (defining) picks = [defining, ...picks.filter((s) => s !== defining)].slice(0, Math.max(picks.length, 2));
   let pos = 0, neg = 0, contested = 0;
   for (const s of picks) { if (CONTESTED.test(s.text)) contested++; if (NEG.test(s.text) !== part.negated) neg++; else pos++; }
   const strong = direct.length > 0 && direct[0].directCov >= 0.72 && direct[0].predCov >= 0.75;
@@ -325,6 +338,22 @@ function bestList(env, { ordered = false, minItems = 3 } = {}) {
     if (p.block.ordered) sc *= ordered ? 1.5 : 1.1;
     if (p.block.structured) sc *= 1.3;
     if (/\b(step|how to|guide|tutorial|instructions|getting started|procedure|method)\b/i.test(p.heading) && ordered) sc *= 1.3;
+    if (ordered) {
+      // The steps must be the procedure that was asked for. A page about the subject also has lists for other actions
+      // ("Running the agent locally", "Making an inbound call"), so the list's own heading is checked, not the page title.
+      const near = String(p.heading || '').split(' › ').pop().replace(/^\d+[.)]?\s*/, '');
+      const nearStems = stemsOf(near);
+      const verb = env.part.verb && env.part.verb.lemma ? stem(env.part.verb.lemma) : '';
+      const first = (near.split(/\s+/)[0] || '').toLowerCase();
+      const action = /^[a-z]{3,}ing$/.test(first) || /^(?:install|create|run|use|add|open|configure|define|set|write|import|call|make|build|download|connect|enable|deploy|test|train|design|plan|implement|integrate|start|launch|host|publish|upgrade|update|remove|delete)$/.test(first);
+      const hasFocus = need.length ? need.filter((f) => nearStems.includes(f)).length / need.length >= 0.5 : false;
+      const sameAction = !!verb && nearStems.some((h) => h === verb || (h === stem(first) && env.qm.terms.has(h)));
+      const generic = /\b(steps?|how to|guide|tutorial|instructions|getting started|procedure|method|quick ?start|walkthrough|process)\b/i.test(near);
+      if (nearStems.includes(verb) && verb) sc *= 1.5;                          // "How does the build process work?" for "how do I build …"
+      else if (action && !(sameAction && hasFocus)) sc *= 0.5;                  // a different action, or the same verb applied to something else
+      else if (near && !generic && !hasFocus && !nearStems.some((h) => env.qm.terms.has(h))) sc *= 0.5;
+      if (verb && titleStems.has(verb)) sc *= 1.2;                              // the page itself is a "how to <verb> …" page
+    }
     sc *= 0.75 + 0.5 * (docs[p.di].quality || 0.5);
     if (sc > bestScore) { bestScore = sc; best = p; }
   }
@@ -361,7 +390,7 @@ function composeSteps(env, ordered) {
     n = items.length;
   }
   if (code) { blocks.push({ type: 'heading', text: `Example code — from ${docs[code.di].site || docs[code.di].domain}` }); blocks.push({ type: 'code', text: code.text.slice(0, 2400), lang: code.block.lang || '', cites: [env.cite(code.di)] }); }
-  const extra = mmr(ranked.sentences.filter((s) => s.score >= env.top.score * 0.45 && s.type === 'p' && (!found || s.di !== found.passage.di) && (!ordered || s.cueHit)), 3, { maxPerDoc: 1, filter: (s) => !env.used.has(`${s.pi}:${s.si}`) }).map((s) => env.quote(s)).filter(Boolean);
+  const extra = mmr(ranked.sentences.filter((s) => s.score >= env.top.score * 0.45 && s.type === 'p' && !/:\s*$/.test(s.text) && (!found || s.di !== found.passage.di) && (!ordered || s.cueHit)), 3, { maxPerDoc: 1, filter: (s) => !env.used.has(`${s.pi}:${s.si}`) }).map((s) => env.quote(s)).filter(Boolean);
   if (extra.length && !env.style.brief) { blocks.push({ type: 'heading', text: 'Other sources add' }); blocks.push({ type: 'list', ordered: false, items: extra.map((sp) => ({ spans: [sp] })) }); }
   return { blocks, claims: env.claims, stats: { directness: clamp(0.5 + 0.4 * Math.min(1, (found ? found.score : 0.6))), keyClaims: env.claims.length, corroborated: env.corroborated }, lead: leadSp ? leadSp.text : `${n} steps from ${found ? docs[found.passage.di].site : ''}` };
 }
@@ -505,18 +534,26 @@ function composeNews(env) {
 export function answerPart(part, docs, ctx) {
   const env = makeEnv(part, docs, ctx);
   let res;
-  const t = part.answerType;
+  const t = part.qtype === 'prediction' ? 'prediction' : part.answerType;      // "who will win …" is a prediction, whatever kind of answer it asks for
   if (t === 'news') res = composeNews(env);
   else if (t === 'comparison' && part.compare && part.compare.items.length >= 2) res = composeComparison(env);
   else if (t === 'yesno') res = composeYesNo(env);
   else if (['time', 'person', 'place', 'quantity', 'attribute', 'entity'].includes(t)) res = composeFactoid(env);
   else if (t === 'procedure') res = composeSteps(env, true);
   else if (t === 'list') { const found = bestList(env); res = found ? composeSteps(env, false) : composeExtractive(env, { heading: `${capitalize(part.attribute || 'Items')} mentioned in the sources` }); }
-  else if (t === 'prediction') { res = composeExtractive(env, { attribute: true, heading: 'What other sources say', leadFilter: (s) => CUES.prediction.test(s.text) }); if (!res.stats.insufficient) res.blocks.unshift(note('I cannot predict the future. What follows is what the sources I retrieved say or project — treat it as their view, with their dates.', 'warn')); }
+  else if (t === 'prediction') {
+    // A question about a named future year is answered only by a source statement about that year; anything else would be a guess.
+    const futureYears = ((part.temporal && part.temporal.years) || []).filter((y) => y > new Date(env.ctx.now || Date.now()).getUTCFullYear());
+    const thisYear = new Date(env.ctx.now || Date.now()).getUTCFullYear();
+    // "The next eclipse will occur on April 8, 2024", read in a later year, is an old forecast and no longer an answer
+    const stale = (s) => { const ys = (s.text.match(/\b(?:19|20|21)\d\d\b/g) || []).map(Number); return ys.length > 0 && ys.every((y) => y < thisYear) && /\b(will|next|upcoming|expected|scheduled)\b/i.test(s.text); };
+    const aboutYear = (s) => (!futureYears.length || futureYears.some((y) => s.text.includes(String(y)))) && !stale(s);
+    res = composeExtractive(env, { attribute: true, heading: 'What other sources say', leadFilter: (s) => CUES.prediction.test(s.text) && aboutYear(s), bulletFilter: aboutYear,
+      requireLead: futureYears.length ? `I cannot predict the future, and none of the pages I retrieved makes a statement about ${futureYears.join(' or ')}.` : 'I cannot predict the future, and none of the pages I retrieved makes a current forward-looking statement about this.' }); if (!res.stats.insufficient) res.blocks.unshift(note('I cannot predict the future. What follows is what the sources I retrieved say or project — treat it as their view, with their dates.', 'warn')); }
   else if (t === 'recommendation') { res = composeExtractive(env, { attribute: true, heading: 'Other advice in the sources', leadFilter: (s) => CUES.recommendation.test(s.text) }); if (!res.stats.insufficient) res.blocks.unshift(note('Recommendations depend on your situation. These are the views of the cited sources, not a verified fact.', 'info')); }
   else if (t === 'definition') res = composeExtractive(env, { leadFilter: (s) => s.defHit && (!s.dangling), heading: 'Key points' });
   else if (t === 'reason') res = composeExtractive(env, { leadFilter: (s) => s.cueHit && s.directCov >= 0.5 && s.predCov >= 0.5 && !s.dangling, bulletFilter: (s) => s.cueHit && (env.docs[s.di].entity || env.docs[s.di].kind !== 'encyclopedia'), heading: 'In more detail', requireLead: 'The pages I retrieved discuss the topic, but I found no sentence in them that states a cause or reason for this.' });
-  else res = composeExtractive(env, { heading: t === 'mechanism' ? 'How it works, according to the sources' : 'Key points', leadFilter: t === 'mechanism' ? (s) => s.defHit && !s.dangling && s.order <= 1 : null, bulletFilter: t === 'mechanism' ? (s) => s.cueHit && (s.order <= 14 || /\b(process|mechanism|overview|function|operation|principle|stages?|steps?|cycle|reactions?)\b/i.test(s.heading)) : null });
+  else res = composeExtractive(env, { heading: t === 'mechanism' ? 'How it works, according to the sources' : 'Key points', openFirst: !!part.fn, leadFilter: t === 'mechanism' ? (s) => s.defHit && !s.dangling && s.order <= 1 : part.fn ? (s) => s.defHit && !s.dangling : null, bulletFilter: t === 'mechanism' ? (s) => s.cueHit && (s.order <= 14 || /\b(process|mechanism|overview|function|operation|principle|stages?|steps?|cycle|reactions?)\b/i.test(s.heading)) : null });
   // a near-identical statement elsewhere that gives a different figure is shown as a dispute, never counted as support
   for (const d of env.disputes.slice(0, 2)) {
     if (res.stats.insufficient || env.used.has(`${d.b.pi}:${d.b.si}`)) continue;

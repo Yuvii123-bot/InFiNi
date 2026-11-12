@@ -1,6 +1,6 @@
 {
   "name": "infini-ai",
-  "version": "1.1.0",
+  "version": "1.2.0",
   "description": "INFINI AI — an Internet-Native Intelligence: a retrieval-native chatbot with no pretrained language model. Zero runtime dependencies.",
   "type": "module",
   "license": "MIT",

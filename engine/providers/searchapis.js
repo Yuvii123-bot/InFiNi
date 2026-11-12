@@ -50,7 +50,9 @@ export const tavily = {
     let res;
     try { res = await ctx.http.postJSON('https://api.tavily.com/search', body, request(ctx, { headers: { Authorization: `Bearer ${keyOf(ctx, 'tavily')}` } })); }
     catch (e) {
-      if ([401, 403, 432, 433].includes(e.status)) throw new ProviderError(e.status === 401 || e.status === 403 ? 'Tavily did not accept the key' : 'Tavily plan limit reached', 'refused');
+      if (e.status === 401 || e.status === 403) throw new ProviderError('Tavily did not accept the key', 'refused');
+      // 432 / 433: the plan's allowance is spent. Rest for hours instead of asking again every few minutes; the next provider takes over.
+      if (e.status === 432 || e.status === 433) throw Object.assign(new ProviderError('Tavily’s allowance for this key is used up — the other search providers take over', 'rate_limited'), { retryAfterMs: 6 * 3600000 });
       throw e;
     }
     return ((res.json && res.json.results) || []).filter((r) => r && isWebUrl(r.url)).map((r) => lead('tavily', r.title, r.url, r.content, r.published_date));

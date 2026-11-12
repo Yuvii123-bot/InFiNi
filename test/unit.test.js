@@ -131,7 +131,9 @@ test('search APIs without a payment method: Firecrawl (keyless or free key) and 
   out = await tavily.search('nepal election', { http: fake({ answer: 'ignored', results: [{ title: 'T', url: 'https://example.org/a', content: 'Snippet', published_date: '2026-11-10' }] }), cfg: cfgT, fresh: 'day' });
   assert.deepEqual(out[0], { title: 'T', url: 'https://example.org/a', snippet: 'Snippet', date: '2026-11-10', provider: 'tavily', kind: 'web' });
   assert.deepEqual([calls[0].body.include_answer, calls[0].body.include_raw_content, calls[0].body.time_range, calls[0].body.topic, calls[0].opts.headers.Authorization], [false, false, 'day', 'news', 'Bearer tvly-test']);
-  await assert.rejects(tavily.search('q', { http: fake(new HttpError('HTTP 432', 'http_432', 432)), cfg: cfgT }), (e) => e.code === 'refused');
+  // a spent allowance rests the provider for hours (not minutes), a rejected key is reported as such
+  await assert.rejects(tavily.search('q', { http: fake(new HttpError('HTTP 432', 'http_432', 432)), cfg: cfgT }), (e) => e.code === 'rate_limited' && e.retryAfterMs >= 3600000 && /used up/.test(e.message));
+  await assert.rejects(tavily.search('q', { http: fake(new HttpError('HTTP 401', 'http_401', 401)), cfg: cfgT }), (e) => e.code === 'refused' && /key/.test(e.message));
   // no key ever reaches the browser-facing provider list
   assert.ok(!JSON.stringify(Object.values(PROVIDERS).map((p) => [p.id, p.note])).includes('tvly-test'));
 
@@ -149,7 +151,7 @@ test('search APIs without a payment method: Firecrawl (keyless or free key) and 
   await webSearch('q2', { http: net, cfg: cfgBoth }, (e) => log.push(e));
   assert.equal(log[0].code, 'cooling');
   resetCooling();
-  assert.ok(WEB_CHAIN.indexOf('firecrawl') > WEB_CHAIN.indexOf('ddg_html') && !WEB_CHAIN.includes('google_cse'));
+  assert.ok(WEB_CHAIN.indexOf('tavily') < WEB_CHAIN.indexOf('firecrawl') && WEB_CHAIN.indexOf('firecrawl') < WEB_CHAIN.indexOf('ddg_html') && !WEB_CHAIN.includes('google_cse'));
 });
 
 test('HTML parser tolerates invalid markup', () => {
@@ -429,4 +431,41 @@ test('browser client never uses innerHTML or eval', async () => {
   assert.doesNotMatch(src, /innerHTML|outerHTML|insertAdjacentHTML|document\.write|\beval\(|new Function/);
   const engineSrc = ['index.js', 'synth/synth.js', 'math/calc.js', 'extract/readable.js', 'extract/html.js'].map((f) => fs.readFileSync(new URL('../engine/' + f, import.meta.url), 'utf8')).join('\n').split('\n').filter((l) => !/^\s*\/\//.test(l)).join('\n');
   assert.doesNotMatch(engineSrc, /\beval\(|new Function|child_process|vm\.run/);
+});
+
+test('follow-up suggestions: fixed templates, offered only for sections of pages about the subject', async () => {
+  const { relatedQuestions } = await import('../engine/synth/related.js');
+  const page = (title, heads, extra = {}) => ({ title, entity: true, cited: true, sid: 1, blocks: heads.map(([text, level = 2]) => ({ type: 'heading', level, text })), ...extra });
+  const tel = relatedQuestions({ question: 'Who invented the telephone?', focus: 'telephone', kind: 'thing', answerType: 'person', answer: { name: 'Alexander Graham Bell', kind: 'person' },
+    docs: [page('Telephone', [['History'], ['Principle of operation'], ['Symptoms', 3]]), page('Kathmandu', [['Geography']])] });
+  assert.deepEqual(tel.map((r) => r.question), ['Who was Alexander Graham Bell?', 'When was Alexander Graham Bell born?', 'How does the telephone work?']);   // "history" was what the question asked
+  assert.match(tel[2].basis, /Principle of operation.*Telephone/);
+  const liver = relatedQuestions({ question: 'What does the liver do?', focus: 'liver', kind: 'thing', answerType: 'description', docs: [page('Liver', [['Structure'], ['Development'], ['Symptoms', 3], ['Clinical significance']])] });
+  assert.deepEqual(liver.map((r) => r.question), ['What is the structure of the liver?', 'What diseases affect the liver?']);     // sub-sections and ambiguous headings are not used
+  const stars = relatedQuestions({ question: 'Why do stars shine?', focus: 'stars', kind: 'thing', answerType: 'reason', plural: true, docs: [page('Star', [['Etymology'], ['Classification']])] });
+  assert.deepEqual(stars.map((r) => r.question), ['What types of stars are there?', 'Where does the name “Star” come from?']);
+  // a page about something else contributes nothing; neither does a subject that is not plain text
+  assert.equal(relatedQuestions({ question: 'What is the capital of Nepal?', focus: 'Nepal', kind: 'place', answerType: 'place', docs: [page('Kathmandu', [['Geography'], ['History']])] }).length, 0);
+  assert.equal(relatedQuestions({ question: 'x', focus: '<img src=x onerror=alert(1)>', docs: [page('<img src=x onerror=alert(1)>', [['History']])] }).length, 0);
+  assert.equal(relatedQuestions({}).length, 0);
+});
+
+test('language analysis: "what does X do" asks for the function of X', () => {
+  const a = analyze('What does the map method do in JavaScript?');
+  assert.equal(a.parts[0].fn, true);
+  assert.match(a.parts[0].focus, /map/i);
+  assert.ok(!analyze('What is the map method?').parts[0].fn);
+});
+
+test('predictions: a future-tense question is never answered as a plain fact', () => {
+  const p = analyze('Who will win the 2040 World Cup?').parts[0];
+  assert.equal(p.qtype, 'prediction');
+  assert.deepEqual(p.temporal.years, [2040]);
+});
+
+test('ranking: keyword tag lines are not treated as statements', async () => {
+  const { isKeywordRun } = await import('../engine/rank/rank.js');
+  assert.equal(isKeywordRun('map method, new array creation, callback function, JavaScript array methods, element transformation, parseInt function, array map usage'), true);
+  assert.equal(isKeywordRun('The elements include hydrogen, helium, lithium, beryllium, boron, carbon, nitrogen and oxygen.'), false);
+  assert.equal(isKeywordRun('The `map` method creates a new array populated with the results of calling a provided function.'), false);
 });

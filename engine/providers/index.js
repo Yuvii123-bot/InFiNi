@@ -14,8 +14,8 @@ export const PROVIDERS = { wikipedia, ddg_instant: ddgInstant, searxng, tavily, 
 // Order of preference for general web search. The first provider that returns enough results wins;
 // if it fails (error, rate limit, human check) the next one is tried.
 // What the operator configured comes first (own SearXNG, then keyed APIs); the keyless services follow.
-// Firecrawl is asked before DuckDuckGo's HTML page once a key is set (see webSearch).
-export const WEB_CHAIN = ['searxng', 'tavily', 'brave', 'ddg_html', 'firecrawl', 'mwmbl', 'marginalia', 'wiby'];
+// The best-effort services after Firecrawl are re-ordered by how well they worked for the user (see webSearch).
+export const WEB_CHAIN = ['searxng', 'tavily', 'brave', 'firecrawl', 'ddg_html', 'mwmbl', 'marginalia', 'wiby'];
 
 export function listProviders(cfg, disabled = new Set()) {
   return Object.values(PROVIDERS).map((p) => ({
@@ -62,8 +62,9 @@ export async function runProvider(id, query, ctx, log) {
 
 /** General web search with provider fallback. Returns the results of the first provider that delivers. */
 export async function webSearch(query, ctx, log, { off, min = 3, weights = {} } = {}) {
-  const order = (id) => (id === 'firecrawl' && ctx.cfg.keys && ctx.cfg.keys.firecrawl ? WEB_CHAIN.indexOf('tavily') + 0.5 : WEB_CHAIN.indexOf(id));
-  const chain = WEB_CHAIN.filter((id) => isEnabled(id, ctx.cfg, off)).sort((a, b) => (weights[b] || 0) - (weights[a] || 0) || order(a) - order(b));
+  // configured providers and Firecrawl keep their place; the best-effort services after them are ordered by how well they worked for this user
+  const fixed = (id) => WEB_CHAIN.indexOf(id) <= WEB_CHAIN.indexOf('firecrawl');
+  const chain = WEB_CHAIN.filter((id) => isEnabled(id, ctx.cfg, off)).sort((a, b) => (fixed(a) || fixed(b) ? 0 : (weights[b] || 0) - (weights[a] || 0)) || WEB_CHAIN.indexOf(a) - WEB_CHAIN.indexOf(b));
   let best = [];
   for (const id of chain) {
     if (ctx.signal && ctx.signal.aborted) break;

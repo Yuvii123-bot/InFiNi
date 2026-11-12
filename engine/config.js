@@ -1,6 +1,6 @@
 // INFINI AI — configuration (environment-driven; every value has a safe default; no key is required).
 
-export const VERSION = '1.1.0';
+export const VERSION = '1.2.0';
 
 const WIKIMEDIA_HOST = /(^|\.)(wikipedia|wikidata|wikimedia|mediawiki|wiktionary|wikinews|wikibooks|wikiquote|wikivoyage|wikiversity|wikisource)\.org$/;
 const WIKIMEDIA_API_PATH = /^\/(w\/api\.php|w\/rest\.php|api\/rest_v1|core\/v1)/;

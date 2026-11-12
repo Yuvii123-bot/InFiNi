@@ -56,6 +56,8 @@ Only links are taken from these services. INFINI AI fetches and reads every page
 
 ## Documentation
 
+* `docs/REPORT.md` — full report for version 1.2.0: what was built, how, what works, why, and the limits.
+
 | File | Contents |
 |---|---|
 | [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) | Design constraints, technology evaluation (Node, TypeScript, Python, Rust/WASM, SQLite, IndexedDB), pipeline, modules, the four memory tiers, evidence graph, confidence formula, platform targets. |

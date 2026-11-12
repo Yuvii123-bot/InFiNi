@@ -14,6 +14,31 @@ function h(tag, props, ...kids) {
   for (const kid of kids.flat(3)) if (kid != null && kid !== false) el.append(kid.nodeType ? kid : document.createTextNode(String(kid)));
   return el;
 }
+// Icons are inline SVG built with DOM calls: no glyph fonts (which render as empty boxes on many phones) and no markup strings.
+const SVG_NS = 'http://www.w3.org/2000/svg';
+const ICONS = {
+  plus: 'M12 5v14M5 12h14', x: 'M6 6l12 12M18 6L6 18', check: 'M5 12.5l4.5 4.5L19 7.5', chevron: 'M9 6l6 6-6 6',
+  edit: 'M4 20h4L19 9l-4-4L4 16v4zM13.5 6.5l4 4', trash: 'M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13M10 11v6M14 11v6',
+  copy: 'M8 8h12v12H8zM16 8V4H4v12h4', refresh: 'M20 12a8 8 0 1 1-2.34-5.66L20 8.7M20 4v4.7h-4.7', panel: 'M3 5h18v14H3zM15 5v14',
+  bookmark: 'M6 4h12v17l-6-4-6 4z', up: 'M7 11v9H4v-9zM7 11l4-7a2 2 0 0 1 3 2l-1 4h5a2 2 0 0 1 2 2.3l-1.2 6a2 2 0 0 1-2 1.7H7',
+  external: 'M14 5h5v5M19 5l-8 8M11 7H6v11h11v-5', follow: 'M6 5v6a3 3 0 0 0 3 3h9M14 10l4 4-4 4',
+  globe: 'M12 3a9 9 0 1 0 0 18 9 9 0 0 0 0-18zM3 12h18M12 3c2.5 2.6 3.8 5.6 3.8 9s-1.3 6.4-3.8 9c-2.5-2.6-3.8-5.6-3.8-9s1.3-6.4 3.8-9z',
+  quote: 'M6 7h4v5H6zM10 12c0 2.5-1.2 4-3.5 5M14 7h4v5h-4zM18 12c0 2.5-1.2 4-3.5 5', ban: 'M12 3a9 9 0 1 0 0 18 9 9 0 0 0 0-18zM5.7 5.7l12.6 12.6',
+  bulb: 'M9 18h6M10 21h4M12 3a6 6 0 0 0-4 10.5c.7.7 1 1.5 1 2.5h6c0-1 .3-1.8 1-2.5A6 6 0 0 0 12 3z',
+  help: 'M12 3a9 9 0 1 0 0 18 9 9 0 0 0 0-18zM9.5 9.5a2.5 2.5 0 1 1 3.7 2.2c-.7.4-1.2 1-1.2 1.8M12 17v.5',
+  news: 'M4 5h13v14H6a2 2 0 0 1-2-2zM17 9h3v8a2 2 0 0 1-2 2M8 9h5M8 13h5M8 16h3', compare: 'M7 7h11l-3-3M17 17H6l3 3',
+  steps: 'M10 6h10M10 12h10M10 18h10M4 6l1.5 1.5L8 5M4 12l1.5 1.5L8 11M4 18l1.5 1.5L8 17', fact: 'M12 3a9 9 0 1 0 0 18 9 9 0 0 0 0-18zM8.5 12l2.5 2.5 4.5-5',
+  clock: 'M12 3a9 9 0 1 0 0 18 9 9 0 0 0 0-18zM12 7v5l3 2',
+};
+function icon(name, size = 16, cls = '') {
+  const svg = document.createElementNS(SVG_NS, 'svg');
+  const attrs = { viewBox: '0 0 24 24', width: size, height: size, fill: 'none', stroke: 'currentColor', 'stroke-width': 1.8, 'stroke-linecap': 'round', 'stroke-linejoin': 'round', 'aria-hidden': 'true', class: `ico ${cls}`.trim() };
+  for (const [k, v] of Object.entries(attrs)) svg.setAttribute(k, String(v));
+  const path = document.createElementNS(SVG_NS, 'path');
+  path.setAttribute('d', ICONS[name] || '');
+  svg.append(path);
+  return svg;
+}
 const safeUrl = (u) => { try { const x = new URL(u); return x.protocol === 'http:' || x.protocol === 'https:' ? x.href : ''; } catch { return ''; } };
 const fmtDate = (iso) => { if (!iso) return ''; const d = new Date(iso); return Number.isNaN(d.getTime()) ? String(iso).slice(0, 10) : d.toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' }); };
 const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
@@ -109,28 +134,31 @@ function renderChatList() {
     if (group !== lastGroup) { list.append(h('div', { class: 'chat-group', text: group })); lastGroup = group; }
     list.append(h('div', { class: 'chat-item' + (state.chat && state.chat.id === c.id ? ' active' : '') },
       h('button', { class: 'title', type: 'button', title: c.title, onclick: () => openChat(c.id), text: c.title }),
-      h('button', { class: 'mini', type: 'button', title: 'Rename', 'aria-label': 'Rename conversation', onclick: () => renameChat(c.id), text: '✎' }),
-      h('button', { class: 'mini', type: 'button', title: 'Delete', 'aria-label': 'Delete conversation', onclick: () => deleteChat(c.id), text: '🗑' })));
+      h('button', { class: 'mini', type: 'button', title: 'Rename', 'aria-label': 'Rename conversation', onclick: () => renameChat(c.id) }, icon('edit', 15)),
+      h('button', { class: 'mini', type: 'button', title: 'Delete', 'aria-label': 'Delete conversation', onclick: () => deleteChat(c.id) }, icon('trash', 15))));
   }
 }
 const openNav = () => { $('app').classList.add('nav-open'); $('scrim').hidden = false; };
 const closeNav = () => { $('app').classList.remove('nav-open'); $('scrim').hidden = true; };
 
 // ---------------- rendering ----------------
-const SUGGESTIONS = [['Explain', 'What is quantum computing?'], ['Why', 'Why do stars shine?'], ['News', 'What happened in Nepal today?'], ['Compare', 'Compare Python and Rust'], ['How to', 'How do I build an AI agent?'], ['Fact', 'Who invented the telephone?']];
+const SUGGESTIONS = [['Explain', 'What is quantum computing?', 'bulb'], ['Why', 'Why do stars shine?', 'help'], ['News', 'What happened in Nepal today?', 'news'], ['Compare', 'Compare Python and Rust', 'compare'], ['How to', 'How do I build an AI agent?', 'steps'], ['Fact', 'Who invented the telephone?', 'fact']];
+const TRUST = [['globe', 'Live sources'], ['quote', 'Every sentence cited'], ['ban', 'No language model']];
 function renderAll() {
   $('chatTitle').textContent = state.chat.title;
   const thread = $('thread');
   thread.replaceChildren();
   if (!state.chat.messages.length) {
     thread.append(h('section', { class: 'welcome' },
-      h('div', { class: 'logo', 'aria-hidden': 'true', text: '∞' }),
+      h('img', { class: 'hero-mark', src: '/icons/icon.svg', width: '64', height: '64', alt: '' }),
       h('h2', { text: 'I don’t know the world until I search it.' }),
-      h('p', { text: 'Ask a question. I look it up live, read the sources, compare them and build the answer from what they say — with a citation on every statement. No language model is involved.' }),
-      h('div', { class: 'suggest' }, SUGGESTIONS.map(([k, q]) => h('button', { type: 'button', onclick: () => ask(q) }, h('small', { text: k }), q)))));
+      h('p', { text: 'Ask anything. I search the live web, read the pages and answer in their own words.' }),
+      h('div', { class: 'trust' }, TRUST.map(([ic, t]) => h('span', null, icon(ic, 14), t))),
+      h('div', { class: 'suggest' }, SUGGESTIONS.map(([k, q, ic]) => h('button', { type: 'button', onclick: () => ask(q) }, h('small', null, icon(ic, 15), k), q)))));
   } else for (const m of state.chat.messages) thread.append(m.role === 'user' ? userEl(m) : botEl(m));
   renderChatList();
-  scrollDown(true);
+  $('clearBtn').hidden = !state.chat.messages.length;
+  if (state.chat.messages.length) scrollDown(true); else $('scroll').scrollTop = 0;      // the welcome screen starts at its top
 }
 const userEl = (m) => h('div', { class: 'msg user' }, h('div', { class: 'bubble', text: m.text }));
 function scrollDown(force) { const s = $('scroll'); if (force || s.scrollHeight - s.scrollTop - s.clientHeight < 240) s.scrollTop = s.scrollHeight; }
@@ -156,9 +184,9 @@ function createActivity(open) {
     rows[name] = { row, meta, lines };
     stages.append(row);
   }
-  const summary = h('button', { class: 'activity-summary', type: 'button', hidden: true, onclick: () => el.classList.toggle('open') }, h('span', { class: 'chev', text: '›' }), h('span', { class: 'sum-text' }));
+  const summary = h('button', { class: 'activity-summary', type: 'button', hidden: true, onclick: () => el.classList.toggle('open') }, h('span', { class: 'chev' }, icon('chevron', 14)), h('span', { class: 'sum-text' }));
   const el = h('div', { class: 'activity' }, summary, stages);
-  const line = (stage, text, fail) => { const r = rows[stage]; if (!r) return; if (r.lines.children.length < 40) r.lines.append(h('li', { class: fail ? 'fail' : '' }, h('span', { class: fail ? '' : 'ok', text: fail ? '✗ ' : '✓ ' }), text)); };
+  const line = (stage, text, fail) => { const r = rows[stage]; if (!r) return; if (r.lines.children.length < 40) r.lines.append(h('li', { class: fail ? 'fail' : '' }, icon(fail ? 'x' : 'check', 12, fail ? 'bad' : 'ok'), text)); };
   const api = {
     el,
     onEvent(ev) {
@@ -208,17 +236,21 @@ function confidenceEl(conf) {
   return h('div', null, pill, panel);
 }
 const EVID = { page: 'page text read', api: 'official API text', feed: 'publisher feed summary', structured: 'structured data' };
+const favColor = (d) => { let x = 0; for (const ch of String(d)) x = (x * 31 + ch.charCodeAt(0)) % 997; return x % 6; };
 function sourcesEl(result) {
-  if (!result.sources.length) return null;
-  return h('div', { class: 'sources', role: 'list', 'aria-label': 'Sources' }, result.sources.map((s) => h('button', { class: 'src', type: 'button', role: 'listitem', onclick: () => openSource(s, result) },
-    h('span', { class: 'top' }, h('span', { class: 'num', text: String(s.id) }), h('span', { class: 'dom', text: s.domain })),
-    h('span', { class: 'ttl', text: s.title }),
-    h('span', { class: 'tags' }, h('span', { class: 'tag ' + (s.sourceType === 'primary' ? 'primary' : s.sourceType === 'community' ? 'community' : ''), text: s.sourceType }), (s.published || s.modified) ? h('span', { class: 'tag', text: fmtDate(s.published || s.modified) }) : null, s.partial ? h('span', { class: 'tag', text: 'summary only' }) : null))));
+  const n = result.sources.length;
+  if (!n) return null;
+  return h('div', { class: 'sources-wrap' },
+    h('div', { class: 'block-head' }, icon('globe', 14), `${n} source${n === 1 ? '' : 's'}`, h('small', { text: 'open one to see the passages used' })),
+    h('div', { class: 'sources', role: 'list', 'aria-label': 'Sources' }, result.sources.map((s) => h('button', { class: 'src', type: 'button', role: 'listitem', onclick: () => openSource(s, result) },
+      h('span', { class: 'top' }, h('span', { class: `fav c${favColor(s.domain)}`, 'aria-hidden': 'true', text: String(s.domain || '?').replace(/^www\./, '').charAt(0).toUpperCase() }), h('span', { class: 'dom', text: s.domain }), h('span', { class: 'num', text: String(s.id) })),
+      h('span', { class: 'ttl', text: s.title }),
+      h('span', { class: 'tags' }, h('span', { class: 'tag ' + (s.sourceType === 'primary' ? 'primary' : s.sourceType === 'community' ? 'community' : ''), text: s.sourceType }), (s.published || s.modified) ? h('span', { class: 'tag', text: fmtDate(s.published || s.modified) }) : null, s.partial ? h('span', { class: 'tag', text: 'summary only' }) : null)))));
 }
 
 function botEl(m) {
   const body = h('div', { class: 'bot-body' });
-  const el = h('div', { class: 'msg bot' }, h('div', { class: 'logo avatar', 'aria-hidden': 'true', text: '∞' }), body);
+  const el = h('div', { class: 'msg bot' }, h('div', { class: 'bot-head' }, h('img', { class: 'avatar', src: '/icons/mark.svg', width: '26', height: '26', alt: '' }), h('span', { class: 'bot-name', text: 'INFINI AI' })), body);
   m._el = el; m._body = body;
   if (m.status === 'working') return el;
   fillBot(m);
@@ -228,7 +260,7 @@ function fillBot(m) {
   const body = m._body;
   body.replaceChildren();
   const r = m.result;
-  if (m.cached) body.append(h('div', { class: 'cached-banner' }, `From your saved knowledge (saved ${fmtDate(m.cached)}). It was not re-checked just now.`, h('button', { class: 'btn small', type: 'button', onclick: () => regenerate(m), text: 'Refresh from the web' })));
+  if (m.cached) body.append(h('div', { class: 'cached-banner' }, icon('clock', 15), `From your saved knowledge (saved ${fmtDate(m.cached)}). It was not re-checked just now.`, h('button', { class: 'btn small', type: 'button', onclick: () => regenerate(m), text: 'Refresh from the web' })));
   if (m.events && m.events.length && r && (r.kind === 'retrieval' || r.kind === 'url')) {
     const act = createActivity(state.settings.autoExpand);
     for (const ev of m.events) act.onEvent(ev);
@@ -245,24 +277,29 @@ function fillBot(m) {
     const src = sourcesEl(r); if (src) body.append(src);
   }
   const acts = h('div', { class: 'actions' });
-  if (r && r.answer.text) acts.append(h('button', { class: 'act', type: 'button', onclick: () => copyText(r.answer.text + (r.sources.length ? '\n\nSources\n' + r.sources.map((s) => `[${s.id}] ${s.title} — ${s.url}`).join('\n') : ''), 'Answer copied'), text: '⧉ Copy' }));
-  if (m.question) acts.append(h('button', { class: 'act', type: 'button', title: 'Search again, bypassing temporary caches', onclick: () => regenerate(m), text: m.status === 'done' ? '↻ Regenerate' : '↻ Retry' }));
-  if (r && r.research) acts.append(h('button', { class: 'act', type: 'button', onclick: () => openResearch(r), text: '◫ Research details' }));
+  const act = (ic, label, props) => h('button', { class: 'act', type: 'button', 'aria-label': label, ...props }, icon(ic, 16), h('span', { class: 'lbl', text: label }));
+  if (r && r.answer.text) acts.append(act('copy', 'Copy', { onclick: () => copyText(r.answer.text + (r.sources.length ? '\n\nSources\n' + r.sources.map((s) => `[${s.id}] ${s.title} — ${s.url}`).join('\n') : ''), 'Answer copied') }));
+  if (m.question) acts.append(act('refresh', m.status === 'done' ? 'Regenerate' : 'Retry', { title: 'Search again, bypassing temporary caches', onclick: () => regenerate(m) }));
+  if (r && r.research) acts.append(act('panel', 'Research details', { onclick: () => openResearch(r) }));
   if (r && r.kind === 'retrieval' && r.confidence && r.confidence.level !== 'insufficient') {
     const key = normQ(r.interpretation && r.interpretation.resolved ? r.interpretation.resolved : m.question);
-    const save = h('button', { class: 'act' + (m.saved ? ' on' : ''), type: 'button', title: 'Keep this answer on this device and reuse it for the same question', text: m.saved ? '★ Saved' : '☆ Save' });
+    const save = act('bookmark', m.saved ? 'Saved' : 'Save', { title: 'Keep this answer on this device and reuse it for the same question' });
+    save.classList.toggle('on', !!m.saved);
     save.addEventListener('click', async () => {
       if (m.saved) { await idb.del('knowledge', key); m.saved = false; toast('Removed from saved knowledge'); }
       else { await idb.put('knowledge', { key, savedAt: Date.now(), question: m.question, result: JSON.parse(JSON.stringify(r)) }); m.saved = true; toast(r.timeSensitive ? 'Saved — but time-sensitive questions are always re-checked' : 'Saved to your knowledge cache'); }
-      save.textContent = m.saved ? '★ Saved' : '☆ Save'; save.classList.toggle('on', m.saved); saveChat();
+      save.querySelector('.lbl').textContent = m.saved ? 'Saved' : 'Save'; save.setAttribute('aria-label', m.saved ? 'Saved' : 'Save'); save.classList.toggle('on', m.saved); saveChat();
     });
     acts.append(save);
     const vote = (good) => { for (const s of r.sources) { const d = (state.learned.domains[s.domain] = state.learned.domains[s.domain] || {}); d[good ? 'up' : 'down'] = Math.min(50, (d[good ? 'up' : 'down'] || 0) + 1); } saveLearned(); m.voted = good ? 'up' : 'down'; toast('Thanks — source history updated on this device'); up.classList.toggle('on', good); down.classList.toggle('on', !good); saveChat(); };
-    const up = h('button', { class: 'act' + (m.voted === 'up' ? ' on' : ''), type: 'button', title: 'The sources were good', 'aria-label': 'Helpful', onclick: () => vote(true), text: '👍' });
-    const down = h('button', { class: 'act' + (m.voted === 'down' ? ' on' : ''), type: 'button', title: 'The sources were poor', 'aria-label': 'Not helpful', onclick: () => vote(false), text: '👎' });
+    const up = h('button', { class: 'act icon-only' + (m.voted === 'up' ? ' on' : ''), type: 'button', title: 'The sources were good', 'aria-label': 'Helpful', onclick: () => vote(true) }, icon('up', 16));
+    const down = h('button', { class: 'act icon-only' + (m.voted === 'down' ? ' on' : ''), type: 'button', title: 'The sources were poor', 'aria-label': 'Not helpful', onclick: () => vote(false) }, icon('up', 16, 'flip'));
     acts.append(up, down);
   }
   if (acts.children.length) body.append(acts);
+  // follow-up suggestions come from the server as fixed templates tied to sections of the pages it read
+  if (r && Array.isArray(r.related) && r.related.length) body.append(h('div', { class: 'related' }, h('div', { class: 'block-head' }, icon('follow', 14), 'Related'),
+    r.related.slice(0, 4).map((x) => h('button', { class: 'rel', type: 'button', title: x.basis ? `Suggested from ${x.basis}` : null, onclick: () => ask(String(x.question).slice(0, 300)) }, h('span', { text: String(x.question).slice(0, 300) }), icon('plus', 15)))));
 }
 
 // ---------------- drawer: source details and research panel ----------------
@@ -284,7 +321,7 @@ function openSource(s, result) {
   });
   const row = (k, v) => (v ? [h('dt', { text: k }), h('dd', null, v)] : []);
   openDrawer(`[${s.id}] ${s.title}`, [
-    h('div', { class: 'pill-row' }, url ? h('a', { class: 'btn small', href: url, target: '_blank', rel: 'noopener noreferrer nofollow', text: 'Open source ↗' }) : null, url ? h('button', { class: 'btn small', type: 'button', onclick: () => copyText(url, 'Link copied'), text: 'Copy link' }) : null, s.evidenceLevel !== 'structured' && url ? pv : null),
+    h('div', { class: 'pill-row' }, url ? h('a', { class: 'btn small', href: url, target: '_blank', rel: 'noopener noreferrer nofollow' }, 'Open source', icon('external', 14)) : null, url ? h('button', { class: 'btn small', type: 'button', onclick: () => copyText(url, 'Link copied'), text: 'Copy link' }) : null, s.evidenceLevel !== 'structured' && url ? pv : null),
     h('dl', { class: 'kv' }, row('Address', url), row('Publisher', s.site), row('Author', s.author), row('Published', fmtDate(s.published)), row('Updated', fmtDate(s.modified)), row('Retrieved', new Date(s.retrievedAt).toLocaleString()),
       row('Kind', `${s.category} · ${s.sourceType} source`), row('Evidence', `${EVID[s.evidenceLevel] || s.evidenceLevel}${s.partial ? ' (summary or abstract only)' : ''}`), row('Quality score', `${s.quality} of 1 (rule-based estimate)`), row('Notes', (s.notes || []).join('; ')), row('Duplicate of', s.copyOf)),
     h('div', { class: 'sec', text: s.passages.length ? 'Passages this answer relies on' : 'No passage quoted directly' }),
@@ -332,7 +369,7 @@ async function openSettings() {
   auto.addEventListener('change', () => { S.autoExpand = auto.checked; saveSettings(); });
   const nDomains = Object.keys(state.learned.domains).length, nVocab = Object.keys(state.learned.vocab).length;
   openModal('Settings', [
-    h('div', { class: 'field' }, h('span', { class: 'lbl', text: 'Search depth' }), seg([['fast', 'Fast'], ['balanced', 'Balanced'], ['deep', 'Deep']], S.depth, (v) => { S.depth = v; saveSettings(); }), h('small', { text: 'Fast reads about 3 pages, Balanced about 6, Deep about 10 and tries reformulated queries. Deeper is slower and uses more data.' })),
+    h('div', { class: 'field' }, h('span', { class: 'lbl', text: 'Search depth' }), seg(DEPTHS, S.depth, (v) => { S.depth = v; saveSettings(); renderDepth(); }), h('small', { text: 'Fast reads about 3 pages, Balanced about 6, Deep about 10 and tries reformulated queries. Deeper is slower and uses more data.' })),
     h('div', { class: 'field' }, h('span', { class: 'lbl', text: 'Appearance' }), seg([['light', 'Light'], ['dark', 'Dark'], ['system', 'System']], S.theme, (v) => { S.theme = v; saveSettings(); applyTheme(); })),
     h('div', { class: 'field' }, h('label', { class: 'check' }, auto, h('span', null, 'Show research activity expanded', h('small', { text: 'Otherwise it collapses to one line under each answer.' })))),
     h('div', { class: 'field' }, h('span', { class: 'lbl', text: 'Sources' }), h('small', { text: 'Search providers are interchangeable; if one fails the next is tried. Untick any you do not want used.' }), ...prov),
@@ -350,7 +387,7 @@ function openAbout() {
   openModal('About INFINI AI', [h('div', { class: 'about' },
     h('p', { text: 'INFINI AI is an internet-native assistant: it does not know the world until it searches the world. There is no large language model inside it and it calls none.' }),
     h('div', { class: 'sec', text: 'How an answer is made' }),
-    h('ul', null, ['Understanding — rule-based language analysis classifies the question, finds its topic and resolves follow-ups such as “he” or “that”.', 'Planning — the question is split into sub-searches for different providers.', 'Searching — Wikipedia, Wikidata, open web indexes, publisher news feeds and specialist sources are queried live, with automatic failover.', 'Reading — pages are fetched, cleaned of navigation and ads, and split into passages.', 'Comparing — passages are ranked, sources are checked for agreement, copies and contradictions.', 'Constructing — the answer is assembled from sentences found in the sources. Each one carries its citation.'].map((t) => h('li', { text: t }))),
+    h('ul', null, ['Understanding — rule-based language analysis classifies the question, finds its topic and resolves follow-ups such as “he” or “that”.', 'Planning — the question is split into sub-searches for different providers.', 'Searching — Wikipedia, Wikidata, a web search service, open web indexes, publisher news feeds and specialist sources are queried live, with automatic failover. A search service only supplies links: every page is then read by this app.', 'Reading — pages are fetched, cleaned of navigation and ads, and split into passages.', 'Comparing — passages are ranked, sources are checked for agreement, copies and contradictions.', 'Constructing — the answer is assembled from sentences found in the sources. Each one carries its citation.', 'Related questions — fixed question templates, offered only when a page that was just read has a section on that aspect.'].map((t) => h('li', { text: t }))),
     h('div', { class: 'sec', text: 'What it cannot do' }),
     h('ul', null, ['It cannot reason beyond what sources state, write original essays or code, or hold opinions.', 'If the sources it can reach do not answer the question, it says “I could not verify this from the sources I found.”', 'It can be wrong when sources are wrong, when the best page cannot be retrieved, or when its rules misread a question. Check the citations.', 'It “learns” only in a narrow sense: it stores which sites worked, words that co-occur with your topics, and answers you choose to save — all on this device, all clearable in Settings.'].map((t) => h('li', { text: t }))),
     h('div', { class: 'sec', text: 'Privacy' }),
@@ -374,6 +411,10 @@ function absorb(learn) {
   if (keys.length > 400) for (const k of keys.slice(0, keys.length - 400)) delete state.learned.vocab[k];
   saveLearned();
 }
+const DEPTHS = [['fast', 'Fast'], ['balanced', 'Balanced'], ['deep', 'Deep']];
+const DEPTH_NOTE = { fast: 'Fast: reads about 3 pages', balanced: 'Balanced: reads about 6 pages', deep: 'Deep: reads about 10 pages and tries reformulated queries' };
+function renderDepth() { $('depthLabel').textContent = (DEPTHS.find(([v]) => v === state.settings.depth) || DEPTHS[1])[1]; }
+function cycleDepth() { const i = DEPTHS.findIndex(([v]) => v === state.settings.depth); state.settings.depth = DEPTHS[(i + 1) % DEPTHS.length][0]; saveSettings(); renderDepth(); toast(DEPTH_NOTE[state.settings.depth]); }
 function setBusy(b) { state.busy = b; $('sendBtn').hidden = b; $('stopBtn').hidden = !b; $('sendBtn').disabled = !$('q').value.trim(); }
 function regenerate(m) { if (state.busy) return; const i = state.chat.messages.indexOf(m); if (i < 0) return; run(m.question, { regenerate: true, replace: m, context: m.contextBefore || {} }); }
 function ask(text) { const q = (text || $('q').value).trim(); if (!q || state.busy) return; $('q').value = ''; autoGrow(); run(q, {}); }
@@ -386,7 +427,7 @@ async function run(question, { regenerate: regen = false, replace = null, contex
   if (replace) { m = replace; Object.assign(m, { status: 'working', result: null, events: [], error: '', cached: null, saved: false, voted: null }); m._body.replaceChildren(); }
   else {
     const u = { id: uid(), role: 'user', text: question };
-    chat.messages.push(u); $('thread').append(userEl(u));
+    chat.messages.push(u); $('thread').append(userEl(u)); $('clearBtn').hidden = false;
     if (!chat.named && chat.messages.length === 1) { chat.title = question.length > 60 ? question.slice(0, 57) + '…' : question; $('chatTitle').textContent = chat.title; }
     m = { id: uid(), role: 'bot', question, contextBefore: ctxBefore, status: 'working', events: [] };
     chat.messages.push(m); $('thread').append(botEl(m));
@@ -428,7 +469,9 @@ async function run(question, { regenerate: regen = false, replace = null, contex
   state.abort = null;
   setBusy(false);
   fillBot(m);
-  scrollDown();
+  // show the question with the start of its answer, rather than jumping to the end of a long answer
+  const top = (m._el.previousElementSibling || m._el).offsetTop;
+  if (typeof top === 'number') $('scroll').scrollTop = Math.max(0, top - 12); else scrollDown();
   saveChat();
 }
 function autoGrow() { const q = $('q'); q.style.height = 'auto'; q.style.height = Math.min(160, q.scrollHeight) + 'px'; $('sendBtn').disabled = !q.value.trim(); }
@@ -440,7 +483,9 @@ async function init() {
   $('q').addEventListener('input', autoGrow);
   $('q').addEventListener('keydown', (e) => { if (e.key === 'Enter' && !e.shiftKey && !e.isComposing) { e.preventDefault(); ask(); } });
   $('stopBtn').addEventListener('click', () => { if (state.abort) state.abort.abort(); });
-  $('newChat').addEventListener('click', () => { if (state.busy) return toast('Wait for the current answer or press stop'); newChat(); });
+  for (const id of ['newChat', 'newChatTop']) $(id).addEventListener('click', () => { if (state.busy) return toast('Wait for the current answer or press stop'); newChat(); });
+  $('depthBtn').addEventListener('click', cycleDepth);
+  renderDepth();
   $('menuBtn').addEventListener('click', openNav);
   $('scrim').addEventListener('click', closeNav);
   $('histSearch').addEventListener('input', (e) => { state.filter = e.target.value; renderChatList(); });

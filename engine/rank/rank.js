@@ -18,10 +18,24 @@ export const CUES = {
   recommendation: /\b(recommend(?:s|ed)?|should|best|ideal|suggest(?:s|ed)?|advis(?:e|ed|able)|consider|good (?:choice|option|idea)|worth|prefer(?:red)?|suitable|great for|better (?:for|to)|start with|tip)\b/i,
   list: /\b(include|includes|including|such as|types? of|kinds? of|for example|e\.g\.|among|consists? of|range from|namely|several|various|main|major|common)\b/i,
   mechanism: /\b(through|via|using|uses?|works? by|process|when|converts?|absorbs?|produces?|then|first|causes?|allows?|mechanism|function(?:s|ing)?|consists? of|step|stage|during|into|transfers?|triggers?|stimulates?|reacts?)\b/i,
+  // what something does: it is the subject of an action
+  function: /\b(creates?|returns?|calls?|executes?|runs?|adds?|appends?|inserts?|removes?|deletes?|converts?|iterates?|loops?|applies|transforms?|sorts?|filters?|combines?|joins?|splits?|checks?|tests?|finds?|searches|copies|merges?|sets?|gets?|allows?|lets?|enables?|provides?|performs?|produces?|generates?|takes?|accepts?|specifies|defines?|declares?|pauses?|stops?|starts?|waits?|sends?|receives?|reads?|writes?|opens?|closes?|stores?|loads?|prints?|displays?|regulates?|controls?|carries|pumps?|protects?|breaks? down|is used (?:to|for)|are used (?:to|for)|used to|responsible for)\b/i,
 };
-const TYPE_BOOST = { reason: 0.45, procedure: 0.35, definition: 0.3, comparison: 0.3, place: 0.15, person: 0.2, quantity: 0.25, time: 0.3, prediction: 0.35, recommendation: 0.3, list: 0.25, mechanism: 0.25 };
+const TYPE_BOOST = { function: 0.15, reason: 0.45, procedure: 0.35, definition: 0.3, comparison: 0.3, place: 0.15, person: 0.2, quantity: 0.25, time: 0.3, prediction: 0.35, recommendation: 0.3, list: 0.25, mechanism: 0.25 };
 const JUNK = /\b(click here|subscribe|sign up|sign in|log in|cookies?|privacy policy|terms of (?:use|service)|all rights reserved|read more|advertis|newsletter|share this|follow us|javascript (?:is|must be) (?:disabled|enabled)|loading\.\.\.|©)\b/i;
 const DANGLING = /^(?:however|but|also|this|these|those|it|they|he|she|such|that|there|then|thus|therefore|moreover|furthermore|additionally|in addition|for example|for instance|similarly|instead|otherwise|meanwhile|as a result|nevertheless|hence|consequently|his|her|its|their|another|the latter|the former|both|some|others?|in contrast|on the other hand|as such|so)\b/i;
+// "The liver is also …" continues an earlier statement, so it cannot open an answer.
+// "If that hybrid path is what interests you, …" points back at text that will not be quoted.
+const REFER_RE = /^(?:if|when|while|since|because|although|though|as|once|after|before|unless|given)\s+(?:this|that|these|those|it|they|he|she|such)\b/i;
+const VERBISH = /\b(?:is|are|was|were|be|been|being|has|have|had|can|could|will|would|may|might|must|should|do|does|did|include[sd]?|supports?|contains?|consists?|provides?|offers?|creates?|returns?|allows?|makes?|means?|refers?|comprises?|became|become|becomes)\b/i;
+/** True for a comma-separated run of short keyword phrases with no verb. */
+export function isKeywordRun(text) {
+  const segs = String(text).split(/\s*[,;|·•]\s*/).filter(Boolean);
+  if (segs.length < 6) return false;
+  const short = segs.filter((x) => x.split(/\s+/).length <= 4).length;
+  return short / segs.length >= 0.8 && !VERBISH.test(text);
+}
+const ALSO_RE = /^(?:[\w'’()-]+ ){1,5}(?:is|are|was|were|can|may|has|have|will) also\b/i;
 const OPINION = /\b(i think|i believe|i feel|in my opinion|imo|imho|personally|i would|i'd say|arguably|seems? to me|my favou?rite|i love|i hate|we believe|in our view|should(?:n't)? be|must be|best|worst|terrible|awesome|amazing|overrated|underrated)\b/i;
 const HEDGE = /\b(may|might|could|possibly|perhaps|reportedly|allegedly|is said to|rumou?red|unconfirmed|claims?|claimed|according to|suggests?|appears? to|is thought to|is believed to|estimated|likely|probably)\b/i;
 
@@ -97,7 +111,7 @@ export function rankEvidence(docs, qm, { now = Date.now(), fresh = null } = {}) 
   coreTotal = coreTotal || 1;
   const avgLen = passages.reduce((a, p) => a + p.stems.length, 0) / N || 1;
   const titleSets = docs.map((d) => new Set(stemsOf(d.title || '')));
-  const type = qm.answerType === 'attribute' || qm.answerType === 'entity' || qm.answerType === 'description' || qm.answerType === 'news' || qm.answerType === 'yesno' ? null
+  const type = qm.part.fn ? 'function' : qm.answerType === 'attribute' || qm.answerType === 'entity' || qm.answerType === 'description' || qm.answerType === 'news' || qm.answerType === 'yesno' ? null
     : qm.answerType === 'person' ? 'person' : qm.answerType;
   const cue = type && CUES[type];
   const boost = type ? TYPE_BOOST[type] || 0.2 : 0;
@@ -185,12 +199,21 @@ export function rankEvidence(docs, qm, { now = Date.now(), fresh = null } = {}) 
       if (cueHit) mult += boost;
       let defHit = false;
       if (qm.answerType === 'mechanism' && /\b(process|mechanism|overview|how it works|function|operation|principle|stages?|steps?|cycle|reactions?|working)\b/i.test(p.heading)) mult += 0.3;
-      if ((qm.answerType === 'definition' || qm.answerType === 'mechanism' || qm.part.explain) && focusArr.length) {
+      if ((qm.answerType === 'definition' || qm.answerType === 'mechanism' || qm.part.explain || qm.part.fn) && focusArr.length) {
         const head = new Set(stemsOf(text.split(/\s+/).slice(0, 10 + focusArr.length).join(' ')));
-        if (focusArr.every((f) => head.has(f)) && CUES.definition.test(text.slice(0, 220))) { mult += 0.55; defHit = true; }
-        if (p.order <= 2) mult += 0.18;
+        // a defining sentence opens with the subject; for "what does X do" it must also say what X does
+        // (the sentence that opens a page may leave the verb to the sentence after it: "A CPU is the primary processor … Its circuitry executes …")
+        const cueText = qm.part.fn && si === 0 && p.order === 0 ? p.text.slice(0, 420) : text.slice(0, 220);
+        if (focusArr.every((f) => head.has(f)) && (qm.part.fn ? CUES.function : CUES.definition).test(cueText)) { mult += 0.55; defHit = true; }
+        // what something does is stated where a page introduces it, not deep inside its details
+        if (qm.part.fn) { if (p.order === 0) mult += 0.5; else if (p.order <= 2) mult += 0.35; else if (p.order <= 6) mult += 0.2; else if (p.order > 12) mult *= 0.85; }
+        else if (p.order <= 2) mult += 0.18;
       }
-      const dangling = p.type === 'p' && DANGLING.test(text);
+      const dangling = p.type === 'p' && (DANGLING.test(text) || ALSO_RE.test(text) || REFER_RE.test(text));
+      // a paragraph "sentence" with no end punctuation is a headline, caption or teaser rather than a statement
+      if (p.type === 'p' && words < 14 && !/[.!?…"”’')\]]$/.test(text)) lenPen *= 0.55;
+      // "map method, new array creation, callback function, …" is a tag line for search engines, not a statement
+      if (p.type === 'p' && isKeywordRun(text)) lenPen *= 0.15;
       if (dangling) mult *= si === 0 ? 0.9 : 0.72;
       if (/\?\s*$/.test(text)) mult *= 0.3;
       if (qm.required.size && ![...qm.required].some((r) => set.has(r))) mult *= 0.4;

@@ -61,7 +61,7 @@ function markBoilerplate(root, total) {
 const contentLen = (el) => (el._t || 0) - (el._l || 0);
 
 function mainContainer(start) {
-  let node = start;
+  let node = start, lead = null;
   for (let guard = 0; guard < 60; guard++) {
     const total = contentLen(node);
     if (total < 250) break;
@@ -71,10 +71,17 @@ function mainContainer(start) {
       const len = contentLen(ch);
       if (len > bestLen) { best = ch; bestLen = len; }
     }
-    if (best && bestLen >= total * 0.72 && CONTAINERS.has(best.tag) && best.tag !== 'ul' && best.tag !== 'ol' && best.tag !== 'li' && best.tag !== 'table' && best.tag !== 'td') node = best;
-    else break;
+    if (best && bestLen >= total * 0.72 && CONTAINERS.has(best.tag) && best.tag !== 'ul' && best.tag !== 'ol' && best.tag !== 'li' && best.tag !== 'table' && best.tag !== 'td') {
+      // Many layouts put the title and the opening summary in a header block *next to* the body. Descending into the
+      // body would lose that summary (on documentation pages it is the definition), so the header block is remembered.
+      for (const sib of node.children) {
+        if (sib === best) break;
+        if (sib.text === undefined && !sib._skip && sib._t >= 80 && sib._l / Math.max(1, sib._t) < 0.5 && find(sib, (x) => x.tag === 'h1')) lead = sib;
+      }
+      node = best;
+    } else break;
   }
-  return node;
+  return { node, lead };
 }
 
 const REF_RE = /^\s*\[?\s*(\d{1,3}|[a-z]|citation needed|note \d+|edit|update|when\?|who\?|clarification needed)\s*\]?\s*$/i;
@@ -125,6 +132,41 @@ const STEP_HEAD_RE = /^(?:step\s*)?(\d{1,2})\s*[.):\u2013\u2014-]\s*(\S.{2,})$/i
  * Each run of three or more such titles, counted up from 1 at one heading level, becomes an ordered list whose
  * items are the title plus the first sentence of that section — both verbatim from the page.
  */
+const NUM_PARA = /^\(?(\d{1,2})[.)]\s+(\S[\s\S]*)$/;
+const BUL_PARA = /^[•‣◦▪●·*–-]\s+(\S[\s\S]*)$/;
+/**
+ * Lists that a page's markup scatters: steps written as paragraphs ("1. …", "2. …", "3. …"), bullets typed as text,
+ * or one <ul> per item. They are put back together so that a procedure is seen as one ordered list.
+ */
+function normalizeLists(blocks) {
+  const out = [];
+  for (let i = 0; i < blocks.length; i++) {
+    const b = blocks[i];
+    if (b.type === 'p') {
+      const num = NUM_PARA.exec(b.text);
+      const re = num ? NUM_PARA : BUL_PARA.test(b.text) ? BUL_PARA : null;
+      if (re && (!num || Number(num[1]) === 1)) {
+        const items = [];
+        let j = i;
+        for (; j < blocks.length; j++) {
+          const c = blocks[j];
+          const m = c.type === 'p' && (c.heading || '') === (b.heading || '') ? re.exec(c.text) : null;
+          if (!m || (num && Number(m[1]) !== items.length + 1)) break;
+          items.push({ text: num ? m[2] : m[1], depth: 0 });
+        }
+        if (items.length >= 3) { out.push({ type: 'list', ordered: !!num, items, heading: b.heading, derived: num ? 'numbered-paragraphs' : 'bulleted-paragraphs' }); i = j - 1; continue; }
+      }
+    }
+    const prev = out[out.length - 1];
+    if (b.type === 'list' && prev && prev.type === 'list' && !!prev.ordered === !!b.ordered && (prev.heading || '') === (b.heading || '') && !prev.structured && !b.structured && prev.items.length + b.items.length <= 60) {
+      prev.items = [...prev.items, ...b.items];                 // adjacent lists of the same kind under one heading are one list
+      continue;
+    }
+    out.push(b);
+  }
+  return out;
+}
+
 function numberedSectionLists(blocks) {
   const lists = [];
   let run = [];
@@ -382,8 +424,13 @@ export function extractPage(html, baseUrl, { lastModified, now = Date.now() } = 
   const total = start._t || 0;
   markBoilerplate(start, total);
   measure(start, false);                                   // re-measure without boilerplate
-  const container = mainContainer(start);
+  const { node: container, lead } = mainContainer(start);
   const blocks = [];
+  if (lead) {                                              // opening paragraphs that sit beside the main body
+    const opening = [];
+    collectBlocks(lead, opening, { headings: [] });
+    blocks.push(...opening.filter((b) => b.type === 'p' && b.text.length >= 60).slice(0, 3));
+  }
   collectBlocks(container, blocks, { headings: [] });
 
   // ---- structured data → metadata and extra blocks ----
@@ -473,6 +520,7 @@ export function extractPage(html, baseUrl, { lastModified, now = Date.now() } = 
     if (b.href) { try { const u = new URL(b.href, baseUrl); b.href = /^https?:$/.test(u.protocol) ? u.toString() : ''; } catch { b.href = ''; } }
     clean.push(b);
   }
+  { const merged = normalizeLists(clean); clean.length = 0; clean.push(...merged); }
   if (!clean.some((b) => b.type === 'list' && b.ordered && b.structured)) clean.push(...numberedSectionLists(clean).slice(0, 3));
 
   // ---- metadata ----

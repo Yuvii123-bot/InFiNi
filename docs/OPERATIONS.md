@@ -90,10 +90,10 @@ Known limits: “Redeploy” in the Vercel dashboard re-runs `bootstrap.mjs`, wh
 
 ### Web search providers that need no payment method
 
-Order of the failover chain: `searxng → tavily → brave → ddg_html → firecrawl → mwmbl → marginalia → wiby` (Firecrawl moves up next to Tavily once it has a key). A provider that answers with a human check rests 10 minutes, one that rate-limits rests for the time it asks (up to 6 hours), one that refuses the address or key rests 15 minutes; every attempt and skip is shown in the answer’s research details.
+Order of the failover chain: `searxng → tavily → brave → firecrawl → ddg_html → mwmbl → marginalia → wiby`. The first provider that returns at least three results is used. A provider that answers with a human check rests 10 minutes, one that rate-limits rests for the time it asks (up to 6 hours), one that refuses the address or key rests 15 minutes, and Tavily rests 6 hours when its allowance is used up (HTTP 432/433); every attempt and skip is shown in the answer’s research details.
 
 * **Firecrawl** — `POST https://api.firecrawl.dev/v2/search`. Keyless use is documented by Firecrawl and capped per network address per day (requests and credits); on shared hosting addresses the allowance may be consumed by others or refused. A free account key (`FIRECRAWL_API_KEY`) uses the account quota instead.
-* **Tavily** — `POST https://api.tavily.com/search` with `include_answer: false`; needs a free key (`TAVILY_API_KEY`). Not yet exercised against the live service.
+* **Tavily** — `POST https://api.tavily.com/search` with `include_answer: false`; needs a free key (`TAVILY_API_KEY`). In use on the live site since 1.2.0; a question at Balanced depth uses one or two searches, at Deep up to four.
 * **Marginalia** — free non-commercial key by e-mail to the project (results are licensed CC BY-NC-SA 4.0).
 * **SearXNG** — your own instance (`SEARXNG_URL`); public instances block automated use.
 
