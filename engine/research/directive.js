@@ -19,7 +19,12 @@ const RE_DIVE = new RegExp(`^${LEAD}(?:(?:do|take|give me)\\s+a\\s+)?(?:deep[- ]
 const RE_INVESTIGATE = new RegExp(`^${LEAD}(?:investigate|look into|examine|analy[sz]e|study)\\s+(.{3,}?)\\s+(?:thoroughly|in depth|in-depth|in detail|deeply|comprehensively|exhaustively)[.!?]*$`, 'i');
 const RE_SAYS = /^what (?:does|do|did) (?:the |current |recent |scientific |latest |available )*(research|science|evidence|literature|studies|data|scientists|experts|researchers) (?:actually |really |currently )?(?:say|says|show|shows|tell us|suggest|suggests|indicate|indicates|think|conclude|find|found)(?: so far)? (?:about|on|regarding|concerning) (.{3,})$/i;
 const RE_SUFFIX = /^(.{6,}?)[,;]?\s+(?:(?:in|with)\s+(?:great |full |more )?(?:depth|detail)|thoroughly|comprehensively|exhaustively|using (?:as )?many sources(?: as (?:possible|you can))?|from (?:as )?many sources(?: as (?:possible|you can))?|with (?:a )?(?:deep|full|thorough) research)[.!?]*$/i;
-const tidy = (t) => { const s = String(t).trim().replace(/[.!\s]+$/, '').replace(/^(?:the (?:topic|subject|question) of\s+)/i, ''); return s ? s.charAt(0).toUpperCase() + s.slice(1) : s; };
+// "can you do deep research on lithium mining?": the question mark belongs to the request, not to the topic — unless the topic is itself a question
+const tidy = (t) => {
+  let s = String(t).trim().replace(/[.!\s]+$/, '').replace(/^(?:the (?:topic|subject|question) of\s+)/i, '');
+  if (!/^(?:what|why|how|who|whom|whose|when|where|which|is|are|was|were|do|does|did|can|could|should|will|would|has|have)\b/i.test(s)) s = s.replace(/[?\s]+$/, '');
+  return s ? s.charAt(0).toUpperCase() + s.slice(1) : s;
+};
 
 /**
  * Returns null, or { question, depth: 'research' | 'deep', scholarly, reason }.
