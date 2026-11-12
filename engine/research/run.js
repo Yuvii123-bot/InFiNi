@@ -21,7 +21,7 @@ export const RESEARCH_BUDGET = {
   // widen: used by "auto" when the first round left a part of the question without direct evidence
   widen: { maxPages: 36, maxMs: 30000, concurrency: 14, perDomain: 3, rounds: 2, queries: 4, aspects: 0, refArticles: 1, related: 0, abstracts: 30, fullTexts: 2, oaPages: 3, linkDepth: 1, batchPages: 30, batchMs: 11000, sections: 0, perSection: 0, keep: 8 },
   deep: { maxPages: 70, maxMs: 45000, concurrency: 18, perDomain: 4, rounds: 3, queries: 6, aspects: 5, refArticles: 1, related: 0, abstracts: 60, fullTexts: 12, oaPages: 8, linkDepth: 1, batchPages: 40, batchMs: 13000, sections: 3, perSection: 2, keep: 8 },
-  research: { maxPages: 1500, maxMs: 170000, concurrency: 40, perDomain: 12, rounds: 12, queries: 10, aspects: 8, refArticles: 3, related: 2, abstracts: 800, fullTexts: 240, oaPages: 300, linkDepth: 2, batchPages: 170, batchMs: 20000, firstBatchMs: 8000, sections: 6, perSection: 3, keep: 7 },
+  research: { maxPages: 1500, maxMs: 170000, concurrency: 40, perDomain: 12, rounds: 12, queries: 10, aspects: 8, refArticles: 3, refLater: 3, refMax: 12, related: 2, abstracts: 800, fullTexts: 240, oaPages: 300, linkDepth: 3, batchPages: 170, batchMs: 20000, firstBatchMs: 8000, sections: 6, perSection: 3, keep: 7 },
 };
 // How many times one question may call each search service during the loop (on top of the first round).
 const CALLS = {
@@ -55,6 +55,8 @@ export async function runResearch(x) {
   const parts = x.analysis.parts;
   const whole = parts.map((p) => p.text).join(' ');
   const calls = { ...CALLS[mode] };
+  // searches on services with a paid or metered key (Tavily, Brave) are few by default, to spare a monthly quota; the operator can allow more
+  if (mode === 'research' && x.cfg.research && x.cfg.research.keyedSearches) { calls.tavily = x.cfg.research.keyedSearches; calls.brave = Math.max(calls.brave, x.cfg.research.keyedSearches); }
   const main = parts[0];
   // What further searches are built around: everything the question names except the relation it asks about —
   // "the impact of remote work on productivity" → "remote work productivity"; "health effects of microplastics" → "microplastics".
@@ -167,8 +169,14 @@ export async function runResearch(x) {
   }
 
   /** The sources cited by the encyclopedia articles on the topic: pages become leads, DOIs become abstracts. */
-  async function harvestReferences(limit) {
-    const titles = uniq([...x.senses.map((s) => s.title), ...[...x.entityDocs.values()].map((di) => x.docs[di]).filter((d) => d && d.provider === 'wikipedia' && !d.wrongSense && !d.news).map((d) => d.title)].filter(Boolean), (t) => t.toLowerCase()).slice(0, limit);
+  const harvested = new Set();
+  async function harvestReferences(limit, later = false) {
+    // first the articles on the topic itself; in later rounds the most relevant encyclopedia articles read since
+    const pool = later
+      ? x.docs.filter((d) => d && d.provider === 'wikipedia' && !d.partial && !d.wrongSense && !d.news && !d.offTopic && (d.rel == null ? 0.6 : d.rel) >= 0.6).sort((a, b) => (b.rel || 0) - (a.rel || 0)).map((d) => d.title)
+      : [...x.senses.map((s) => s.title), ...[...x.entityDocs.values()].map((di) => x.docs[di]).filter((d) => d && d.provider === 'wikipedia' && !d.wrongSense && !d.news).map((d) => d.title)];
+    const titles = uniq(pool.filter(Boolean), (t) => t.toLowerCase()).filter((t) => !harvested.has(t.toLowerCase())).slice(0, Math.max(0, Math.min(limit, (B.refMax || limit) - harvested.size)));
+    for (const t of titles) harvested.add(t.toLowerCase());
     await Promise.all(titles.map(async (title) => {
       if (x.http.remaining('wikimedia-api') < 10 || x.aborted()) return;
       const res = await logged('wikipedia', 'Wikipedia (sources cited by the article)', title, async () => { const r = await wikipedia.references(title, ctxFor({})); return Object.assign(r.references, { count: r.references.length }); });
@@ -293,7 +301,7 @@ export async function runResearch(x) {
       // — and not the people or bodies a study is about ("employees", "patients"), nor a word built on one of the question's own ("workers", "workplace" when work was asked about)
       const qWords = [...qStems].filter((w) => w.length >= 4);
       const derived = (w) => qWords.some((q) => w.startsWith(q) || q.startsWith(w.replace(/s$/, '')));
-      const singles = keys.list.filter((k) => k.obj >= Math.max(3, Math.ceil(independent * 0.04)) && k.obj / k.origins >= 0.42 && k.weight >= 0.3 && k.word.length >= 5 && !qStems.has(k.stem) && !/(?:ed|ly|ize|ise|ify|ate)$/.test(k.word) && !focusStems.includes(k.stem) && !PARTICIPANT.has(k.word) && !VAGUE_SINGLE.has(k.word) && !derived(k.word) && !NOUN_AL.has(k.word)).slice(0, B.aspects * 2)          // ("chemical", "potential": noun or describing word — too vague alone)
+      const singles = keys.list.filter((k) => k.obj >= Math.max(3, Math.ceil(independent * 0.04)) && k.obj / k.origins >= 0.42 && k.weight >= 0.3 && k.word.length >= 5 && !qStems.has(k.stem) && !/(?:ed|ly|ize|ise|ify|ate)$/.test(k.word) && !focusStems.includes(k.stem) && !PARTICIPANT.has(k.word) && !VAGUE_SINGLE.has(k.word) && !derived(k.word) && !NOUN_AL.has(k.word) && (k.near || 0) / k.origins < 0.45).slice(0, B.aspects * 2)          // ("chemical", "potential": noun or describing word — too vague alone)
         .map((k) => ({ label: capitalize(ADJECTIVE.test(k.word) && !NOUN_AL.has(k.word) && relNoun ? `${k.word} ${relNoun}` : k.word), stems: [k.stem], source: 'recurring term', support: k.obj, common: k.weight }));
       for (const ph of phrases) ph.common = 1.15 * Math.max(0, ...ph.stems.map((st) => keys.terms.get(st) || 0));
       fromVocabulary = [...phrases, ...singles].sort((a, b) => b.common - a.common);
@@ -372,6 +380,7 @@ export async function runResearch(x) {
         if (title) { spend('wikipedia'); jobs.push(logged('wikipedia', 'Wikipedia (articles on neighbouring topics)', title, () => wikipedia.related(title, ctxFor({ limit: 50 }))).then((res) => (res ? frontier.addResults(res, { weight: 0.6 }) : 0))); }
       }
     } else {
+      if (B.refLater && can('wikipedia')) jobs.push(harvestReferences(B.refLater, true));
       for (const q of nextQueries(ranks)) {
         if (q.aspect) q.aspect.searched = true;
         jobs.push(searchEverywhere(q.text, q.aspect ? { aspect: aspects.indexOf(q.aspect) } : { scholarly: q.scholarly !== false }));

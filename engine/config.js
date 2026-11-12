@@ -43,6 +43,7 @@ export function loadConfig(env = (typeof process !== 'undefined' ? process.env :
       maxConcurrent: num(env.MAX_CONCURRENT_RESEARCH, 2, 1, 16),
       perHour: num(env.RESEARCH_PER_HOUR, 12, 1, 1000),
       perClientPerHour: num(env.RESEARCH_PER_CLIENT_PER_HOUR, 6, 1, 1000),
+      keyedSearches: num(env.RESEARCH_KEYED_SEARCHES, 5, 1, 40),          // searches per research run on services with a metered key (Tavily, Brave)
     },
     http: {
       userAgent,

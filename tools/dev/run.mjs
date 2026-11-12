@@ -108,6 +108,6 @@ if (isMain) {
     let n = 0;
     for (const s of X.ranks[0].ranked.sentences) { if (!re.test(s.text)) continue; if (n++ >= 5) break; const d = X.docs[s.di]; console.log(`\n=== FIND === type=${s.type} len=${s.text.length} score=${s.score.toFixed(3)} gap=${!!s.gap} gapOnly=${!!s.gapOnly} proc=${!!s.proc} intro=${!!s.intro} dang=${!!s.dangling} nonHuman=${!!s.nonHuman} other=${!!s.otherEntity} cov=${s.cov.toFixed(2)} d=${s.directCov.toFixed(2)} p=${s.predCov.toFixed(2)} sal=${(s.sal || 0).toFixed(2)}\n   doc: ${d.url} provider=${d.provider} partial=${!!d.partial}\n   text: ${JSON.stringify(s.text.slice(0, 500))}`); }
   }
-  if (X && process.env.KEYS) { const k = X.ranks[0].ranked.salience; console.log('\n=== key terms === sided', k && k.sided, 'origins', k && k.origins, '\n' + (k ? k.list.slice(0, Number(process.env.KEYS) || 60).map((t) => `${t.word} w=${t.weight.toFixed(2)} o=${t.origins} obj=${t.obj}`).join(' | ') : 'none')); }
+  if (X && process.env.KEYS) { const k = X.ranks[0].ranked.salience; console.log('\n=== key terms === sided', k && k.sided, 'origins', k && k.origins, '\n' + (k ? k.list.slice(0, Number(process.env.KEYS) || 60).map((t) => `${t.word} w=${t.weight.toFixed(2)} o=${t.origins} obj=${t.obj} near=${t.near}`).join(' | ') : 'none')); }
   engine.close();
 }

@@ -14,6 +14,8 @@ const WEAK = new Set(('also many much however according including include includ
   'high higher low lower large larger small smaller long short great good better best more most less least very really quite rather further another other others every each both either neither whether while although though because since therefore thus hence ' +
   'potential possible potentially possibly likely unlikely overall general specific particular certain various key similar related associated increased decreased reduced growing rising emerging existing available present previous future early late later prior total whole entire additional further direct indirect ' +
   'http https www com org html click read share subscribe copyright rights reserved privacy policy terms cookie cookies menu home search login sign').split(/\s+/));
+// a phrase that opens with a verb in the third person ("improves employee", "reduces stress") is a piece of a sentence
+const NOT_FIRST = new Set('improves increases reduces decreases causes leads affects helps makes shows provides offers allows enables requires includes remains becomes enhances boosts lowers raises prevents promotes contributes creates gives keeps brings means suggests indicates finds reveals appears seems tends occurs exists involves depends varies plays takes gets has have had can may might could should would will is are was were been being does did do using used use'.split(' '));
 const NOT_LAST = new Set('beyond above below within without behind ahead alone together away along apart instead otherwise elsewhere everywhere anywhere somewhere thereafter afterwards onward onwards forth'.split(' '));
 const okWord = (w) => w.length >= 3 && w.length <= 24 && !STOPWORDS.has(w) && !WEAK.has(w) && /^[a-z][a-z'-]*$/.test(w);
 const SKIP_SECTION = /^(see also|references|external links|further reading|notes|bibliography|citations|sources|footnotes|works cited|explanatory notes|gallery|notes and references|in popular culture|popular culture|etymology|terminology|nomenclature|name|names|overview|background|introduction|definition|definitions|general|description|summary|other|others|miscellaneous|list|lists)$/i;
@@ -34,7 +36,7 @@ export function keyPhrases(sentences, docs, qStems, { max = 12, minOrigins = 2, 
         if (i + n > words.length) break;
         const gram = words.slice(i, i + n);
         if (!okWord(gram[0]) || !okWord(gram[n - 1]) || (n === 3 && !(okWord(gram[1]) || /^(of|and|in|for|to|the)$/.test(gram[1])))) continue;
-        if (gram.some((w) => /ly$/.test(w) && w.length > 4) || NOT_LAST.has(gram[n - 1])) continue;       // "widely acclaimed …", "… and beyond" are not names of topics
+        if (gram.some((w) => /ly$/.test(w) && w.length > 4) || NOT_LAST.has(gram[n - 1]) || NOT_FIRST.has(gram[0])) continue;       // "widely acclaimed …", "… and beyond", "improves employee …" are not names of topics
         const stems = gram.filter((w) => !STOPWORDS.has(w)).map(stem);
         if (new Set(stems).size < stems.length || stems.every((st) => qStems.has(st))) continue;
         const key = stems.join(' ');
@@ -85,6 +87,8 @@ export function sharedHeadings(docs, qStems, { max = 10, minOrigins = 2, taken =
     if (d.offTopic || d.wrongSense || !d.outline) continue;
     const seen = new Set();
     for (const h of d.outline) {
+      // a heading phrased as a question ("What are the benefits of …?", "How productive are remote workers") belongs to a FAQ, it does not name a sub-topic
+      if (/\?\s*$/.test(String(h.text || '')) || /^\s*(?:\d+[.)]\s*)?(?:what|why|how|who|whom|whose|when|where|which|is|are|was|were|can|could|does|do|did|should|will|would)\b/i.test(String(h.text || ''))) continue;
       const text = cleanHeading(h.text);
       if (text.length < 4 || text.length > 60 || text.split(/\s+/).length > 7 || GENERIC_HEADING.test(text) || SKIP_SECTION.test(text) || PAPER_PART.test(text)) continue;
       const stems = [...new Set(stemsOf(text))].filter((st) => !qStems.has(st) && !WEAK.has(st));

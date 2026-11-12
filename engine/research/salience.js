@@ -51,6 +51,8 @@ export function keyTerms(ranked, docs, qm, { max = 40, pool = 500, minShare = 0.
   const origins = new Map();          // stem → Set(origin)
   const objects = new Map();          // stem → Set(origin) where the word stands on the answering side of the sentence
   const forms = new Map();            // stem → Map(word → count)
+  const nears = new Map();            // stem → Set(origin) where the word stands directly beside the topic's name
+  const focusSet = new Set(tokenize(String((qm.part && qm.part.focus) || '')).filter((w) => !STOPWORDS.has(w)).map(stem));
   const all = new Set();
   // "What are the effects / causes / risks / uses of X?": in a sentence that states the relation, what follows the relating
   // word names the answer ("… can cause inflammation, oxidative stress and …"); what precedes it mostly describes the topic.
@@ -65,6 +67,15 @@ export function keyTerms(ranked, docs, qm, { max = 40, pool = 500, minShare = 0.
     let cut = -1;
     if (sided) { const m = qm.relCue.exec(s.text) || ENUM_CUE.exec(s.text); if (m) cut = m.index + m[0].length; }
     const objSide = cut >= 0 ? new Set(tokenize(s.text.slice(cut)).map(stem)) : null;
+    // words that stand directly beside the topic's name ("microplastic pollution", "exposure to microplastics", "MPs exposure")
+    // describe the topic rather than answer the question about it
+    const raw = s.text.split(/[^\p{L}\p{N}'’-]+/u).filter(Boolean);
+    const topicLike = raw.map((t) => { const l = t.toLowerCase().replace(/[’']s$/, ''); return focusSet.has(stem(l)) || l.split('-').some((x) => focusSet.has(stem(x))) || /^[A-Z]{2,5}s?$/.test(t); });
+    const beside = new Set();
+    raw.forEach((t, i) => {
+      if (topicLike[i]) return;
+      if (topicLike[i - 1] || topicLike[i + 1] || (topicLike[i + 2] && /^(?:of|to|from|by|with|in)$/i.test(raw[i + 1] || ''))) beside.add(stem(t.toLowerCase()));
+    });
     for (const w of tokenize(s.text)) {
       if (w.length < 4 || w.length > 24 || STOPWORDS.has(w) || !/^[a-z][a-z-]*$/.test(w)) continue;
       const st = stem(w);
@@ -72,6 +83,7 @@ export function keyTerms(ranked, docs, qm, { max = 40, pool = 500, minShare = 0.
       if (GENERIC.has(st)) continue;
       let set = origins.get(st); if (!set) origins.set(st, (set = new Set()));
       set.add(o);
+      if (beside.has(st)) { let nb = nears.get(st); if (!nb) nears.set(st, (nb = new Set())); nb.add(o); }
       if (objSide && objSide.has(st)) { let ob = objects.get(st); if (!ob) objects.set(st, (ob = new Set())); ob.add(o); }
       let f = forms.get(st); if (!f) forms.set(st, (f = new Map()));
       f.set(w, (f.get(w) || 0) + 1);
@@ -89,7 +101,7 @@ export function keyTerms(ranked, docs, qm, { max = 40, pool = 500, minShare = 0.
     if (sided) weight *= 0.55 + 0.9 * (obj / set.size);          // a word that mostly stands where the answers stand outweighs one that describes the topic
     if (weight < 0.12) continue;
     const word = [...forms.get(st)].sort((a, b) => b[1] - a[1] || a[0].length - b[0].length)[0][0];
-    list.push({ stem: st, word, weight: Math.min(1, weight), origins: set.size, obj });
+    list.push({ stem: st, word, weight: Math.min(1, weight), origins: set.size, obj, near: nears.has(st) ? nears.get(st).size : 0 });
   }
   list.sort((a, b) => b.weight - a.weight);
   const kept = list.slice(0, max);
@@ -136,7 +148,7 @@ export function applySalience(ranked, docs, qm, opts) {
   const ownWord = (w) => { if (!w) return false; const st = stem(w.toLowerCase()); return qm.terms.has(st) || keys.terms.has(st) || GENERIC.has(st) || /^[A-Z]{2,}s?$/.test(w) || PLAIN_MODIFIER.has(w.toLowerCase()) || /^(?:long|short|chronic|acute|prolonged|dietary|oral|daily|regular|early|maternal|prenatal|occupational|low|high|excess|excessive)(?:-term)?$/i.test(w); };
   // A question about health asks, unless it says otherwise, about people: findings in fish, mice or cell cultures are evidence
   // but rank below statements about humans or about no particular organism.
-  const HEALTH_Q = /\b(?:health|healthy|unhealthy|safe|safety|harmful|dangerous|toxic|disease|diseases|illness|cancer|symptoms?|side effects?|risks?|treatment|treatments|therapy|diet|nutrition|medical|medicine|mortality|life expectancy|pregnan\w+|mental)\b/i;
+  const HEALTH_Q = /\b(?:health|healthy|unhealthy|safe|safety|harmful|dangerous|toxic|disease|diseases|illness|cancer|symptoms?|side effects?|risks?|treatment|treatments|therapy|diet|diets|dieting|nutrition|medical|medicine|mortality|life expectancy|pregnan\w+|mental|weight|obesity|obese|fasting|exercise|sleep|vitamins?|supplements?|drugs?|medications?|vaccines?|blood pressure|cholesterol|diabetes|heart|stroke|dementia|alzheimer\w*|depression|anxiety|allerg\w+|asthma|pain|infections?|virus|covid\w*|flu|smoking|vaping|alcohol|caffeine|sugar|salt|keto\w*|vegan|vegetarian|longevity|ageing|aging)\b/i;
   const NONHUMAN = /\b(?:fish|fishes|zebrafish|mice|mouse|murine|rats?|rodents?|rabbits?|pigs?|piglets?|chickens?|poultry|livestock|cattle|cows?|sheep|dogs?|cats?|birds?|seabirds?|turtles?|whales?|dolphins?|seals?|mussels?|oysters?|clams?|bivalves?|shrimps?|prawns?|crabs?|crustaceans?|copepods?|daphnia|plankton|zooplankton|phytoplankton|algae|microalgae|corals?|invertebrates?|earthworms?|worms?|nematodes?|insects?|bees|honeybees?|larvae|larval|tadpoles?|amphibians?|reptiles?|wildlife|biota|fauna|flora|marine (?:life|organisms?|animals?|species|biota|ecosystems?)|aquatic (?:life|organisms?|animals?|species|biota|ecosystems?|environments?)|freshwater|seawater|ecosystems?|ecological|soil|soils|crops?|plants|seedlings?|animal models?|in animals|animal stud(?:y|ies))\b/i;
   const HUMAN = /\b(?:humans?|people|persons?|patients?|adults?|children|child|infants?|babies|women|men|mothers?|pregnan\w+|workers?|consumers?|individuals|volunteers|participants|population|public health|our bod(?:y|ies)|the body|human bod(?:y|ies)|placenta|breast milk|blood|epidemiolog\w+|clinical)\b/i;
   const qText = String((qm.part && (qm.part.core || qm.part.text)) || '');

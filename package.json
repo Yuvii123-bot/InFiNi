@@ -16,6 +16,7 @@
     "test:ui": "node test/ui-smoke.mjs",
     "bench": "node bench/intelligence.js",
     "bench:resources": "node bench/resources.js",
+    "bench:research": "node bench/research.js",
     "audit:security": "node bench/security.js"
   },
   "dependencies": {},

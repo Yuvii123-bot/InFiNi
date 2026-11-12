@@ -1,0 +1,466 @@
+{
+  "date": "2026-11-12T13:12:03.784Z",
+  "version": "3.0.0",
+  "node": "v20.20.2",
+  "searchKeysConfigured": [
+    "tavily"
+  ],
+  "contactConfigured": true,
+  "budget": {
+    "maxPages": 1500,
+    "maxSeconds": 170,
+    "concurrency": 40
+  },
+  "rows": [
+    {
+      "q": "Do deep research on the health effects of microplastics",
+      "field": "medicine",
+      "asked": "auto",
+      "used": "research",
+      "limited": "",
+      "seconds": 43.7,
+      "firstDraftSeconds": 7.7,
+      "drafts": 5,
+      "progressEvents": 28,
+      "rounds": 5,
+      "pagesRead": 287,
+      "pagesFailed": 143,
+      "abstracts": 718,
+      "documents": 1001,
+      "fullText": 267,
+      "sites": 101,
+      "origins": 818,
+      "screened": 5477,
+      "searches": 109,
+      "megabytes": 62,
+      "linksFollowed": 323,
+      "stopped": "new searches were no longer bringing new material",
+      "confidence": "High confidence 78%",
+      "cited": 28,
+      "statements": 36,
+      "sections": [
+        "Exposure",
+        "Pollution",
+        "Reproductive effects",
+        "Oxidative stress",
+        "Inflammation",
+        "Metabolic effects"
+      ],
+      "report": {
+        "sections": 6,
+        "figures": 4,
+        "timeline": 0,
+        "differences": 0,
+        "uncertain": 3
+      },
+      "tally": null,
+      "failures": {
+        "disallowed by the site’s robots.txt": 30,
+        "refused automated access": 41,
+        "page no longer exists": 15,
+        "no readable text (often needs JavaScript)": 40,
+        "rate limited": 3,
+        "other errors": 4,
+        "address not allowed": 1,
+        "address not found": 1,
+        "too slow": 6,
+        "server error": 2
+      },
+      "providers": {
+        "tavily": {
+          "ok": 7,
+          "failed": 0,
+          "results": 115
+        },
+        "wikipedia": {
+          "ok": 42,
+          "failed": 0,
+          "results": 2338
+        },
+        "ddg_html": {
+          "ok": 0,
+          "failed": 2,
+          "results": 0
+        },
+        "openalex": {
+          "ok": 0,
+          "failed": 2,
+          "results": 0
+        },
+        "firecrawl": {
+          "ok": 0,
+          "failed": 2,
+          "results": 0
+        },
+        "marginalia": {
+          "ok": 0,
+          "failed": 2,
+          "results": 0
+        },
+        "mwmbl": {
+          "ok": 14,
+          "failed": 2,
+          "results": 249
+        },
+        "europepmc": {
+          "ok": 5,
+          "failed": 5,
+          "results": 250
+        },
+        "crossref": {
+          "ok": 26,
+          "failed": 0,
+          "results": 1657
+        }
+      },
+      "kinds": "Scholarly journal 625, Preprint server 112, News organisation 76, Encyclopedia 44, Company or commercial site 38, University or research institute 21",
+      "documentsByKind": "Research article 501, Preprint 110, News report 83, Review article 65, Reference entry 44, Explainer or analysis 42",
+      "studies": "meta-analysis 5, systematic review 17, randomised trial 1, guideline 2, observational study 16, case report 1",
+      "resultKB": 370,
+      "peakRssMB": 311,
+      "lead": "In vitro experiments with human cells and in vivo data generated with mice showed that microplastics elicit adverse health effects mainly by causing inflammation, oxidative stress [increased reactive oxygen species (ROS) production], lipid metabolism disturban"
+    },
+    {
+      "q": "Do deep research on the impact of remote work on productivity",
+      "field": "social science",
+      "asked": "auto",
+      "used": "research",
+      "limited": "",
+      "seconds": 47.4,
+      "firstDraftSeconds": 5.8,
+      "drafts": 6,
+      "progressEvents": 40,
+      "rounds": 6,
+      "pagesRead": 500,
+      "pagesFailed": 198,
+      "abstracts": 483,
+      "documents": 975,
+      "fullText": 394,
+      "sites": 135,
+      "origins": 617,
+      "screened": 6902,
+      "searches": 84,
+      "megabytes": 129.4,
+      "linksFollowed": 656,
+      "stopped": "new searches were no longer bringing new material",
+      "confidence": "High confidence 80%",
+      "cited": 42,
+      "statements": 41,
+      "sections": [
+        "How Productive Are Remote Workers",
+        "Hybrid",
+        "Benefits",
+        "Job satisfaction",
+        "Commuting",
+        "Improves employee"
+      ],
+      "report": {
+        "sections": 6,
+        "figures": 4,
+        "timeline": 5,
+        "differences": 0,
+        "uncertain": 3
+      },
+      "tally": null,
+      "failures": {
+        "refused automated access": 103,
+        "disallowed by the site’s robots.txt": 22,
+        "no readable text (often needs JavaScript)": 27,
+        "address not found": 6,
+        "other errors": 4,
+        "page no longer exists": 20,
+        "page opts out of excerpts": 1,
+        "rate limited": 7,
+        "a file, not a web page": 1,
+        "too slow": 7
+      },
+      "providers": {
+        "wikipedia": {
+          "ok": 42,
+          "failed": 0,
+          "results": 3428
+        },
+        "tavily": {
+          "ok": 7,
+          "failed": 0,
+          "results": 114
+        },
+        "mwmbl": {
+          "ok": 0,
+          "failed": 16,
+          "results": 0
+        },
+        "crossref": {
+          "ok": 19,
+          "failed": 0,
+          "results": 1420
+        }
+      },
+      "kinds": "Scholarly journal 398, Company or commercial site 102, Blog or personal site 90, Preprint server 86, News organisation 85, Encyclopedia 43",
+      "documentsByKind": "Research article 343, News report 95, Preprint 84, FAQ 68, Blog post 55, Book or chapter 46",
+      "studies": "meta-analysis 2, systematic review 8, observational study 44, review 6, preprint 84, research article 299",
+      "resultKB": 372,
+      "peakRssMB": 396,
+      "lead": "The findings indicate that even though remote work is flexible resulting in increased job satisfaction, it could lead to some complications such as isolation and barriers in communication. [1] Key points • Findings indicate that while remote work increases fle"
+    },
+    {
+      "q": "Do deep research on solid-state batteries",
+      "field": "technology",
+      "asked": "auto",
+      "used": "research",
+      "limited": "",
+      "seconds": 56.8,
+      "firstDraftSeconds": 3.1,
+      "drafts": 7,
+      "progressEvents": 45,
+      "rounds": 7,
+      "pagesRead": 354,
+      "pagesFailed": 145,
+      "abstracts": 553,
+      "documents": 904,
+      "fullText": 331,
+      "sites": 132,
+      "origins": 684,
+      "screened": 5399,
+      "searches": 98,
+      "megabytes": 83.1,
+      "linksFollowed": 313,
+      "stopped": "new searches were no longer bringing new material",
+      "confidence": "High confidence 85%",
+      "cited": 65,
+      "statements": 41,
+      "sections": [
+        "Energy density",
+        "Challenges",
+        "Advantages",
+        "Thin-film solid-state batteries",
+        "Materials",
+        "Uses"
+      ],
+      "report": {
+        "sections": 6,
+        "figures": 4,
+        "timeline": 4,
+        "differences": 0,
+        "uncertain": 3
+      },
+      "tally": null,
+      "failures": {
+        "page no longer exists": 20,
+        "disallowed by the site’s robots.txt": 19,
+        "refused automated access": 63,
+        "rate limited": 10,
+        "other errors": 3,
+        "no readable text (often needs JavaScript)": 23,
+        "too slow": 5,
+        "page opts out of excerpts": 1,
+        "a file, not a web page": 1
+      },
+      "providers": {
+        "wikipedia": {
+          "ok": 42,
+          "failed": 0,
+          "results": 1936
+        },
+        "tavily": {
+          "ok": 6,
+          "failed": 0,
+          "results": 108
+        },
+        "mwmbl": {
+          "ok": 11,
+          "failed": 5,
+          "results": 199
+        },
+        "crossref": {
+          "ok": 22,
+          "failed": 0,
+          "results": 1590
+        },
+        "openalex": {
+          "ok": 0,
+          "failed": 8,
+          "results": 0
+        },
+        "marginalia": {
+          "ok": 0,
+          "failed": 4,
+          "results": 0
+        }
+      },
+      "kinds": "Scholarly journal 500, News organisation 158, Company or commercial site 81, Preprint server 61, Encyclopedia 41, University or research institute 14",
+      "documentsByKind": "Research article 462, News report 149, Preprint 61, Explainer or analysis 50, Reference entry 41, FAQ 35",
+      "studies": "randomised trial 1, observational study 4, review 31, preprint 61, research article 457",
+      "resultKB": 393,
+      "peakRssMB": 413,
+      "lead": "A solid-state battery (SSB) is an electrical battery that uses a solid electrolyte to conduct ions between the electrodes, instead of the liquid or gel polymer electrolytes found in conventional batteries. [1][2][3] Theoretically, solid-state batteries offer m"
+    },
+    {
+      "q": "Is intermittent fasting good for weight loss?",
+      "field": "medicine, yes/no",
+      "asked": "deep",
+      "used": "deep",
+      "limited": "",
+      "seconds": 30.1,
+      "firstDraftSeconds": 7,
+      "drafts": 3,
+      "progressEvents": 16,
+      "rounds": 3,
+      "pagesRead": 70,
+      "pagesFailed": 34,
+      "abstracts": 48,
+      "documents": 118,
+      "fullText": 59,
+      "sites": 37,
+      "origins": 87,
+      "screened": 742,
+      "searches": 23,
+      "megabytes": 19.3,
+      "linksFollowed": 61,
+      "stopped": "page budget used",
+      "confidence": "High confidence 89%",
+      "cited": 13,
+      "statements": 12,
+      "sections": [
+        "What are the benefits of intermittent fasting",
+        "Alternate-day fasting",
+        "Energy restriction"
+      ],
+      "report": {
+        "sections": 3,
+        "figures": 0,
+        "timeline": 0,
+        "differences": 0,
+        "uncertain": 0
+      },
+      "tally": {
+        "type": "tally",
+        "sources": 54,
+        "yes": 50,
+        "no": 3,
+        "qualified": 1
+      },
+      "failures": {
+        "disallowed by the site’s robots.txt": 2,
+        "refused automated access": 16,
+        "rate limited": 1,
+        "no readable text (often needs JavaScript)": 5,
+        "too slow": 4,
+        "page no longer exists": 5,
+        "address not found": 1
+      },
+      "providers": {
+        "wikipedia": {
+          "ok": 10,
+          "failed": 0,
+          "results": 386
+        },
+        "tavily": {
+          "ok": 4,
+          "failed": 0,
+          "results": 56
+        },
+        "mwmbl": {
+          "ok": 5,
+          "failed": 0,
+          "results": 73
+        },
+        "crossref": {
+          "ok": 3,
+          "failed": 0,
+          "results": 109
+        },
+        "europepmc": {
+          "ok": 1,
+          "failed": 0,
+          "results": 40
+        }
+      },
+      "kinds": "Scholarly journal 49, News organisation 16, Encyclopedia 10, Organisation (.org) 9, Medical information site 6, Preprint server 6",
+      "documentsByKind": "Research article 39, FAQ 18, Reference entry 12, Explainer or analysis 11, News report 9, Meta-analysis or systematic review 6",
+      "studies": "meta-analysis 2, systematic review 4, randomised trial 10, clinical trial 1, observational study 2, case report 2",
+      "resultKB": 141,
+      "peakRssMB": 381,
+      "lead": "Most of the sources that address this directly lean yes: of 54 independent sources, 50 lean yes, 3 lean no and 1 qualifies it or calls the evidence unsettled. • Leans yes — All measured parameters were similar between WT mice fed with an intermittent fasting r"
+    },
+    {
+      "q": "Why did the Roman Empire fall?",
+      "field": "history, why",
+      "asked": "deep",
+      "used": "deep",
+      "limited": "",
+      "seconds": 12.8,
+      "firstDraftSeconds": 1.4,
+      "drafts": 3,
+      "progressEvents": 11,
+      "rounds": 3,
+      "pagesRead": 50,
+      "pagesFailed": 37,
+      "abstracts": 39,
+      "documents": 93,
+      "fullText": 44,
+      "sites": 23,
+      "origins": 60,
+      "screened": 616,
+      "searches": 15,
+      "megabytes": 10,
+      "linksFollowed": 21,
+      "stopped": "every relevant lead was read",
+      "confidence": "High confidence 75%",
+      "cited": 9,
+      "statements": 11,
+      "sections": [],
+      "report": {
+        "sections": 0,
+        "figures": 0,
+        "timeline": 0,
+        "differences": 0,
+        "uncertain": 0
+      },
+      "tally": null,
+      "failures": {
+        "disallowed by the site’s robots.txt": 8,
+        "other errors": 1,
+        "refused automated access": 16,
+        "no readable text (often needs JavaScript)": 8,
+        "page no longer exists": 1,
+        "server error": 1,
+        "a file, not a web page": 1,
+        "too slow": 1
+      },
+      "providers": {
+        "tavily": {
+          "ok": 4,
+          "failed": 0,
+          "results": 56
+        },
+        "wikipedia": {
+          "ok": 5,
+          "failed": 0,
+          "results": 205
+        },
+        "stackexchange": {
+          "ok": 1,
+          "failed": 0,
+          "results": 4
+        },
+        "mwmbl": {
+          "ok": 2,
+          "failed": 0,
+          "results": 42
+        },
+        "crossref": {
+          "ok": 3,
+          "failed": 0,
+          "results": 114
+        }
+      },
+      "kinds": "Scholarly journal 39, Company or commercial site 18, Encyclopedia 17, Community Q&A 4, Organisation (.org) 2, Other website 2",
+      "documentsByKind": "Book or chapter 25, Reference entry 17, Research article 15, Explainer or analysis 10, Web page 5, FAQ 4",
+      "studies": "review 1, research article 15",
+      "resultKB": 103,
+      "peakRssMB": 305,
+      "lead": "The Migration Period, involving large invasions by Germanic peoples and the Huns, led to the decline of the Western Roman Empire. [1] With the fall of Ravenna to the Germanic Herulians and the deposition of Romulus Augustus in 476 by Odoacer, the Western Empir"
+    }
+  ]
+}
