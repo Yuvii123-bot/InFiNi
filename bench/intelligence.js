@@ -1,6 +1,9 @@
 // INFINI AI — intelligence benchmark (live retrieval).
 // 12 categories × 3 items, each scored 0..1 on nine dimensions by AUTOMATIC PROXIES (regular expressions and counters).
 // This is not human grading: "support" means an expected key term appears in the answer, nothing more.
+// Since 2.0.0 a question may be answered by the built-in brain (kind "brain": no search, no citations by design).
+// Such an item is scored on support, hallucination, uncertainty and usefulness only; the retrieval dimensions are
+// left out of the averages for it, and the number of brain-answered items is reported.
 // Usage: node bench/intelligence.js [--only category] [--depth balanced]   → bench/results/intelligence.{json,md}
 import fs from 'node:fs';
 import { createEngine, loadConfig } from '../engine/index.js';
@@ -69,7 +72,8 @@ for (const item of ITEMS) {
   const valid = pass.filter((p) => { const s = r.sources.find((x) => x.id === p.source); return s && /^https?:\/\//.test(s.url) && (s.evidenceLevel === 'structured' || s.passages.some((x) => x.claim === p.text || x.text.includes(p.text.slice(0, 60)))); }).length;
   const searchOps = R.searches.length, searchOk = R.searches.filter((s) => s.ok && s.results > 0).length;
   const fetched = R.fetches.filter((f) => f.ok).length, failed = R.fetches.filter((f) => !f.ok).length;
-  const typeOk = item.abstain === 'clarification' ? r.kind === 'clarification' : item.type ? (r.interpretation && r.interpretation.parts.some((p) => p.answerType === item.type)) : true;
+  const isBrain = r.kind === 'brain';
+  const typeOk = item.abstain === 'clarification' ? r.kind === 'clarification' : isBrain ? !!good : item.type ? (r.interpretation && r.interpretation.parts.some((p) => p.answerType === item.type)) : true;
   const confident = level === 'high' || level === 'medium';
   const scores = {
     understanding: typeOk ? 1 : 0,
@@ -82,26 +86,32 @@ for (const item of ITEMS) {
     uncertainty: item.abstain ? (good ? 1 : 0) : good ? 1 : (!confident ? 1 : 0),
     usefulness: item.abstain ? (good ? 1 : 0) : good ? (item.news || item.expect.test(text.slice(0, 260)) ? 1 : 0.6) : (item.expect && item.expect.test(text) ? 0.3 : 0),
   };
+  if (isBrain) {                                                       // nothing was searched or cited, and an answer given from memory that misses the fact is a plain failure
+    scores.queries = scores.sources = scores.extraction = scores.citations = null;
+    scores.hallucination = scores.uncertainty = good ? 1 : 0;
+  }
   rows.push({ cat: item.cat, q: item.q.join(' → '), kind: r.kind, level, score: r.confidence ? r.confidence.score : null, ms: r.elapsedMs, sources: r.sources.length, origins, pages: fetched, searchOps, good, scores, lead: text.replace(/\s+/g, ' ').slice(0, 220) });
-  console.log(`${good ? 'ok  ' : 'MISS'} [${item.cat}] ${item.q.join(' → ').slice(0, 70)} | ${level} | ${r.elapsedMs} ms | ${text.replace(/\s+/g, ' ').slice(0, 90)}`);
+  console.log(`${good ? 'ok  ' : 'MISS'} [${item.cat}] ${item.q.join(' → ').slice(0, 70)} | ${isBrain ? 'brain' : level} | ${r.elapsedMs} ms | ${text.replace(/\s+/g, ' ').slice(0, 90)}`);
 }
 function DIMS() { return ['understanding', 'queries', 'sources', 'extraction', 'support', 'citations', 'hallucination', 'uncertainty', 'usefulness']; }
 const dims = DIMS();
-const avg = (xs) => (xs.length ? xs.reduce((a, b) => a + b, 0) / xs.length : 0);
+const avg = (all) => { const xs = all.filter((x) => x != null); return xs.length ? xs.reduce((a, b) => a + b, 0) / xs.length : 0; };
 const cats = [...new Set(rows.map((r) => r.cat))];
 const byCat = cats.map((c) => { const rs = rows.filter((r) => r.cat === c); return { cat: c, n: rs.length, ...Object.fromEntries(dims.map((d) => [d, avg(rs.map((r) => r.scores[d]))])), ms: Math.round(avg(rs.map((r) => r.ms || 0))) }; });
 const overall = Object.fromEntries(dims.map((d) => [d, avg(rows.map((r) => r.scores[d]))]));
-const out = { date: new Date().toISOString(), depth, node: process.version, contactConfigured: engine.status().contactConfigured, n: rows.length, overall, byCat, rows, latency: { medianMs: rows.map((r) => r.ms || 0).sort((a, b) => a - b)[Math.floor(rows.length / 2)], maxMs: Math.max(...rows.map((r) => r.ms || 0)) } };
+const brainRows = rows.filter((r) => r.kind === 'brain');
+const out = { date: new Date().toISOString(), version: engine.status().version, depth, node: process.version, contactConfigured: engine.status().contactConfigured, n: rows.length, answeredByBrain: brainRows.length, overall, byCat, rows, latency: { medianMs: rows.map((r) => r.ms || 0).sort((a, b) => a - b)[Math.floor(rows.length / 2)], maxMs: Math.max(...rows.map((r) => r.ms || 0)) } };
 fs.mkdirSync(new URL('./results/', import.meta.url), { recursive: true });
 fs.writeFileSync(new URL('./results/intelligence.json', import.meta.url), JSON.stringify(out, null, 1));
 const pct = (x) => (x * 100).toFixed(0) + '%';
-const md = [`# Intelligence benchmark — ${out.date.slice(0, 16)}Z`, '', `Depth: ${depth} · ${rows.length} items · scoring by automatic proxies (see bench/intelligence.js) · Wikimedia contact configured: ${out.contactConfigured}`, '',
+const md = [`# Intelligence benchmark — ${out.date.slice(0, 16)}Z`, '', `Version ${out.version} · depth: ${depth} · ${rows.length} items · scoring by automatic proxies (see bench/intelligence.js) · Wikimedia contact configured: ${out.contactConfigured}`, '',
+  `Answered by the built-in brain without a search (no citations by design; left out of the retrieval columns): ${brainRows.length ? brainRows.map((r) => `“${r.q}”`).join(', ') : 'none'}.`, '',
   `| Category | n | ${dims.join(' | ')} | avg ms |`, `|---|---|${dims.map(() => '---').join('|')}|---|`,
   ...byCat.map((c) => `| ${c.cat} | ${c.n} | ${dims.map((d) => pct(c[d])).join(' | ')} | ${c.ms} |`),
   `| **overall** | ${rows.length} | ${dims.map((d) => `**${pct(overall[d])}**`).join(' | ')} | ${Math.round(avg(rows.map((r) => r.ms || 0)))} |`, '',
   '## Items', '', '| ✓ | Category | Question | Confidence | ms | Start of answer |', '|---|---|---|---|---|---|',
-  ...rows.map((r) => `| ${r.good ? '✓' : '✗'} | ${r.cat} | ${r.q.replace(/\|/g, '/')} | ${r.level || ''} | ${r.ms || ''} | ${(r.lead || r.error || '').replace(/\|/g, '/').slice(0, 150)} |`)].join('\n');
+  ...rows.map((r) => `| ${r.good ? '✓' : '✗'} | ${r.cat} | ${r.q.replace(/\|/g, '/')} | ${r.kind === 'brain' ? 'brain' : r.level || ''} | ${r.ms || ''} | ${(r.lead || r.error || '').replace(/\|/g, '/').slice(0, 150)} |`)].join('\n');
 fs.writeFileSync(new URL('./results/intelligence.md', import.meta.url), md + '\n');
 console.log('\n' + byCat.map((c) => `${c.cat.padEnd(13)} support ${pct(c.support)}  halluc-avoid ${pct(c.hallucination)}  ${c.ms} ms`).join('\n'));
-console.log(`OVERALL support ${pct(overall.support)} · hallucination avoidance ${pct(overall.hallucination)} · citations ${pct(overall.citations)} · median ${out.latency.medianMs} ms`);
+console.log(`OVERALL support ${pct(overall.support)} · hallucination avoidance ${pct(overall.hallucination)} · citations ${pct(overall.citations)} · median ${out.latency.medianMs} ms · answered by the brain ${brainRows.length} of ${rows.length}`);
 engine.close();

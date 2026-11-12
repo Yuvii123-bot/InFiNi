@@ -1,12 +1,14 @@
-// INFINI AI — orchestrator. One question in, a cited answer out:
-// Understanding → Planning → Searching → Reading → Comparing → Constructing.
+// INFINI AI — orchestrator.
+// Conversation, memory and everyday common sense are answered by the built-in brain (engine/brain).
+// Everything that needs knowledge goes to the web: Understanding → Planning → Searching → Reading → Comparing → Constructing.
 // Every event emitted here reports an operation that actually ran (with its real outcome, timing and errors).
 
 import { loadConfig, VERSION } from './config.js';
 import { createHttpClient } from './net/http.js';
 import { analyze } from './nlp/analyze.js';
 import { buildPlan, reformulate } from './plan/plan.js';
-import { PROVIDERS, runProvider, webSearch, fuse, isEnabled, listProviders, resetCooling } from './providers/index.js';
+import { PROVIDERS, runProvider, webSearch, fuse, isEnabled, listProviders, resetCooling, providerCooling, WEB_CHAIN } from './providers/index.js';
+import { createBrain, sanitizeState as sanitizeBrain, noteWeb } from './brain/index.js';
 import wikipedia from './providers/wikipedia.js';
 import ddgInstant from './providers/ddg_instant.js';
 import { selectFeeds, fetchFeeds } from './providers/feeds.js';
@@ -36,6 +38,7 @@ function sanitizeContext(c) {
     lastQuestion: str(c.lastQuestion, 600), lastFocus: str(c.lastFocus, 120), lastKeywords: str(c.lastKeywords, 200), lastAnswerType: str(c.lastAnswerType, 30),
     lastSources: Array.isArray(c.lastSources) ? c.lastSources.slice(0, 12).map((s) => ({ title: str(s && s.title, 200), url: /^https?:\/\//.test(s && s.url) ? String(s.url).slice(0, 600) : '', domain: str(s && s.domain, 100) })).filter((s) => s.url) : [],
     turn: Number.isInteger(c.turn) ? Math.min(c.turn, 100000) : 0,
+    brain: c.brain && typeof c.brain === 'object' ? sanitizeBrain(c.brain) : null,
   };
 }
 function sanitizeLearned(l) {
@@ -70,22 +73,6 @@ export function blocksToText(blocks) {
   return out.join('\n\n').trim();
 }
 const P = (text, extra) => ({ type: 'paragraph', spans: [{ text, cites: [], ...extra }] });
-
-const SMALLTALK = {
-  greeting: () => [P('Hello! I’m INFINI AI. I have no built-in knowledge of the world — ask me something and I will search live sources, read them, and build an answer with citations.')],
-  thanks: () => [P('You’re welcome.')],
-  bye: () => [P('Goodbye!')],
-  howareyou: () => [P('I’m a program, so I have no feelings — but I’m running and ready to search. What would you like to know?')],
-  identity: () => [
-    P('I’m INFINI AI, a retrieval-native assistant. I am not a large language model and I do not call one.'),
-    P('I store no knowledge about the world. For each question I analyse the wording with rule-based language processing, search public sources live, read the pages, rank the passages, compare the sources and assemble the answer from sentences I actually found — each with a citation. When the sources do not support an answer, I say so instead of guessing.'),
-  ],
-  capabilities: () => [
-    P('Here is what I can do — all of it by searching and reading live sources, not from memory:'),
-    { type: 'list', ordered: false, items: ['Answer what / who / when / where / why / how questions with cited evidence', 'Explain a topic, list steps, or compare two things side by side', 'Report what news publishers wrote in a given time window', 'Follow up on earlier questions (“When was he born?”, “Explain that more simply”)', 'Read a web page you give me and answer from it', 'Do arithmetic, percentages, unit conversions and simple equations locally'].map((t) => ({ spans: [{ text: t, cites: [] }] })) },
-    { type: 'note', tone: 'info', text: 'Limits: I can only repeat and organise what sources say. I cannot reason beyond them, write essays or code from scratch, or answer when pages cannot be retrieved.' },
-  ],
-};
 
 const BRIDGE = /^(.*?\b)(?:the |a |an )?((?:inventor|discoverer|author|writer|founder|creator|director|capital|capital city|president|prime minister|ceo|composer|architect|developer|designer|wife|husband|spouse|father|mother|king|queen|leader|currency|largest city|official language) of (?:the )?[^,?]+?)((?:\s+(?:born|die|died|live|lived|located|founded|built|written|published|was|is|did|do|does|have|has|had|speak|use)\b.*)?)\??$/i;
 /** Does the question need the answer to an inner question before it can be asked? Returns {first, rest(name), describe} or null. */
@@ -131,7 +118,9 @@ function mergeResults(r1, r2, t1, t2, question) {
 export function createEngine(userCfg) {
   const cfg = userCfg || loadConfig();
   const http = createHttpClient(cfg.http);
-  const totals = { asks: 0, answered: 0, insufficient: 0, errors: 0, startedAt: Date.now() };
+  const totals = { asks: 0, answered: 0, insufficient: 0, errors: 0, brain: 0, startedAt: Date.now() };
+  const brain = createBrain({ version: VERSION, creator: cfg.creator });
+  const resting = () => WEB_CHAIN.filter((id) => providerCooling(id)).length;
 
   async function ask(req, { signal = null, onEvent = null } = {}) {
     const t0 = Date.now();
@@ -156,7 +145,37 @@ export function createEngine(userCfg) {
     let question = typeof req.question === 'string' ? req.question : '';
     const base = { ok: true, id: hash(question + ':' + t0), version: VERSION, question: question.slice(0, 600), kind: 'retrieval', sources: [], consulted: [], unavailable: [], research: null, context, learn: null, timeSensitive: false };
     const finish = (r) => { r.elapsedMs = Date.now() - t0; r.answer.text = blocksToText(r.answer.blocks); emit({ type: 'answer', result: r }); return r; };
-    const local = (kind, blocks, confidence = null, extra = {}) => finish({ ...base, kind, answer: { blocks }, confidence, ...extra });
+    let preface = '';                     // a short social reply that goes in front of a web answer ("You're welcome!")
+    const local = (kind, blocks, confidence = null, extra = {}) => finish({ ...base, kind, answer: { blocks: preface && kind !== 'brain' ? [P(preface), ...blocks] : blocks }, confidence, ...extra });
+
+    // ---------------- the built-in brain: conversation, memory, common sense, small skills ----------------
+    // It answers by itself or passes the message on (sometimes reworded) to the web pipeline below.
+    let brainState = context.brain;
+    let reworded = null;
+    if (!req._hop) {
+      const pre = analyze(question, context, { now });
+      const lastKind = brainState && brainState.last ? brainState.last.k : '';
+      const pending = !!(brainState && brainState.expect);
+      const direct = pre.intent === 'empty' || pre.intent === 'url' || (pre.intent === 'calc' && !pending) || (pre.intent === 'meta' && lastKind !== 'brain' && !pending);
+      if (!direct) {
+        const s0 = Date.now();
+        let b = null;
+        try {
+          b = brain.respond({ question, state: brainState, now, tz: req.tz, country: req.country, health: { resting: resting() }, ctxTurn: context.turn || 0, regenerate: !!req.regenerate, route: settings.route === 'web' ? 'web' : '', strict: pre.intent === 'meta' || pre.intent === 'calc' });
+        } catch (e) { emit({ type: 'note', stage: 'understanding', text: `The built-in brain could not process this message (${truncate(String(e && e.message), 120)}); using web search instead.` }); }
+        if (b && b.handled) {
+          totals.brain++;
+          emit({ type: 'stage', stage: 'understanding', status: 'start' });
+          emit({ type: 'stage', stage: 'understanding', status: 'done', ms: Date.now() - s0, detail: { intent: 'conversation', followUp: false, rewrites: [], resolved: '', parts: [], brain: { intent: b.intent, origin: b.origin } } });
+          return local('brain', b.blocks, null, { context: { ...context, brain: b.state, turn: (context.turn || 0) + 1 }, suggestions: b.suggestions, origin: b.origin, brain: { intent: b.intent, group: b.group, sure: b.sure } });
+        }
+        if (b) {
+          brainState = b.state; preface = b.preface || '';
+          if (b.question && b.question !== question) { reworded = { from: question.slice(0, 300), to: b.question, reason: b.why === 'spelling' ? 'spelling corrected by the built-in brain' : 'understood by the built-in brain' }; question = b.question; }
+        }
+      } else if (brainState) brainState = { ...brainState, expect: null };
+      context.brain = brainState;
+    }
 
     // ---------------- Understanding ----------------
     let style = {};
@@ -175,7 +194,7 @@ export function createEngine(userCfg) {
     }).then(() => analysisRef);
 
     if (analysis.intent === 'empty') return local('empty', [P('Please type a question.')]);
-    if (analysis.intent === 'smalltalk') return local('smalltalk', SMALLTALK[analysis.smalltalk]());
+    if (reworded && Array.isArray(analysis.rewrites)) analysis.rewrites = [reworded, ...analysis.rewrites];
     if (analysis.intent === 'calc') {
       const c = analysis.calc;
       if (c.kind === 'error') return local('calc', [P(`I can’t compute that: ${c.error}.`)]);
@@ -610,11 +629,12 @@ export function createEngine(userCfg) {
     const lastPart = analysis.parts[analysis.parts.length - 1] || null;
     const predicates = [...analysis.parts.filter((p) => p.verb && p.object).map((p) => ({ verb: p.verb.lemma, object: p.object, subject: p.subject })).reverse(), ...(context.predicates || [])].slice(0, 5);
     const cmpItems = analysis.parts.map((p) => p.compare && p.compare.items.length >= 2 ? p.compare.items : null).filter(Boolean).pop() || null;
-    const newContext = analysis.intent === 'url' ? { ...context, turn: (context.turn || 0) + 1 } : {
+    const brainAfter = noteWeb(brainState, { level: confidence ? confidence.level : '', score: confidence ? confidence.score : 0, sources: sources.length, topic: analysis.intent === 'url' ? '' : (analysis.parts[analysis.parts.length - 1] || {}).focus || '' });
+    const newContext = analysis.intent === 'url' ? { ...context, turn: (context.turn || 0) + 1, brain: brainAfter } : {
       entities: [...newEntities, ...(context.entities || []).filter((e) => !newEntities.some((x) => x.name.toLowerCase() === e.name.toLowerCase()))].slice(0, 8),
       topic: lastPart ? lastPart.focus || context.topic || '' : context.topic || '', predicates, compare: cmpItems || context.compare || null,
       lastQuestion: analysis.metaOf ? context.lastQuestion : analysis.resolved || question, lastFocus: lastPart ? lastPart.focus : '', lastKeywords: lastPart ? lastPart.keywords.filter((k) => !(lastPart.focus || '').toLowerCase().includes(k.toLowerCase())).join(' ') : '',
-      lastAnswerType: lastPart ? lastPart.answerType : '', lastSources: sources.slice(0, 10).map((s) => ({ title: s.title, url: s.url, domain: s.domain })), turn: (context.turn || 0) + 1,
+      lastAnswerType: lastPart ? lastPart.answerType : '', lastSources: sources.slice(0, 10).map((s) => ({ title: s.title, url: s.url, domain: s.domain })), turn: (context.turn || 0) + 1, brain: brainAfter,
     };
 
     const graph = buildGraph({
@@ -644,7 +664,7 @@ export function createEngine(userCfg) {
     return finish({
       ...base, kind: analysis.intent === 'url' ? 'url' : 'retrieval', question: question.slice(0, 600),
       interpretation: { resolved: analysis.resolved || '', rewrites: analysis.rewrites, followUp: analysis.followUp, metaOf: analysis.metaOf || null, parts: analysis.parts.map((p) => ({ text: p.text, qtype: p.qtype, answerType: p.answerType, focus: p.focus, keywords: p.keywords })) },
-      answer: { blocks: built.blocks }, sources, confidence, timeSensitive, style,
+      answer: { blocks: preface ? [P(preface), ...built.blocks] : built.blocks }, sources, confidence, timeSensitive, style,
       consulted: docs.filter((d) => !citedKeys.has(d.key) && !d.structured).slice(0, 30).map((d) => ({ url: d.url, title: d.title, domain: d.domain, evidenceLevel: d.evidenceLevel, published: d.published || '' })),
       unavailable: fetchLog.filter((f) => !f.ok).map((f) => ({ url: f.url, domain: f.domain, error: f.error })),
       research: {
@@ -669,7 +689,8 @@ export function createEngine(userCfg) {
   return {
     ask, preview, config: cfg,
     providers: (offList = []) => listProviders(cfg, new Set(offList)),
-    status: () => ({ version: VERSION, uptimeS: Math.round((Date.now() - totals.startedAt) / 1000), totals: { ...totals }, http: http.stats(), wikimediaBudget: http.remaining('wikimedia-api'), contactConfigured: !!cfg.contact }),
+    brain,
+    status: () => ({ version: VERSION, uptimeS: Math.round((Date.now() - totals.startedAt) / 1000), totals: { ...totals }, brain: brain.stats(), http: http.stats(), wikimediaBudget: http.remaining('wikimedia-api'), contactConfigured: !!cfg.contact }),
     clearCaches: () => { http.clearCache(); resetCooling(); },
     close: () => http.close(),
   };

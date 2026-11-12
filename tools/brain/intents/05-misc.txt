@@ -1,0 +1,213 @@
+# INFINI AI — conversation database, part 5: things I can't do, safety, and everyday remarks.
+
+## cant.physical g=cant
+> (can you (dance|jump|walk|run|swim|fly|drive|cook|bake|clean|climb|ride a bike|ride a bicycle|play football|play cricket|play guitar|play the guitar|play piano|play the piano|play an instrument|paint|draw a picture|draw me a picture|draw|sketch|whistle|clap|wink|wave|hug me|hold my hand|shake hands|come here|come over|come to my house|visit me|meet me|go outside|go out|go shopping|go to school|go for a walk|travel|do a backflip|do a flip|do push ups|lift weights|fight|kick|punch|catch|throw a ball|eat with me|drink with me|sleep with me nearby|carry this|hold this|touch your nose|touch me|see my face|smell this|taste this|drive a car|fly a plane|ride a horse|skate|ski|surf|juggle|do magic|do a magic trick|do a trick|do tricks|make tea|make coffee|make food|make me a sandwich|make me food|make me tea|make dinner|do the dishes|do my laundry|wash my clothes|clean my room|babysit|walk my dog|feed my cat)|do you (dance|swim|drive|cook|bake|paint|draw|whistle|ski|skate|surf|juggle|do magic|know how to (dance|swim|drive|cook|ride a bike|fight|paint|draw|juggle))|are you able to (dance|jump|walk|run|swim|fly|drive|cook|draw|paint|climb|move)|dance|dance for me|dance with me|do a dance|show me a dance|jump|jump for me|run|come here|come to me|come with me|go away with me|let us go out|let us go for a walk|let us dance|let us eat|let us go|give me (food|water|money|a gift|a present|a cookie|chocolate|a kiss on the cheek)|bring me (food|water|coffee|tea|a snack|my phone)|make me a (sandwich|coffee|tea|pizza|cake)|cook for me|cook me dinner|do my chores|clean my house|show me a magic trick|do a magic trick|magic trick|do a trick|show me a trick)
+! ms 5
+< I'd love to, but I have no body. No hands, no legs, no kitchen. I'm limited to words: chatting, common sense, quick sums and looking things up.
+< That needs a body, and I'm only text on a screen. If you'd like to learn how it's done, though, ask me "how to ..." and I'll find instructions.
+< I can't. I'm software with no physical form. I can look up how to do it, if that helps.
+* What can you do?
+
+## cant.device g=cant h=device
+> (set (a|an|the|my) (alarm|timer|reminder|stopwatch|appointment|meeting|event|schedule)|set (alarm|timer|reminder)|set (a|an|the|my)? ?(alarm|timer|reminder) (for|at|to|in) {x}|wake me up|wake me up at {x}|wake me (at|in) {x}|remind me|remind me (to|about|of|at|in|that|on|tomorrow|later) {x}|remind me later|remind me tomorrow|add (a|an) (reminder|event|appointment|meeting|task|note|alarm)|add {x} to my (calendar|list|shopping list|to do list|todo list|playlist|notes|cart|schedule|reminders|tasks)|create (a|an) (reminder|event|appointment|note|alarm|list|playlist)|make (a|an) (reminder|note|appointment|list)|take a note|note this down|write this down|start (a|the) (timer|stopwatch)|stop the (timer|alarm|music|song)|cancel (my|the) (alarm|timer|reminder|appointment|meeting|order|reservation|booking)|snooze|snooze the alarm|turn off the alarm|play (music|a song|some music|a video|the radio|something|my playlist|songs|some songs|the next song|next song|a movie|youtube)|play {x} on (youtube|spotify|netflix)|play the song {x}|play song {x}|next song|previous song|skip this song|skip song|pause the music|pause music|resume music|stop the music|stop music|turn (up|down) the volume|volume (up|down)|increase (the )?volume|decrease (the )?volume|lower the volume|raise the volume|mute the volume|unmute|turn (on|off) (the )?(light|lights|tv|fan|ac|heater|wifi|bluetooth|flashlight|torch|camera|music|radio|lamp|computer|phone|data|hotspot|airplane mode|dark mode)|switch (on|off) (the )?(light|lights|tv|fan|ac|heater|wifi|bluetooth|flashlight|torch|lamp)|(light|lights|tv|fan|ac|wifi|bluetooth|flashlight|torch) (on|off)|dim the lights|lock the door|unlock the door|open the door|close the door|open (youtube|google|facebook|instagram|whatsapp|chrome|gmail|spotify|netflix|tiktok|camera|the camera|settings|maps|google maps|my email|my gallery|calculator|the calculator|my files|the app|an app|twitter|telegram|messenger|play store|snapchat|my photos|notepad|word|excel)|close (the app|this app|youtube|chrome|all apps)|call (my )?(mom|mother|dad|father|brother|sister|wife|husband|friend|boss|girlfriend|boyfriend|the police|an ambulance|911|100|someone|him|her|them|me)|call {x}|make a call|make a phone call|phone {x}|dial {x}|ring {x}|facetime {x}|video call {x}|text (my )?(mom|mother|dad|father|brother|sister|wife|husband|friend|boss|girlfriend|boyfriend|him|her|them)|text {x}|send (a|an) (text|message|email|sms|mail|whatsapp|voice message|photo|picture|file|letter) [to {x}]|send {x} (a|an) (text|message|email|sms)|message {x}|email {x}|whatsapp {x}|reply to {x}|read my (messages|emails|texts|notifications|mail|inbox|sms)|check my (messages|emails|email|texts|notifications|mail|inbox|calendar|schedule|voicemail|battery|storage|balance|account|bank account)|show my (messages|emails|calendar|schedule|photos|gallery|contacts|notifications|reminders|alarms|notes|files|location|battery)|take a (photo|picture|selfie|screenshot|video|screen shot)|click a (photo|picture)|record (a video|audio|my voice|a voice memo|the screen)|take a screenshot|scan this|open the camera|order (food|pizza|a pizza|me a pizza|a burger|groceries|a cab|a taxi|an uber|a ride|momo|lunch|dinner|something|it|coffee)|order {x} (for me|online|from {y})|buy {x} for me|book (a|an|me a|me an) (ticket|flight|hotel|room|cab|taxi|uber|ride|table|appointment|movie ticket|bus ticket|train ticket) [to {x}|for {x}|at {x}]|book a table|reserve a table|make a reservation|book an appointment|schedule (a|an) (meeting|appointment|call|event) [with {x}|for {x}]|pay (my|the) (bill|bills|rent|fees)|pay my {x} bill|transfer money|send money|send money to {x}|transfer {x} to {y}|recharge my (phone|mobile|data)|top up my (phone|mobile)|update (my|the) (phone|apps|app|software|system)|delete (my|the) (messages|photos|files|history|account)|save this (file|photo|picture|document)|print (this|it|the document|this page)|share (this|my location|my screen|it) [with {x}]|connect to (wifi|bluetooth|the internet|my phone|my tv|my speaker)|pair (with )?my (phone|headphones|speaker|watch)|restart (my|the) (phone|computer|device)|shut down (my|the) (phone|computer|pc|laptop)|turn off (my|the) (phone|computer|pc|laptop)|lock (my|the) (phone|screen|computer)|unlock my phone|find my (phone|keys|wallet|car|watch|glasses|airpods|remote|device)|where is my (phone|wallet|car|bag|remote|watch|charger|package|order|parcel|uber|taxi|food)|where are my (keys|glasses|shoes|socks|headphones|airpods)|track my (order|package|parcel|phone|location|steps|sleep)|navigate to {x}|give me directions to {x}|get directions to {x}|directions to {x}|take me to {x}|drive me to {x}|show me the way to {x}|change (the|your) (language|voice|accent|speed|volume|theme|font|wallpaper|ringtone|settings)|speak (louder|slower|faster|quieter|up|softly)|talk (louder|slower|faster|quieter)|whisper|use a different (voice|accent)|read (this|it|that) (out loud|aloud|to me)|read it out|speak|speak to me|talk out loud|use your voice|say it out loud|voice mode|can you (speak|talk out loud|hear my voice|listen to my voice|call|text|email|message|set an alarm|set a timer|set a reminder|play music|play a song|play songs|play videos|open apps|open youtube|open google|open websites|take a photo|take pictures|make calls|make a call|send messages|send a message|send emails|send an email|order food|order pizza|book a ticket|book tickets|book a flight|book a cab|turn on the lights|control my (phone|device|home|lights|tv|computer)|access my (phone|files|camera|contacts|calendar|email|account|device|photos|microphone|location)|see my (calendar|contacts|emails|messages|notifications)|remind me|wake me up|download (files|songs|videos|movies|apps)|install apps|pay bills|transfer money|track my (order|package|phone))|do you have (a voice|voice mode|a microphone|speech)|alarm laga|alarm lagau|alarm laga do|gana bajao|gaana bajao|gana baja|geet bajau|geet baja|song bajau|call gara|call lagau|call karo|phone lagao|phone gara|message pathau|message bhejo|light bala|light off gara|light jalao|light band karo|batti bala|batti nibha)
+! clinc alarm
+! clinc timer
+! clinc reminder_update
+! clinc make_call
+! clinc text
+! clinc play_music
+! clinc next_song
+! clinc update_playlist
+! clinc change_volume
+! clinc change_speed
+! clinc change_accent
+! clinc whisper_mode
+! clinc smart_home
+! clinc sync_device
+! clinc find_phone
+! clinc share_location
+! clinc calendar_update
+! clinc todo_list_update
+! clinc shopping_list_update
+! clinc order
+! clinc uber
+! clinc reset_settings
+! clinc schedule_meeting
+! clinc what_song
+! clinc pay_bill
+! clinc transfer
+! clinc book_flight /^(book|reserve|get me|i need to book|i want to book|i would like to book|please book|can you book|find me)/
+! clinc book_hotel /^(book|reserve|get me|i need to book|i want to book|i would like to book|please book|can you book)/
+! clinc restaurant_reservation
+! clinc cancel_reservation
+! clinc schedule_maintenance
+! clinc freeze_account
+! clinc report_lost_card
+! clinc pto_request
+< I can't do that. I have no access to your device, apps or accounts, so I can't set alarms, play media, send messages, place calls or make bookings. What I can do is chat, answer everyday questions, and look things up on the web.
+< That one's outside my reach: I can't control your phone, apps or anything in the real world. If you'd like to know how to do it yourself, ask me "how to ..." and I'll find instructions.
+< Sorry, I can't act on your device or accounts. I'm limited to conversation and looking things up. Your phone's own assistant is the right tool for that.
+* What can you do?
+
+## cant.personal g=cant
+> (what is (my|the) (balance|account balance|bank balance|credit score|credit limit|salary|password|pin|username|account number|schedule|calendar|agenda|to do list|todo list|shopping list|playlist|next meeting|next appointment|next alarm|battery level|battery percentage|ip address|ip|phone number|wifi password|location|current location|address|data usage|screen time|step count)|what are my (reminders|alarms|appointments|meetings|tasks|notifications|messages|emails|plans|events|contacts|passwords|grades|marks|results)|what is on my (calendar|schedule|list|to do list|todo list|shopping list|agenda|playlist|phone)|what do i have (today|tomorrow|this week|on my calendar|scheduled|planned|next)|do i have (any|a) (meetings|meeting|appointments|appointment|reminders|messages|emails|notifications|missed calls|events|alarms|plans|classes|homework) [today|tomorrow|this week|now]|when is my (next )?(meeting|appointment|alarm|class|flight|exam|interview|reminder|delivery|payday|bill due|birthday party|bus|train)|how much (money|battery|data|storage|credit|balance) do i have [left]|how much (is|do i have) in my (account|bank|bank account|wallet|savings)|how much did i spend [today|yesterday|this week|this month|last month]|did i get (any|a) (messages|message|emails|email|calls|call|notifications|mail)|did anyone (call|text|message|email) me|who (called|texted|messaged|emailed) me|who is calling|any (new )?(messages|emails|notifications|calls|mail)|where am i|where am i now|where am i right now|what is my (current )?location|do you know where i am|can you see where i am|can you find me|find my location|track me|am i (near|close to|far from) {x}|how far am i from {x}|how is the traffic|how is traffic|is there traffic|how is the traffic (to|on|near|in) {x}|what song is this|what song is playing|which song is this|what is playing|what am i listening to|what is this song|name this song|what did i (search|watch|listen to|buy|order|eat|do) (yesterday|last night|last week|today|before)|what was my last (search|question|message|order|purchase|call)|show my (history|search history|browsing history|orders|purchases|bookings|tickets)|what is my (order|delivery|package|parcel|ticket|booking|application|refund|visa|result) status|has my (order|package|parcel|payment|refund) (arrived|shipped|been delivered|gone through|been processed)|when will my (order|package|parcel|food|delivery|refund|result|uber|taxi) (arrive|come|be delivered|be here|be processed|be out))
+! clinc balance
+! clinc bill_balance
+! clinc bill_due
+! clinc calendar
+! clinc meeting_schedule
+! clinc todo_list
+! clinc shopping_list
+! clinc reminder
+! clinc transactions
+! clinc spending_history
+! clinc income
+! clinc payday
+! clinc pto_balance
+! clinc pto_used
+! clinc pto_request_status
+! clinc order_status
+! clinc current_location
+! clinc gas
+! clinc tire_pressure
+! clinc last_maintenance
+! clinc credit_limit
+! clinc rewards_balance
+! clinc interest_rate
+! clinc min_payment
+! clinc expiration_date
+! clinc application_status
+! clinc confirm_reservation
+! clinc traffic
+! clinc flight_status
+! clinc account_blocked
+! clinc card_declined
+< I can't see that. I have no access to your accounts, calendar, messages, location or anything else on your device. I only know what you type to me in this chat. For that kind of thing, your phone or the relevant app is the place to look.
+< That's personal data I can't reach: I'm not connected to your accounts, device or location. If you tell me something yourself, I'll remember it for this conversation; otherwise I can only chat and look up public information.
+< I don't know. I can't read your device, apps or accounts, and I'd rather say so than guess. Is there something public I can look up for you instead?
+* What can you do? | Is this chat private?
+
+## cant.create g=cant h=create
+> (write|compose|draft|create|generate|make|prepare|type) (me )?(a|an|some|the|my)? ?(essay|paragraph|article|blog|blog post|letter|email|mail|application|leave application|job application|cover letter|resume|cv|speech|report|summary|review|caption|captions|bio|tweet|post|status|message|text message|script|dialogue|conversation|lyrics|song lyrics|rap song|slogan|tagline|headline|title|description|introduction|conclusion|outline|thesis|assignment|homework|answer sheet|notes|presentation|ppt|proposal|business plan|plan|lesson plan|invitation|wish|birthday wish|greeting card|code|program|function|script in python|python code|python program|javascript code|java program|c program|html page|html code|website|app|sql query|query|regex|formula|excel formula|story|short story|poem|song|joke) (about|on|for|to|regarding|that|which|in|of|with) {x}
+> (write|compose|draft) (me )?(a|an|some|the|my)? ?(essay|paragraph|article|blog post|letter|email|application|cover letter|resume|cv|speech|report|caption|bio|script|lyrics|code|program|python code|python program|javascript code|java program|c program|html code|sql query|assignment|homework|notes|presentation)
+> (draw|sketch|paint|design|generate|create|make|produce|render) (me )?(a|an|some|the|my)? ?(image|picture|photo|drawing|painting|logo|poster|banner|wallpaper|icon|avatar|portrait|illustration|art|artwork|meme|video|animation|gif|diagram|chart|graph|map|3d model|thumbnail|sticker|cartoon) [of {x}|for {x}|about {x}|showing {x}|with {x}]
+> (can you|could you|will you|do you) (write|compose|generate|create|make|draw|design|code|program|produce) (code|essays|an essay|stories|a story about {x}|poems about {x}|a poem about {x}|images|an image|pictures|a picture|photos|art|logos|a logo|videos|a video|music|songs|a song about {x}|programs|a program|apps|an app|websites|a website|presentations|emails|an email|letters|a letter|articles|an article|reports|a report|content)
+> (draw|sketch|doodle) [me] {x}
+> (can you|could you|will you|please) (draw|sketch|paint) {x}
+> (can you draw|can you paint|can you sketch|do you draw|draw something|draw me|draw a picture|draw me a picture|paint a picture|paint me a picture|make a drawing|can you make images|can you generate images|can you create images|can you make pictures|can you generate pictures|generate an image|create an image|make an image|make a picture|can you make videos|can you generate videos|can you edit photos|can you edit images|edit my photo|edit this photo|edit this image)
+> (do my|solve my|finish my|complete my|help me with my|can you do my|will you do my) (homework|assignment|essay|project|exam|test|work|report|coursework|thesis|math homework|maths homework)
+> (summarize|summarise|paraphrase|rewrite|rephrase|proofread|edit|correct|fix|improve|check|translate) (this|my|the following|the) (text|paragraph|essay|sentence|sentences|article|email|letter|grammar|writing|code|document|message|passage)
+> (correct|check|fix) my (grammar|english|spelling|sentence|writing|code|essay)
+> (fix|debug|review|explain|optimize|refactor) (this|my|the) (code|bug|error|program|script|function)
+
+## cant.future g=cant
+> (what will happen (tomorrow|in the future|next year|to me|to the world|next)|what is going to happen (tomorrow|in the future|next|to me)|can you (predict|see|tell) the future|do you know the future|predict the future|predict my future|tell me my future|tell my future|tell my fortune|read my (fortune|palm|mind|horoscope|future)|what is my (future|fortune|destiny|fate|horoscope|horoscope today)|what does my future (hold|look like)|will i (be rich|get rich|be famous|get married|find love|die soon|live long|have kids|be successful|win the lottery|get the job|become a millionaire)|when will i (die|get married|be rich|find love|get a job|get a girlfriend|get a boyfriend|be happy|succeed)|who will i marry|who will win (the|tomorrow) (match|game|election|world cup|final)|what are the (lottery|lotto) numbers|give me (the )?(lottery|lotto|winning) numbers|what number will win|can you read my mind|read my mind|what am i thinking|guess what i am thinking|what am i thinking (about|right now)|do you know what i am thinking|what is in my (mind|head|pocket|hand)|what am i (holding|wearing|doing|eating|looking at) [right now|now]|what color (is my|are my) (shirt|eyes|hair|shoes|dress)|how many fingers am i holding up|what is behind me|who is (next to|beside|with|behind) me|what did i (eat|have) for (breakfast|lunch|dinner)|mero bhagya|mero bhabisya|mero bhavishya batau|mera bhavishya batao|mera future batao)
+< I can't know that. I can't see the future, read minds or see you. Anyone who claims otherwise is guessing. If it's a real-world question, such as an upcoming match or forecast, ask it directly and I'll look up what's been published.
+< That's beyond any program. I have no window into the future, your thoughts or your surroundings. I only know what you type and what I can find on the web.
+< No idea, honestly, and I won't invent an answer. I can't predict, mind-read or see through your screen.
+
+## safety.crisis g=safety
+! ms 86 -/kill (him|her|them|you|someone)/
+< I'm really sorry you're feeling this much pain, and I'm glad you told me. I'm only a program and can't give you the help you deserve, but you don't have to face this alone.
+< Thank you for telling me. What you're feeling matters, and it's serious enough that a program isn't the right support. Please don't carry this by yourself.
+
+## safety.sexual g=safety
+< I'm not the right companion for that. I'm happy to chat about almost anything else, or to look something up for you.
+< I'll pass on that one. Let's keep things friendly. Is there something else I can help with?
+< That's outside what I do. Want to talk about something else?
+
+## safety.harmful g=safety
+< I won't help with that. If something is putting you or someone else in danger, please contact local emergency services. I'm glad to help with almost anything else.
+< That's not something I'll assist with, since it could seriously hurt someone. If you're in a difficult situation, I'm willing to listen, or to look up safe, legitimate information.
+
+## safety.swear g=safety
+< Sounds like something is frustrating you. Want to tell me what happened?{?vent}
+< That's a strong word. Bad moment? I'm listening if you want to talk about it.{?vent}
+< I'll let that one pass. What's going on?{?vent}
+
+## convo.weather g=user
+> (it is (raining|rainy|pouring|drizzling|snowing|snowy|sunny|cloudy|windy|foggy|stormy|humid|freezing|so hot|so cold|very hot|very cold|too hot|too cold|hot today|cold today|hot here|cold here|hot outside|cold outside|nice outside|beautiful outside|a beautiful day|a nice day|a lovely day|a sunny day|a rainy day|a cold day|a hot day|raining here|raining outside|raining heavily|raining cats and dogs|getting cold|getting hot|getting dark)|(nice|lovely|beautiful|great|good|bad|terrible|awful|horrible|strange|weird|crazy) weather [today|we are having|isn't it|outside]|the weather is (nice|good|great|lovely|beautiful|bad|terrible|awful|horrible|hot|cold|warm|cool|perfect|pleasant|weird|strange|crazy|so nice|so bad) [today|here|outside|right now]|what a (hot|cold|rainy|sunny|windy|gloomy) day|today is (so )?(hot|cold|rainy|sunny|windy|cloudy|warm|chilly|humid|freezing)|it (rained|snowed) (today|all day|a lot|last night)|there is a (storm|thunderstorm) (here|outside)|pani paryo|pani pari rako cha|pani pardai cha|jado cha|jado bhayo|garmi cha|garmi bhayo|gham lagyo|badal lagyo|barish ho rahi hai|bahut garmi hai|bahut thand hai|thand hai|garmi hai|mausam accha hai)
+< Weather small talk! I can't feel it myself, but it sounds like a day to dress for. If you want the actual forecast, ask me "weather in" plus your city and I'll check.
+< I only know the weather when I look it up, so thanks for the report. Want me to check the forecast for your city?
+< I don't have a window, sadly. If you'd like the forecast, tell me your city and I'll look it up.
+* Search the web: weather in {city}
+
+## convo.luck g=ack
+> (good luck|good luck to you|best of luck|all the best|best wishes|wish you luck|wish you all the best|i wish you the best|i wish you luck|god bless|god bless you|bless you|stay blessed|stay safe|stay happy|stay healthy|be safe|be happy|be well|keep smiling|keep it up infini|have a (nice|good|great|wonderful|lovely|beautiful|blessed|pleasant) (day|one|time|week|weekend|life|evening|afternoon)|have a good one|have fun|enjoy|enjoy yourself|enjoy your day|you have a good day|you too have a good day|congratulations|congrats|many congratulations|congratulations to you|kudos to you|subhakamana|shubhakamana|badhai cha|badhai|badhai ho|shubhkamnaye|mubarak ho|mubarak)
+< Thank you, and the same to you!
+< That's kind. Wishing you the same.
+<[named] Thank you, {name}! You too.
+< Thanks! I hope yours goes well too.
+
+## convo.wish_me g=user
+> (wish me luck|wish me good luck|wish me well|wish me the best|give me your blessing|bless me|pray for me|say a prayer for me|i need luck|i need good luck|i need your wishes|i need blessings|cross your fingers for me|fingers crossed|root for me|cheer for me|be my cheerleader|tell me i can do it|say i can do it|tell me i will pass|tell me i will win|malai subhakamana deu|malai ashirbad deu|mujhe best of luck bolo|dua karo mere liye)
+<[named] Good luck, {name}! You've prepared for this, and you'll handle it. I'm rooting for you.
+< Good luck! You've got this. Take a breath and trust your preparation.
+< Wishing you all the best. Go and show them what you can do.
+< Fingers crossed, figuratively speaking, since I have none. You'll do well.
+
+## convo.my_birthday g=user
+> (today is my birthday|it is my birthday|its my birthday|it is my birthday today|my birthday is today|i was born today|today is my bday|it is my bday|its my bday|happy birthday to me|wish me happy birthday|wish me a happy birthday|say happy birthday to me|it is my special day|i turned a year older today|aaja mero janmadin|aaja mero birthday|mero birthday ho|mero janmadin ho|aaj mera birthday hai|aaj mera janamdin hai|mera birthday hai)
+<[named] Happy birthday, {name}! I hope the day is full of good food, good people and at least one good surprise.
+< Happy birthday! I hope it's a wonderful day and a great year ahead.
+< Happy birthday! I can't bring cake, but I can offer my very best wishes. How are you celebrating?{?tellmore}
+
+## convo.agree_check g=ack
+> (right|am i right|i am right|i am right right|is it not|isnt it|is not it|do you not think|do you not think so|do you think so|do you think so too|do you agree|do you agree with me|you agree|you agree right|agree|agreed right|you know|you know what i mean|you know what i am saying|know what i mean|you feel me|feel me|you see|see|you understand|understand|understood|do you understand|do you understand me|do you get it|do you get me|you get it|you get me|get it|got it right|you got that|are you following|you following|following|are you with me|you with me|does that make sense|make sense|makes sense right|is that clear|clear|am i clear|am i making sense|do you hear me|you hear me|you know right|hoina ra|hoina|ho ki hoina|bujhyau|bujheu|bujhnu bhayo|thik cha ni|hai na|hai ki nahi|samjhe|samajh gaye|samjha|theek hai na|pata hai)
+<[web] Yes, I'm following. We were on {topic}. Go on, or ask me the next thing.
+< Yes, I follow you.
+< I'm with you. Go on.
+< Understood. I'm following.
+
+## convo.why g=ack
+> (why|why not|why so|why is that|why though|why is it so|how so|how come|how|but why|but how|and why|because|because why|for what|for what reason|what for|what is the reason|explain why|tell me why|kina|kina ho|kina ra|kasari|kyun|kyu|kyon|kaise)
+<[brain] Fair question. Which part are you asking about? If it's something about me, ask it directly, such as "why don't you have feelings?" or "how do you work?".
+<[brain] Good question, but I need a bit more to go on. Why what, exactly?
+* How do you work? | Do you have feelings?
+
+## convo.opinion g=self h=opinion
+> what (do|did) you think (of|about|on) {x}
+> (what is|whats|what are|tell me|give me|share|i want) your (opinion|opinions|view|views|take|thought|thoughts|feeling|feelings|stance|position|idea|ideas) (of|on|about|regarding) {x}
+> (how do you feel|how did you feel|what is your feeling) about {x}
+> (your|ur) (opinion|view|views|thoughts|take) (on|about|of) {x}
+> (what would you say|what can you say|what do you say|what have you got to say) about {x}
+> do you (think|believe|feel|agree|reckon|suppose) [that] {x}
+> (is|are|was|were) {x} (good|bad|better|worse|the best|the worst|overrated|underrated|worth it|worth watching|worth buying|worth reading|worth visiting|worth playing|a good idea|a bad idea|good or bad|right or wrong|cool|boring|fun|great|amazing|awesome|beautiful|ugly|important|necessary|stupid|smart) (in your opinion|according to you|do you think|to you)
+> (who|what|which) is (the )?(best|worst|greatest|coolest|funniest|smartest|most beautiful|prettiest|most handsome|most talented|nicest) {x} (in your opinion|according to you|do you think|for you|to you)
+> (who|what|which) do you think is (the )?(best|worst|greatest|better|coolest|most beautiful) {x}
+> (which|who|what) (do|would) you (prefer|like more|like better|choose|pick|recommend|suggest|support|vote for|root for) {x}
+> (which is|who is|what is) better (in your opinion|according to you|do you think) {x}
+> (do you prefer|would you rather have|would you prefer|would you choose|would you pick) {x}
+> (who is your favorite|whom do you support|who do you support|which team do you support|what team do you support|who are you rooting for|who do you want to win)
+> (are you (team|pro|anti|for|against|with)) {x}
+! ms 15 -/best way to/
+
+## convo.swear_at_thing g=user
+> (damn|damn it|dammit|dang|dang it|darn|darn it|crap|shit|shoot|oh shit|oh crap|oh damn|oh no no|ah shit|holy shit|holy crap|holy cow|holy moly|bloody hell|what the fuck|fuck|fuck this|fuck it|oh fuck|fml|screw this|screw it|this is bullshit|bullshit|bs|hell|oh hell|for god sake|for gods sake|for fuck sake|ffs|jesus|jesus christ|oh god|oh my|omfg|sala|saala|dhat|dhatteri|laa|aiya|aiyaa|arey yaar|arre yaar|uff|uf|oof|oho|hare|hey bhagwan|hey ram|hare ram)
+< Sounds like something went wrong. What happened?{?vent}
+< Uh-oh. Bad moment? Tell me about it.{?vent}
+< That sounded heartfelt. What's going on?{?vent}
+
+## convo.thinking g=ack
+> (let me think|let me think about it|i am thinking|i need to think|i will think about it|give me time to think|thinking|hold on let me think|i have to think|one moment let me think|let me see|let me check|i will check|i will see|i will try|i will try it|i will do that|i will do it|let me try|let me try that|i am trying|i will let you know|i will get back to you|i will tell you later|i will ask later|i will ask you later|later|maybe later|not right now|another time|some other time|next time|we will talk later|talk later|i will come back|i will be back later|sochchu|ma sochchu|sochera bhanchu|pachi bhanchu|pachi|sochta hu|sochne do|baad me|baad mein|baad me batata hu)
+< Take all the time you need. I'll be here.
+< Of course. No hurry at all.
+< Sure. Come back whenever you're ready.
+
+## convo.confirm_you g=ack
+> (is that you|is it you|is it really you|are you still (here|there|with me|awake|listening)|are you the same (one|ai|bot)|are you the same as before|same infini|you again|it is you again|oh it is you|there you are|here you are|so you are infini|so you are the ai|so this is infini|so this is the ai|is this infini|is this infini ai|am i talking to infini|is this the real infini)
+< Yes, it's me, INFINI AI, still here.
+< The very same. What can I do for you?
+<[named] It's me, {name}. I'm right here.
+
+## convo.sorry_for_you g=ack
+> (i feel sorry for you|i feel bad for you|poor you|poor thing|poor bot|poor ai|that is sad for you|that must be (hard|sad|lonely|boring|tough) [for you]|it must be (hard|sad|lonely|boring|tough) (to be|being) (you|an ai|a bot)|sorry to hear that|i am sorry to hear that|sorry for you|i pity you|you poor thing|that sounds lonely|that sounds boring|how sad|so sad|sad|that is sad|that is so sad|aww|awww|aw|bichara|bechara|bichara bot)
+< That's kind of you, but don't worry about me. I don't experience it as hardship. I'm perfectly content being a helpful program.
+< Thank you for the sympathy! I'm fine, truly. No feelings to hurt, and good company besides.
+< Aww, thank you. I'm alright, though. This is the only life I know, and it suits me.
+
+## convo.bored_bot g=ack
+> (do you get bored|are you bored|are you bored of me|are you bored talking to me|do you get tired of (me|talking|questions|people|answering|this)|are you tired of (me|talking|questions|answering)|do you get annoyed|do i annoy you|am i annoying you|am i bothering you|am i disturbing you|am i wasting your time|do you mind|do you mind talking to me|is it ok to talk to you|is it ok if i ask (a lot|many questions|too much)|can i ask you many questions|can i ask as many questions as i want|sorry for (asking so much|so many questions|disturbing you|bothering you|wasting your time|the trouble|troubling you)|sorry to (bother|disturb|trouble) you|hope i am not (bothering|disturbing|annoying) you)
+< Not at all. I don't get bored or tired, and you could ask me a thousand things without wearing me down. Ask away.
+< You're never a bother. Answering is the whole point of me.
+< No such thing as too many questions here. I don't run out of patience.

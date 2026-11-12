@@ -35,6 +35,12 @@ export function isKeywordRun(text) {
   const short = segs.filter((x) => x.split(/\s+/).length <= 4).length;
   return short / segs.length >= 0.8 && !VERBISH.test(text);
 }
+/** True for an editorial aside about the page rather than a statement about its subject: "(Note: This article describes ...". */
+export function isAside(text) {
+  const t = String(text).trim();
+  if (/^\(/.test(t) && !/\)/.test(t)) return true;                                   // a bracket that opens the sentence and never closes
+  return /^\(?\s*(?:note|please note|n\.b\.|nb|disclaimer|editor['’]?s note|author['’]?s note|update|updated|see also|read more|related|source|photo|image|credit)\s*[:—–-]\s/i.test(t) || /^\(?\s*this (?:article|page|post|section|guide|entry|story) (?:is about|describes|covers|discusses|explains|deals with|was (?:originally|first|last)|has been|needs|may|contains|includes)\b/i.test(t);
+}
 const ALSO_RE = /^(?:[\w'’()-]+ ){1,5}(?:is|are|was|were|can|may|has|have|will) also\b/i;
 const OPINION = /\b(i think|i believe|i feel|in my opinion|imo|imho|personally|i would|i'd say|arguably|seems? to me|my favou?rite|i love|i hate|we believe|in our view|should(?:n't)? be|must be|best|worst|terrible|awesome|amazing|overrated|underrated)\b/i;
 const HEDGE = /\b(may|might|could|possibly|perhaps|reportedly|allegedly|is said to|rumou?red|unconfirmed|claims?|claimed|according to|suggests?|appears? to|is thought to|is believed to|estimated|likely|probably)\b/i;
@@ -214,6 +220,8 @@ export function rankEvidence(docs, qm, { now = Date.now(), fresh = null } = {}) 
       if (p.type === 'p' && words < 14 && !/[.!?…"”’')\]]$/.test(text)) lenPen *= 0.55;
       // "map method, new array creation, callback function, …" is a tag line for search engines, not a statement
       if (p.type === 'p' && isKeywordRun(text)) lenPen *= 0.15;
+      // "(Note: This article describes ..." is about the page, not about the subject
+      if (isAside(text)) lenPen *= 0.2;
       if (dangling) mult *= si === 0 ? 0.9 : 0.72;
       if (/\?\s*$/.test(text)) mult *= 0.3;
       if (qm.required.size && ![...qm.required].some((r) => set.has(r))) mult *= 0.4;

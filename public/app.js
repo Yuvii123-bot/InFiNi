@@ -1,4 +1,5 @@
 // INFINI AI — browser client. Vanilla ES modules, no framework, no build step.
+// Replies come in two kinds: chat from the server's built-in brain (kind "brain") and cited answers built from live web pages.
 // All retrieved text is inserted with textContent / text nodes (never innerHTML), so page content cannot inject markup.
 
 const $ = (id) => document.getElementById(id);
@@ -29,6 +30,8 @@ const ICONS = {
   news: 'M4 5h13v14H6a2 2 0 0 1-2-2zM17 9h3v8a2 2 0 0 1-2 2M8 9h5M8 13h5M8 16h3', compare: 'M7 7h11l-3-3M17 17H6l3 3',
   steps: 'M10 6h10M10 12h10M10 18h10M4 6l1.5 1.5L8 5M4 12l1.5 1.5L8 11M4 18l1.5 1.5L8 17', fact: 'M12 3a9 9 0 1 0 0 18 9 9 0 0 0 0-18zM8.5 12l2.5 2.5 4.5-5',
   clock: 'M12 3a9 9 0 1 0 0 18 9 9 0 0 0 0-18zM12 7v5l3 2',
+  chat: 'M4 5h16v11H10l-5 4v-4H4z', spark: 'M12 3l1.9 5.1L19 10l-5.1 1.9L12 17l-1.9-5.1L5 10l5.1-1.9zM18.5 16l.8 2.2 2.2.8-2.2.8-.8 2.2-.8-2.2-2.2-.8 2.2-.8z',
+  smile: 'M12 3a9 9 0 1 0 0 18 9 9 0 0 0 0-18zM8.5 14a4 4 0 0 0 7 0M9 9.5v.5M15 9.5v.5',
 };
 function icon(name, size = 16, cls = '') {
   const svg = document.createElementNS(SVG_NS, 'svg');
@@ -142,8 +145,10 @@ const openNav = () => { $('app').classList.add('nav-open'); $('scrim').hidden = 
 const closeNav = () => { $('app').classList.remove('nav-open'); $('scrim').hidden = true; };
 
 // ---------------- rendering ----------------
-const SUGGESTIONS = [['Explain', 'What is quantum computing?', 'bulb'], ['Why', 'Why do stars shine?', 'help'], ['News', 'What happened in Nepal today?', 'news'], ['Compare', 'Compare Python and Rust', 'compare'], ['How to', 'How do I build an AI agent?', 'steps'], ['Fact', 'Who invented the telephone?', 'fact']];
-const TRUST = [['globe', 'Live sources'], ['quote', 'Every sentence cited'], ['ban', 'No language model']];
+const SUGGESTIONS = [['Chat', 'How are you today?', 'chat'], ['Explain', 'What is quantum computing?', 'bulb'], ['News', 'What happened in Nepal today?', 'news'], ['Common sense', 'Can a penguin fly?', 'fact'], ['How to', 'How do I build an AI agent?', 'steps'], ['Fun', 'Tell me a joke', 'smile']];
+const TRUST = [['spark', 'Its own brain for chat'], ['globe', 'Live web for facts'], ['quote', 'Sources you can check']];
+// where a reply of the built-in brain came from (shown under the reply; plain chat needs no label)
+const ORIGIN = { memory: ['spark', 'From my built-in memory · no web search'], skill: ['spark', 'Worked out by a built-in skill · no web search'], commonsense: ['spark', 'From my built-in common sense · not checked on the web'] };
 function renderAll() {
   $('chatTitle').textContent = state.chat.title;
   const thread = $('thread');
@@ -151,8 +156,8 @@ function renderAll() {
   if (!state.chat.messages.length) {
     thread.append(h('section', { class: 'welcome' },
       h('img', { class: 'hero-mark', src: '/icons/icon.svg', width: '64', height: '64', alt: '' }),
-      h('h2', { text: 'I don’t know the world until I search it.' }),
-      h('p', { text: 'Ask anything. I search the live web, read the pages and answer in their own words.' }),
+      h('h2', { text: 'Talk to me, or ask me anything.' }),
+      h('p', { text: 'I chat, remember what you tell me and use everyday common sense on my own. For facts I search the live web and show my sources.' }),
       h('div', { class: 'trust' }, TRUST.map(([ic, t]) => h('span', null, icon(ic, 14), t))),
       h('div', { class: 'suggest' }, SUGGESTIONS.map(([k, q, ic]) => h('button', { type: 'button', onclick: () => ask(q) }, h('small', null, icon(ic, 15), k), q)))));
   } else for (const m of state.chat.messages) thread.append(m.role === 'user' ? userEl(m) : botEl(m));
@@ -268,18 +273,27 @@ function fillBot(m) {
     act.finish(c ? `Searched ${c.searches} source${c.searches === 1 ? '' : 's'} · read ${c.pagesFetched} page${c.pagesFetched === 1 ? '' : 's'} · ${(r.elapsedMs / 1000).toFixed(1)} s` : `Done in ${(r.elapsedMs / 1000).toFixed(1)} s`);
     body.append(act.el);
   }
-  if (r && r.interpretation && r.interpretation.rewrites && r.interpretation.rewrites.length) body.append(h('div', { class: 'understood' }, 'Understood as:', h('b', { text: r.interpretation.metaOf ? `${r.interpretation.rewrites[0].reason}: “${r.interpretation.resolved}”` : r.interpretation.resolved })));
+  if (r && r.interpretation && r.interpretation.rewrites && r.interpretation.rewrites.length) {
+    // a repaired spelling can be wrong (a name that looks like a slip): one tap searches for exactly what was typed
+    const respelled = r.interpretation.rewrites.some((x) => /^spelling/.test(String(x.reason || '')));
+    body.append(h('div', { class: 'understood' }, 'Understood as:', h('b', { text: r.interpretation.metaOf ? `${r.interpretation.rewrites[0].reason}: “${r.interpretation.resolved}”` : r.interpretation.resolved }),
+      respelled && m.question ? h('button', { class: 'as-typed', type: 'button', text: 'Search as typed', title: `Search for “${String(m.question).slice(0, 120)}” exactly`, onclick: () => { if (!state.busy) run(m.question, { replace: m, context: m.contextBefore || {}, route: 'web' }); } }) : null));
+  }
   if (m.status === 'error') body.append(h('div', { class: 'error-box', text: m.error || 'Something went wrong.' }));
   if (m.status === 'stopped') body.append(h('div', { class: 'note', text: 'Stopped. Retrieval was cancelled, so no answer was built.' }));
+  const isBrain = !!r && r.kind === 'brain';
   if (r) {
     body.append(answerEl(r));
+    if (isBrain && ORIGIN[r.origin]) body.append(h('div', { class: 'origin' }, icon(ORIGIN[r.origin][0], 13), ORIGIN[r.origin][1]));
     const conf = confidenceEl(r.confidence); if (conf) body.append(conf);
     const src = sourcesEl(r); if (src) body.append(src);
   }
   const acts = h('div', { class: 'actions' });
   const act = (ic, label, props) => h('button', { class: 'act', type: 'button', 'aria-label': label, ...props }, icon(ic, 16), h('span', { class: 'lbl', text: label }));
   if (r && r.answer.text) acts.append(act('copy', 'Copy', { onclick: () => copyText(r.answer.text + (r.sources.length ? '\n\nSources\n' + r.sources.map((s) => `[${s.id}] ${s.title} — ${s.url}`).join('\n') : ''), 'Answer copied') }));
-  if (m.question) acts.append(act('refresh', m.status === 'done' ? 'Regenerate' : 'Retry', { title: 'Search again, bypassing temporary caches', onclick: () => regenerate(m) }));
+  if (m.question && !isBrain) acts.append(act('refresh', m.status === 'done' ? 'Regenerate' : 'Retry', { title: 'Search again, bypassing temporary caches', onclick: () => regenerate(m) }));
+  // the brain answered by itself: one tap sends the same message to the web instead, in case it misjudged
+  if (m.question && isBrain && r.origin !== 'safety' && !(r.suggestions || []).some((t) => /^Search the web: /.test(String(t)))) acts.append(act('globe', 'Search the web instead', { title: 'Send this message to web search instead', onclick: () => { if (!state.busy) run(m.question, { replace: m, context: m.contextBefore || {}, route: 'web' }); } }));
   if (r && r.research) acts.append(act('panel', 'Research details', { onclick: () => openResearch(r) }));
   if (r && r.kind === 'retrieval' && r.confidence && r.confidence.level !== 'insufficient') {
     const key = normQ(r.interpretation && r.interpretation.resolved ? r.interpretation.resolved : m.question);
@@ -297,6 +311,9 @@ function fillBot(m) {
     acts.append(up, down);
   }
   if (acts.children.length) body.append(acts);
+  // suggestion chips from the brain: tapping one sends its text as the next message
+  if (isBrain && Array.isArray(r.suggestions) && r.suggestions.length) body.append(h('div', { class: 'chips' },
+    r.suggestions.slice(0, 4).map((t) => { const text = String(t).slice(0, 300); const web = /^Search the web: /.test(text); return h('button', { class: 'chip' + (web ? ' web' : ''), type: 'button', onclick: () => ask(text) }, web ? icon('globe', 13) : null, h('span', { text })); })));
   // follow-up suggestions come from the server as fixed templates tied to sections of the pages it read
   if (r && Array.isArray(r.related) && r.related.length) body.append(h('div', { class: 'related' }, h('div', { class: 'block-head' }, icon('follow', 14), 'Related'),
     r.related.slice(0, 4).map((x) => h('button', { class: 'rel', type: 'button', title: x.basis ? `Suggested from ${x.basis}` : null, onclick: () => ask(String(x.question).slice(0, 300)) }, h('span', { text: String(x.question).slice(0, 300) }), icon('plus', 15)))));
@@ -380,18 +397,27 @@ async function openSettings() {
         h('button', { class: 'btn small', type: 'button', text: 'Clear saved knowledge', onclick: async () => { await idb.clear('knowledge'); toast('Saved knowledge cleared'); closeModal(); } }),
         h('button', { class: 'btn small', type: 'button', text: 'Clear learned statistics', onclick: () => { state.learned = { domains: {}, providers: {}, vocab: {} }; saveLearned(); toast('Learned statistics cleared'); closeModal(); } }),
         h('button', { class: 'btn small danger', type: 'button', text: 'Delete all conversations', onclick: async () => { if (!confirm('Delete every conversation stored on this device?')) return; await idb.clear('chats'); state.chats = []; closeModal(); newChat(); toast('All conversations deleted'); } }))),
-    state.status ? h('small', { text: `Engine ${state.status.version} · language model: none · Wikimedia API budget left this minute: ${state.status.wikimediaBudget}${state.status.contactConfigured ? '' : ' (operator contact not configured — lower limit applies)'}` }) : null,
+    state.status ? h('small', { text: `Engine ${state.status.version} · language model: none${state.status.brain ? ` · built-in brain: ${Number(state.status.brain.patterns).toLocaleString()} phrasings, ${Number(state.status.brain.facts).toLocaleString()} common-sense facts` : ''} · Wikimedia API budget left this minute: ${state.status.wikimediaBudget}${state.status.contactConfigured ? '' : ' (operator contact not configured — lower limit applies)'}` }) : null,
   ]);
 }
 function openAbout() {
+  const ul = (items) => h('ul', null, items.map((t) => h('li', { text: t })));
   openModal('About INFINI AI', [h('div', { class: 'about' },
-    h('p', { text: 'INFINI AI is an internet-native assistant: it does not know the world until it searches the world. There is no large language model inside it and it calls none.' }),
-    h('div', { class: 'sec', text: 'How an answer is made' }),
-    h('ul', null, ['Understanding — rule-based language analysis classifies the question, finds its topic and resolves follow-ups such as “he” or “that”.', 'Planning — the question is split into sub-searches for different providers.', 'Searching — Wikipedia, Wikidata, a web search service, open web indexes, publisher news feeds and specialist sources are queried live, with automatic failover. A search service only supplies links: every page is then read by this app.', 'Reading — pages are fetched, cleaned of navigation and ads, and split into passages.', 'Comparing — passages are ranked, sources are checked for agreement, copies and contradictions.', 'Constructing — the answer is assembled from sentences found in the sources. Each one carries its citation.', 'Related questions — fixed question templates, offered only when a page that was just read has a section on that aspect.'].map((t) => h('li', { text: t }))),
+    h('p', { text: 'INFINI AI has two parts: a small built-in brain for conversation, memory and everyday common sense, and a live web pipeline for knowledge. There is no large language model inside it and it calls none.' }),
+    h('div', { class: 'sec', text: 'The built-in brain' }),
+    ul(['It is made of rules and data, not a neural network: a database of everyday phrasings, prepared replies, a common-sense fact base and a few exact skills (clock, calendar, sums, dice, spelling).',
+      'It understands casual typing, shorthand and typos, keeps track of the conversation, and remembers what you tell it (your name, what you like) for the current chat. That memory stays on this device.',
+      'It never invents facts. When a message needs real knowledge it hands it to the web pipeline, and when it is unsure it says so and offers a web search.',
+      'It is not conscious and has no feelings. It says so itself when asked.']),
+    h('div', { class: 'sec', text: 'How a web answer is made' }),
+    ul(['Understanding — rule-based language analysis classifies the question, finds its topic and resolves follow-ups such as “he” or “that”.', 'Planning — the question is split into sub-searches for different providers.', 'Searching — Wikipedia, Wikidata, a web search service, open web indexes, publisher news feeds and specialist sources are queried live, with automatic failover. A search service only supplies links: every page is then read by this app.', 'Reading — pages are fetched, cleaned of navigation and ads, and split into passages.', 'Comparing — passages are ranked, sources are checked for agreement, copies and contradictions.', 'Constructing — the answer is assembled from sentences found in the sources. Each one carries its citation.', 'Related questions — fixed question templates, offered only when a page that was just read has a section on that aspect.']),
     h('div', { class: 'sec', text: 'What it cannot do' }),
-    h('ul', null, ['It cannot reason beyond what sources state, write original essays or code, or hold opinions.', 'If the sources it can reach do not answer the question, it says “I could not verify this from the sources I found.”', 'It can be wrong when sources are wrong, when the best page cannot be retrieved, or when its rules misread a question. Check the citations.', 'It “learns” only in a narrow sense: it stores which sites worked, words that co-occur with your topics, and answers you choose to save — all on this device, all clearable in Settings.'].map((t) => h('li', { text: t }))),
+    ul(['It cannot write original essays, poems or code, translate, draw, or act on your device or accounts.', 'It cannot reason beyond what sources state. If the sources it can reach do not answer the question, it says “I could not verify this from the sources I found.”', 'It can be wrong: when sources are wrong, when the best page cannot be retrieved, or when its rules misread a message. A chat reply has a “Search the web instead” button for that case. Check the citations.', 'It “learns” only in a narrow sense: it stores which sites worked, words that co-occur with your topics, and answers you choose to save — all on this device, all clearable in Settings.']),
     h('div', { class: 'sec', text: 'Privacy' }),
-    h('p', { text: 'Conversations live in this browser. Questions are sent to this app’s server, which queries public sources on your behalf; they are not sent to any AI provider.' }))]);
+    h('p', { text: 'Conversations, and what the brain remembers about you, live in this browser. Messages are sent to this app’s server, which answers them or queries public sources on your behalf; they are not sent to any AI provider. Your device’s time zone is sent with each message so that “what time is it” can be answered.' }),
+    h('div', { class: 'sec', text: 'Open data inside the brain' }),
+    h('p', { class: 'credits', text: 'This work includes data from ConceptNet 5, which was compiled by the Commonsense Computing Initiative. ConceptNet 5 is freely available under the Creative Commons Attribution-ShareAlike license (CC BY SA 3.0) from http://conceptnet.io. The included data was created by contributors to Commonsense Computing projects, contributors to Wikimedia projects, DBPedia, OpenCyc, Games with a Purpose, Princeton University’s WordNet, Francis Bond’s Open Multilingual WordNet, and Jim Breen’s JMDict.' }),
+    h('p', { class: 'credits', text: 'It also uses WordNet 3.1 (Princeton University), example phrasings from Microsoft’s Personality Chat datasets (MIT License) and from the CLINC150 dataset (Larson et al., 2019, CC BY 3.0), and a word-frequency list derived from OpenSubtitles 2018 (FrequencyWords, CC BY-SA 4.0). Every reply is INFINI AI’s own text. ConceptNet’s data licence is now CC BY-SA 4.0, and the common-sense and vocabulary files derived from these sources are shared under that same licence; the full notices ship with the app in engine/brain/data/NOTICE.md.' }))]);
 }
 
 // ---------------- asking ----------------
@@ -419,7 +445,16 @@ function setBusy(b) { state.busy = b; $('sendBtn').hidden = b; $('stopBtn').hidd
 function regenerate(m) { if (state.busy) return; const i = state.chat.messages.indexOf(m); if (i < 0) return; run(m.question, { regenerate: true, replace: m, context: m.contextBefore || {} }); }
 function ask(text) { const q = (text || $('q').value).trim(); if (!q || state.busy) return; $('q').value = ''; autoGrow(); run(q, {}); }
 
-async function run(question, { regenerate: regen = false, replace = null, context = null } = {}) {
+// A saved answer carries the context of the conversation it was saved in. Reused elsewhere, it brings its topic
+// (for follow-ups) and what kind of reply it was, but what the brain remembers stays that of the current conversation.
+function withOwnMemory(saved, current) {
+  if (!saved || !Object.keys(saved).length) return current;
+  const mine = current && current.brain, theirs = saved.brain;
+  const last = theirs && typeof theirs === 'object' ? { last: theirs.last, lastText: theirs.lastText } : {};
+  return { ...saved, brain: mine ? { ...mine, expect: null, ...last } : last };
+}
+const deviceTz = () => { try { return Intl.DateTimeFormat().resolvedOptions().timeZone || ''; } catch { return ''; } };
+async function run(question, { regenerate: regen = false, replace = null, context = null, route = '' } = {}) {
   const chat = state.chat;
   if (!chat.messages.length) $('thread').replaceChildren();
   const ctxBefore = context || chat.context || {};
@@ -433,17 +468,22 @@ async function run(question, { regenerate: regen = false, replace = null, contex
     chat.messages.push(m); $('thread').append(botEl(m));
   }
   // saved knowledge: reuse only for questions that are not time-sensitive, and say so
-  if (!regen) {
+  if (!regen && !route) {
     const hit = await idb.get('knowledge', normQ(question));
-    if (hit && !TIMEY.test(question) && !hit.result.timeSensitive) { Object.assign(m, { status: 'done', result: hit.result, cached: hit.savedAt, saved: true, events: [] }); chat.context = hit.result.context || chat.context; fillBot(m); scrollDown(); return saveChat(); }
+    if (hit && !TIMEY.test(question) && !hit.result.timeSensitive) { Object.assign(m, { status: 'done', result: hit.result, cached: hit.savedAt, saved: true, events: [] }); chat.context = withOwnMemory(hit.result.context, chat.context); fillBot(m); scrollDown(); return saveChat(); }
   }
+  // Three dots first. The research panel appears only once the web pipeline really starts,
+  // so a chat reply from the brain never flashes a list of search stages.
   const act = createActivity(state.settings.autoExpand);
-  m._body.append(act.el);
+  const typing = h('div', { class: 'typing', role: 'status', 'aria-label': 'INFINI AI is replying' }, h('i'), h('i'), h('i'));
+  act.el.hidden = true;
+  m._body.append(typing, act.el);
+  const reveal = () => { if (act.el.hidden) { act.el.hidden = false; typing.hidden = true; } };
   scrollDown(true);
   setBusy(true);
   state.abort = new AbortController();
   try {
-    const res = await fetch('/api/ask', { method: 'POST', headers: { 'Content-Type': 'application/json' }, signal: state.abort.signal, body: JSON.stringify({ question, context: ctxBefore, regenerate: regen, learned: learnedPayload(), settings: { depth: state.settings.depth, providersOff: state.settings.providersOff, feeds: state.settings.feeds } }) });
+    const res = await fetch('/api/ask', { method: 'POST', headers: { 'Content-Type': 'application/json' }, signal: state.abort.signal, body: JSON.stringify({ question, context: ctxBefore, regenerate: regen, tz: deviceTz(), learned: learnedPayload(), settings: { depth: state.settings.depth, providersOff: state.settings.providersOff, feeds: state.settings.feeds, ...(route ? { route } : {}) } }) });
     if (!res.ok || !res.body) { let msg = `The server answered ${res.status}.`; try { msg = (await res.json()).message || msg; } catch { /* not JSON */ } throw new Error(msg); }
     const reader = res.body.getReader(), dec = new TextDecoder();
     let buf = '';
@@ -458,10 +498,11 @@ async function run(question, { regenerate: regen = false, replace = null, contex
         let ev; try { ev = JSON.parse(line); } catch { continue; }
         if (ev.type === 'answer') m.result = ev.result;
         else if (ev.type === 'error') m.error = ev.message;
-        else if (ev.type !== 'done') { if (m.events.length < 120) m.events.push(ev); act.onEvent(ev); scrollDown(); }
+        else if (ev.type !== 'done') { if (m.events.length < 120) m.events.push(ev); act.onEvent(ev); if (ev.type !== 'stage' || ev.stage !== 'understanding') reveal(); scrollDown(); }
       }
     }
-    if (m.result) { m.status = 'done'; if (m.result.context && Object.keys(m.result.context).length) chat.context = m.result.context; absorb(m.result.learn); }
+    const newest = chat.messages[chat.messages.length - 1] === m;      // redoing an older reply must not rewind what the conversation knows
+    if (m.result) { m.status = 'done'; if (newest && m.result.context && Object.keys(m.result.context).length) chat.context = m.result.context; absorb(m.result.learn); }
     else { m.status = 'error'; m.error = m.error || 'The connection closed before an answer arrived.'; }
   } catch (e) {
     if (e.name === 'AbortError') m.status = 'stopped'; else { m.status = 'error'; m.error = e.message === 'Failed to fetch' ? 'Could not reach the server. Check your connection and retry.' : e.message; }

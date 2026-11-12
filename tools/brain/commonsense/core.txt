@@ -1,0 +1,389 @@
+# INFINI AI — core common sense, written for this project (public-domain facts in my own words).
+# One thing per line:  name, alias | key: value, value | key: ...
+# Keys: isa (first = main class), isnot, can, cannot, is, has (count in brackets), hasnot, used, made, at, eats, sound, young, color, group, needs, gives, male, female
+# A thing inherits from its classes ("isa") unless it says otherwise itself.
+
+# ---------- classes ----------
+living thing | can: grow, die | is: alive | needs: food, water
+animal | isa: living thing | can: move, eat, breathe, grow, sleep, die, feel pain | cannot: talk, read, write, drive, make its own food | is: alive | needs: food, water, air
+mammal | isa: animal | can: give milk, breathe air | has: hair or fur, lungs, a backbone, a heart(1) | is: warm-blooded | hasnot: feathers, gills, scales
+bird | isa: animal | can: fly, lay eggs, walk, sing, see, build nests | cannot: talk, give milk, swim underwater for long | has: feathers, wings(2), a beak, legs(2), a tail, eyes(2), a backbone, lungs | hasnot: teeth, fur, arms, hands, gills, scales on its body | is: warm-blooded | at: nests, trees, the sky | young: chick | group: flock
+fish | isa: animal | can: swim, breathe underwater, lay eggs | cannot: walk, fly, breathe air, live on land, climb trees, talk, close its eyes | has: fins, gills, scales, a tail, a backbone, eyes(2) | hasnot: legs, lungs, arms, hair, fur, feathers, wings, eyelids | at: water, rivers, lakes, the sea, ponds | is: cold-blooded | group: school, shoal
+reptile | isa: animal | can: lay eggs, crawl | cannot: fly, give milk | has: scales, a backbone, lungs | hasnot: fur, feathers | is: cold-blooded
+amphibian | isa: animal | can: live in water and on land, lay eggs, swim | is: cold-blooded | has: a backbone, moist skin | hasnot: fur, feathers, scales
+insect | isa: animal | has: legs(6), antennae(2), a body in three parts | hasnot: a backbone, bones, lungs, fur | can: lay eggs, crawl | is: small, cold-blooded
+arachnid | isa: animal | has: legs(8) | hasnot: wings, antennae, a backbone, bones | isnot: an insect
+plant | isa: living thing | can: grow, make its own food from sunlight, give oxygen, die | cannot: move around, walk, talk, see, think, run, feel pain | needs: water, sunlight, air, soil | has: roots, leaves, a stem | is: alive | color: green
+tree | isa: plant | has: a trunk, branches, leaves, roots, bark | is: tall | can: grow, give shade, give fruit, give oxygen, take in carbon dioxide | cannot: move, walk, talk | gives: wood, shade, fruit, oxygen | color: green leaves and a brown trunk
+flower | isa: plant | is: colourful, pretty | has: petals, a stem, pollen | can: bloom, smell nice, attract bees and butterflies | at: gardens, fields
+fruit | isa: food | is: sweet, healthy, juicy | has: seeds | at: trees, plants | can: be eaten, ripen, rot
+vegetable | isa: food | is: healthy | can: be eaten, be cooked | at: gardens, farms
+food | can: be eaten, go bad | used: eating, giving energy | isnot: alive
+vehicle | can: move, carry people | used: travelling, transport | isnot: alive | cannot: think, feel
+machine | isnot: alive | cannot: feel, think like a human | needs: power
+metal | is: hard, shiny, strong, solid | can: conduct electricity, conduct heat, melt when very hot | isnot: alive
+tool | used: doing a job | isnot: alive
+furniture | isnot: alive | at: houses, rooms
+building | isnot: alive | has: walls, a roof, doors
+star | is: a huge ball of hot gas, very far away, bright, hot | can: shine, make its own light | at: space, the night sky | isnot: a planet
+planet | can: orbit a star | cannot: make its own light | isnot: a star | is: round
+liquid | can: flow, be poured, take the shape of its container
+metal object | isa: metal
+
+# ---------- people ----------
+human, person, people, man, woman, human being | isa: mammal | can: walk, talk, think, read, write, run, laugh, cry, learn, sing, dance, cook, drive, build, use tools, speak, jump, swim, climb, count, love, dream | cannot: fly, breathe underwater, live without water, live without air, live without food, live forever, see in complete darkness, run faster than a car | has: legs(2), arms(2), hands(2), feet(2), eyes(2), ears(2), a nose(1), a mouth(1), fingers(10), toes(10), thumbs(2), a heart(1), lungs(2), kidneys(2), a brain(1), bones(206), teeth(32), senses(5), a stomach(1), a liver(1), a tongue(1), a head(1), knees(2), elbows(2), shoulders(2), ribs(24), hair, skin, blood | hasnot: a tail, wings, fur, feathers, gills, horns, scales, a trunk, a beak, claws | is: warm-blooded, intelligent, an omnivore, mortal | young: baby, child | eats: plants and meat | at: houses, towns, cities, villages | needs: food, water, air, sleep, shelter
+baby | isa: human | can: cry, crawl, drink milk, sleep, smile, laugh | cannot: walk, talk, read, write, drive, cook | is: small, young | needs: milk, sleep, care
+child, kid | isa: human | can: play, learn, run, read, go to school | is: young
+doctor | isa: human | can: treat sick people, give medicine | at: hospitals, clinics
+nurse | isa: human | can: care for patients | at: hospitals
+teacher | isa: human | can: teach, explain | at: schools
+student | isa: human | can: learn, study | at: schools, colleges
+farmer | isa: human | can: grow crops, raise animals | at: farms, fields
+pilot | isa: human | can: fly a plane | at: airports, cockpits
+driver | isa: human | can: drive
+chef, cook | isa: human | can: cook food | at: kitchens, restaurants
+police officer, policeman | isa: human | can: keep people safe, catch criminals | at: police stations
+firefighter, fireman | isa: human | can: put out fires, rescue people
+dentist | isa: doctor | can: look after teeth
+carpenter | isa: human | can: make things from wood
+tailor | isa: human | can: make clothes, sew
+barber | isa: human | can: cut hair
+baker | isa: human | can: bake bread, bake cakes | at: bakeries
+astronaut | isa: human | can: travel into space | at: space, spacecraft
+vet | isa: doctor | can: treat sick animals
+programmer | isa: human | can: write code
+
+# ---------- mammals ----------
+dog, puppy | isa: mammal, pet | can: bark, run, swim, bite, smell, wag its tail, dig, fetch, jump, hear, guard a house, growl, howl | cannot: fly, talk, climb trees, read, meow | has: legs(4), a tail, fur, paws(4), teeth, ears(2), eyes(2), a nose(1), whiskers, claws | hasnot: wings, feathers, horns | sound: bark, woof | young: puppy | eats: meat, dog food, bones | at: houses, kennels | is: loyal, friendly | group: pack
+cat, kitten | isa: mammal, pet | can: meow, purr, climb trees, jump, run, scratch, catch mice, see in the dark, hunt, hiss | cannot: fly, talk, bark | has: legs(4), a tail, fur, whiskers, claws, paws(4), ears(2), eyes(2), teeth | hasnot: wings, feathers, horns | sound: meow, purr | young: kitten | eats: fish, meat, mice, cat food | at: houses | is: independent, curious, clean
+cow | isa: mammal, farm animal | can: give milk, moo, walk, eat grass | cannot: fly, climb trees, talk, lay eggs, jump over the moon | has: legs(4), a tail, horns(2), hooves, an udder | sound: moo | young: calf | eats: grass, hay | is: a herbivore, big | at: farms, sheds, fields | group: herd | gives: milk, beef, leather | male: bull
+buffalo | isa: mammal, farm animal | can: give milk, pull a plough | has: legs(4), horns(2), a tail | eats: grass | young: calf | gives: milk | is: big, strong
+horse | isa: mammal | can: run fast, gallop, jump, carry people, kick, neigh, pull carts | cannot: fly, climb trees, talk | has: legs(4), a mane, a tail, hooves | sound: neigh | young: foal | eats: grass, hay, oats | at: stables, farms, fields | group: herd | is: strong, fast, a herbivore | male: stallion | female: mare
+donkey | isa: mammal | can: carry loads, bray, kick | has: legs(4), long ears(2), a tail | sound: bray | young: foal | eats: grass, hay
+sheep | isa: mammal, farm animal | can: bleat, eat grass | has: legs(4), wool, a tail | sound: baa | young: lamb | eats: grass | group: flock | gives: wool, milk, meat | male: ram | female: ewe
+goat | isa: mammal, farm animal | can: climb, bleat, jump, give milk | has: legs(4), horns(2), a beard, a tail | sound: bleat | young: kid | eats: grass, leaves, plants | group: herd | gives: milk, meat
+pig | isa: mammal, farm animal | can: oink, dig with its snout, swim | cannot: fly, look up at the sky easily, climb trees | has: legs(4), a snout, a curly tail | sound: oink | young: piglet | eats: almost anything | at: farms, sties | is: an omnivore, intelligent
+lion | isa: mammal, wild animal, big cat | can: roar, run, hunt, climb | cannot: fly, purr | has: legs(4), a mane, claws, sharp teeth, a tail | sound: roar | young: cub | eats: meat, zebras, antelopes | is: a carnivore, strong, dangerous, called the king of the jungle | at: grasslands, the savanna, Africa | group: pride | female: lioness
+tiger | isa: mammal, wild animal, big cat | can: roar, swim, hunt, run fast, climb, jump | cannot: fly | has: legs(4), stripes, claws, sharp teeth, a tail, whiskers | sound: roar, growl | young: cub | eats: meat, deer | is: a carnivore, the largest cat, dangerous, strong | at: forests, jungles, Asia | color: orange with black stripes | female: tigress
+leopard | isa: mammal, wild animal, big cat | can: climb trees, run fast, hunt, swim | has: legs(4), spots, a tail, claws | eats: meat | young: cub | is: a carnivore
+cheetah | isa: mammal, wild animal, big cat | can: run very fast, hunt | cannot: roar, fly | has: legs(4), spots, a long tail | eats: meat | young: cub | is: the fastest land animal, a carnivore | at: grasslands, Africa
+elephant | isa: mammal, wild animal | can: swim, spray water with its trunk, trumpet, remember well, lift heavy things | cannot: jump, fly, climb trees | has: legs(4), a trunk(1), tusks(2), big ears(2), a tail, thick skin | hasnot: fur, wings | sound: trumpet | young: calf | eats: grass, leaves, fruit, bark | is: a herbivore, the largest land animal, big, heavy, strong, intelligent | at: forests, grasslands, Africa, Asia | group: herd | color: grey
+monkey | isa: mammal, wild animal | can: climb trees, swing, jump, chatter, use its hands | cannot: fly, talk | has: a tail, hands(2), legs(2), arms(2), fur | sound: chatter | young: infant | eats: fruit, bananas, nuts, leaves, insects | at: trees, forests, jungles | group: troop | is: clever, playful
+gorilla | isa: mammal, ape | can: climb, beat its chest, walk on its knuckles | hasnot: a tail | eats: leaves, fruit, plants | is: big, strong, intelligent | at: forests, Africa
+chimpanzee, chimp | isa: mammal, ape | can: use tools, climb trees | hasnot: a tail | is: intelligent | eats: fruit, leaves, insects
+bear | isa: mammal, wild animal | can: climb trees, swim, growl, stand on two legs, catch fish, sleep through the winter | cannot: fly | has: legs(4), fur, claws, a short tail | sound: growl | young: cub | eats: fish, berries, honey, meat, plants | is: an omnivore, big, strong, dangerous | at: forests, mountains, caves
+polar bear | isa: bear | can: swim, hunt seals | at: the Arctic, ice, cold places | eats: seals, fish | color: white | is: the largest bear, a carnivore
+panda, giant panda | isa: bear | can: climb trees | eats: bamboo | at: China, bamboo forests | color: black and white | young: cub
+rabbit, bunny | isa: mammal | can: hop, jump, run fast, dig | cannot: fly, climb trees | has: legs(4), long ears(2), a fluffy tail, fur, whiskers | young: kit, bunny | eats: carrots, grass, vegetables, leaves | at: burrows, hutches, fields | is: a herbivore, soft
+mouse | isa: mammal, rodent | can: squeak, run, climb, chew | has: legs(4), a long tail, whiskers, fur | sound: squeak | young: pup | eats: grain, seeds, crumbs | is: small | at: holes, houses, fields
+rat | isa: mammal, rodent | can: swim, climb, chew | has: legs(4), a long tail, whiskers | is: clever
+squirrel | isa: mammal, rodent | can: climb trees, jump, bury nuts | has: legs(4), a bushy tail | eats: nuts, seeds | at: trees, parks
+deer | isa: mammal, wild animal | can: run fast, jump | has: legs(4), antlers, hooves | young: fawn | eats: grass, leaves | is: a herbivore | at: forests | group: herd | male: stag | female: doe
+fox | isa: mammal, wild animal | can: run, hunt, dig | has: legs(4), a bushy tail, pointed ears(2) | young: cub | eats: small animals, birds, fruit | at: dens, forests | is: clever | color: reddish orange
+wolf | isa: mammal, wild animal | can: howl, hunt, run | has: legs(4), a tail, sharp teeth, fur | sound: howl | young: pup | eats: meat | at: forests, mountains | group: pack | is: a carnivore
+giraffe | isa: mammal, wild animal | can: reach high leaves, run | cannot: fly, jump high | has: legs(4), a very long neck, spots, a tail, a long tongue | young: calf | eats: leaves | is: the tallest animal, a herbivore | at: the savanna, Africa | group: herd
+zebra | isa: mammal, wild animal | can: run fast, kick | has: legs(4), stripes, a mane, a tail, hooves | young: foal | eats: grass | is: a herbivore | at: grasslands, Africa | group: herd | color: black and white
+kangaroo | isa: mammal, marsupial | can: hop, jump far, kick, box | cannot: walk backwards easily | has: a pouch, a long strong tail, strong back legs | young: joey | eats: grass, plants | at: Australia | group: mob
+koala | isa: mammal, marsupial | isnot: a bear | can: climb trees, sleep most of the day | has: a pouch, fur | eats: eucalyptus leaves | at: Australia, trees | young: joey
+camel | isa: mammal | can: go a long time without water, carry loads, walk on sand | has: legs(4), a hump, long eyelashes | young: calf | eats: plants | at: deserts | is: called the ship of the desert
+yak | isa: mammal | can: carry loads, live high in the mountains, give milk | has: legs(4), long hair, horns(2) | eats: grass | at: the Himalayas, mountains | gives: milk, wool, meat
+rhinoceros, rhino | isa: mammal, wild animal | has: legs(4), thick skin, a horn | eats: grass, plants | is: a herbivore, big, heavy | at: grasslands, Chitwan
+hippopotamus, hippo | isa: mammal, wild animal | can: swim, stay underwater for minutes | has: legs(4), a huge mouth, thick skin | eats: grass | at: rivers, lakes, Africa | is: big, heavy, dangerous, a herbivore
+bat | isa: mammal | isnot: a bird, blind | can: fly, hang upside down, find its way in the dark using sound, sleep during the day | has: wings(2), fur, legs(2), ears(2), teeth | hasnot: feathers, a beak | eats: insects, fruit | at: caves, trees | is: nocturnal, the only mammal that can truly fly | young: pup | group: colony
+whale | isa: mammal | isnot: a fish | can: swim, breathe air, sing, dive deep, hold its breath | cannot: breathe underwater, walk, live on land, fly | has: flippers(2), a tail, a blowhole, lungs | hasnot: legs, gills, scales, fur | at: the sea, oceans | young: calf | group: pod | is: huge
+blue whale | isa: whale | is: the largest animal that has ever lived | eats: krill
+dolphin | isa: mammal | isnot: a fish | can: swim, jump, breathe air, whistle, click, find things using sound | cannot: breathe underwater, walk, live on land | has: flippers(2), a tail, a blowhole, lungs, teeth, a fin | hasnot: legs, gills, scales | is: intelligent, playful, friendly | at: the sea | young: calf | group: pod | eats: fish, squid
+seal | isa: mammal | can: swim, dive, clap | has: flippers(4), whiskers | eats: fish | at: the sea, coasts, cold places | young: pup
+
+# ---------- birds ----------
+penguin | isa: bird | cannot: fly | can: swim, dive, walk, waddle, slide on ice, lay eggs | has: wings(2), feathers, a beak, legs(2) | at: Antarctica, cold places, the Southern Hemisphere | eats: fish, krill | young: chick | color: black and white | group: colony
+ostrich | isa: bird | cannot: fly | can: run very fast, kick, lay eggs | has: long legs(2), a long neck, feathers, wings(2) | is: the largest bird, the fastest bird on land | eats: plants, seeds, insects | at: Africa
+emu | isa: bird | cannot: fly | can: run fast | at: Australia
+kiwi | isa: bird | cannot: fly | at: New Zealand | is: nocturnal
+chicken, hen | isa: bird, farm animal | can: lay eggs, cluck, peck, walk, run | cannot: fly far, swim, talk | has: feathers, wings(2), a beak, legs(2), a comb | sound: cluck | young: chick | eats: seeds, grain, insects, worms | at: coops, farms | male: rooster | female: hen | gives: eggs, meat
+rooster, cock | isa: chicken | can: crow | sound: cock-a-doodle-doo | cannot: lay eggs
+duck | isa: bird | can: swim, fly, quack, dive, waddle, lay eggs | has: webbed feet, feathers, wings(2), a bill, legs(2) | sound: quack | young: duckling | eats: plants, insects, small fish | at: ponds, lakes, rivers | male: drake
+goose | isa: bird | can: swim, fly, honk | sound: honk | young: gosling | has: webbed feet
+swan | isa: bird | can: swim, fly | has: a long neck, webbed feet | color: white | young: cygnet
+parrot | isa: bird | can: fly, talk, copy words, climb, lay eggs | has: colourful feathers, a curved beak, wings(2), legs(2) | eats: seeds, fruit, nuts | is: colourful, intelligent
+owl | isa: bird | can: fly silently, see in the dark, turn its head almost all the way round, hoot, hunt at night | has: big eyes(2), feathers, wings(2), a beak, sharp claws | sound: hoot | young: owlet | eats: mice, small animals, insects | is: nocturnal
+eagle | isa: bird | can: fly high, soar, hunt, see very far | has: sharp claws, a hooked beak, wings(2) | eats: fish, small animals | young: eaglet | is: a bird of prey, strong
+crow | isa: bird | can: fly, caw, use tools | sound: caw | color: black | is: intelligent
+sparrow | isa: bird | can: fly, chirp | sound: chirp | eats: seeds, insects | is: small
+pigeon, dove | isa: bird | can: fly, coo, find its way home | sound: coo
+peacock | isa: bird | can: spread its tail, dance, fly a short way | has: a long colourful tail, feathers | color: blue and green | female: peahen
+hummingbird | isa: bird | can: fly backwards, hover, flap its wings very fast | eats: nectar | is: very small
+flamingo | isa: bird | can: stand on one leg, fly | has: long legs(2), a long neck | color: pink | group: flamboyance
+woodpecker | isa: bird | can: peck wood, climb tree trunks
+vulture | isa: bird | can: fly high, soar | eats: dead animals
+
+# ---------- reptiles, amphibians, fish, sea animals ----------
+snake | isa: reptile | can: slither, bite, swim, climb, hiss, shed its skin, swallow food whole | cannot: walk, fly, blink, chew, hear well, run | has: scales, a forked tongue, a backbone, a long body | hasnot: legs, arms, eyelids, fur, feet, ears you can see | sound: hiss | eats: mice, frogs, eggs, small animals | is: cold-blooded, long
+lizard | isa: reptile | can: climb walls, run, regrow its tail | has: legs(4), a tail, scales | eats: insects
+crocodile | isa: reptile | can: swim, bite hard, stay underwater | has: legs(4), a long tail, sharp teeth, thick scaly skin | at: rivers, swamps | eats: fish, animals | is: dangerous
+alligator | isa: reptile | can: swim, bite | has: legs(4), a long tail, sharp teeth | at: rivers, swamps
+turtle | isa: reptile | can: swim, hide in its shell, lay eggs, live very long | cannot: fly, run fast, leave its shell | has: a shell, legs(4), a beak | hasnot: teeth, fur | is: slow on land
+tortoise | isa: reptile | can: hide in its shell, live very long, walk slowly | cannot: fly, run fast, leave its shell | has: a shell, legs(4) | hasnot: teeth | eats: plants | at: land | is: slow
+dinosaur | isa: reptile | is: extinct | isnot: alive today | cannot: be seen alive today
+frog | isa: amphibian | can: jump, hop, swim, croak, catch insects with its tongue | cannot: fly | has: legs(4), webbed feet, a long sticky tongue, big eyes(2) | hasnot: a tail, fur, scales, feathers | sound: croak | young: tadpole | eats: insects, flies, worms | at: ponds, wet places | color: green
+toad | isa: amphibian | can: hop, croak | has: legs(4), dry bumpy skin | young: tadpole
+shark | isa: fish | can: swim fast, bite, smell blood from far away, hunt | cannot: walk, breathe air, swim backwards | has: fins, gills, sharp teeth, a tail, a skeleton of cartilage | hasnot: bones, legs, lungs | eats: fish, seals | at: the sea | is: dangerous | young: pup
+goldfish | isa: fish, pet | color: orange | at: ponds, fish tanks
+salmon | isa: fish | can: swim upstream, jump
+octopus | isa: sea animal | isnot: a fish | can: swim, squirt ink, change colour, squeeze through small gaps | has: arms(8), hearts(3), blue blood, suckers | hasnot: bones, a backbone, a shell, legs | at: the sea | is: intelligent
+squid | isa: sea animal | has: arms(8), tentacles(2) | can: squirt ink, swim | at: the sea
+crab | isa: sea animal | can: walk sideways, pinch | has: legs(10), a hard shell, claws(2) | at: the sea, beaches
+lobster | isa: sea animal | has: legs(10), claws(2), a hard shell | at: the sea
+jellyfish | isa: sea animal | isnot: a fish | can: sting, float, glow | hasnot: a brain, bones, a heart, eyes | at: the sea
+starfish | isa: sea animal | isnot: a fish | can: regrow an arm | has: arms(5) | hasnot: a brain, blood | at: the sea
+seahorse | isa: fish | can: swim upright | at: the sea
+
+# ---------- insects and small creatures ----------
+spider | isa: arachnid | isnot: an insect | can: spin webs, bite, climb walls, make silk | cannot: fly | has: legs(8), eyes(8), fangs | hasnot: wings, antennae | eats: insects, flies | at: webs, corners
+scorpion | isa: arachnid | isnot: an insect | can: sting | has: legs(8), a stinger, claws(2)
+ant | isa: insect | can: carry many times its own weight, bite, dig, work together | has: legs(6), antennae(2) | at: anthills, nests | group: colony | is: small, hard-working
+bee, honeybee | isa: insect | can: fly, sting, make honey, buzz, pollinate flowers | has: wings(4), legs(6), a stinger, antennae(2) | sound: buzz | at: hives | group: swarm | eats: nectar, pollen | gives: honey, wax
+wasp | isa: insect | can: fly, sting | has: wings(4), legs(6)
+butterfly | isa: insect | can: fly, taste with its feet | has: wings(4), legs(6), antennae(2) | young: caterpillar | eats: nectar | is: colourful
+moth | isa: insect | can: fly | has: wings(4), legs(6) | is: nocturnal
+caterpillar | isa: insect | can: crawl, turn into a butterfly | eats: leaves
+mosquito | isa: insect | can: fly, bite, suck blood, spread diseases | has: wings(2), legs(6) | sound: buzz
+housefly | isa: insect | can: fly, walk on walls | has: wings(2), legs(6)
+cockroach | isa: insect | can: run fast, survive a long time without food | has: legs(6), wings(4), antennae(2)
+grasshopper | isa: insect | can: jump, hop, chirp | has: legs(6), wings(4)
+ladybird, ladybug | isa: insect | can: fly | has: legs(6), spots | color: red with black spots
+dragonfly | isa: insect | can: fly, hover | has: wings(4), legs(6)
+snail | isa: animal | can: crawl, hide in its shell | cannot: run, fly, jump | has: a shell, tentacles(4) | hasnot: legs, bones | is: slow
+earthworm, worm | isa: animal | can: wriggle, dig through soil | hasnot: legs, eyes, bones, ears | at: soil
+
+# ---------- nature ----------
+fire, flame | is: hot, bright, dangerous | isnot: cold, wet, alive, a solid, cool | can: burn, spread, give light, give heat, cook food, destroy things | cannot: burn without oxygen, burn underwater | color: orange, yellow and red | needs: oxygen, fuel, heat | gives: light, heat, smoke, ash
+water | is: wet, a liquid, clear, transparent, colourless, essential for life | isnot: dry, a solid, alive, flammable | can: flow, freeze, boil, evaporate, put out fire, dissolve salt, dissolve sugar | made: hydrogen and oxygen | used: drinking, washing, cooking, cleaning, bathing, swimming, growing plants | at: rivers, lakes, seas, oceans, taps, wells, rain, clouds | color: clear
+ice | is: cold, a solid, frozen water, hard, slippery | isnot: hot, warm, a liquid | can: melt, float on water, cool drinks | made: water | color: clear or white
+steam | is: hot, a gas | made: water | isnot: cold
+snow | is: cold, white, soft, frozen | isnot: hot, warm, black | can: melt, fall from the sky | made: ice crystals | at: mountains, cold places | color: white
+rain | is: wet, water | can: fall from clouds, make things wet, fill rivers, help plants grow | at: clouds | made: drops of water
+cloud | is: white or grey | made: tiny drops of water | can: bring rain, hide the sun, float, move with the wind | at: the sky | cannot: be touched like a solid | color: white or grey
+sun | isa: star | is: hot, bright, very big, far away, a star, at the centre of the Solar System | isnot: cold, a planet, a moon, small, dark, alive | can: give light, give heat, rise in the east, set in the west, burn skin, dry clothes, give energy | color: white, though it looks yellow from the Earth | made: hydrogen and helium | gives: light, heat, energy | at: the sky, the centre of the Solar System
+moon | isa: natural satellite | is: round, smaller than the Earth, rocky, bright at night | isnot: a star, a planet, made of cheese, alive | can: orbit the Earth, reflect sunlight, cause tides, appear to change shape | cannot: make its own light | color: grey | has: craters, mountains | hasnot: air, liquid water, life | at: the sky, space
+earth, world | isa: planet | is: round, a sphere, a planet, the third planet from the Sun, our home, mostly covered by water | isnot: flat, a star, the centre of the Solar System, the largest planet | can: spin, orbit the Sun, support life | has: one moon(1), continents(7), oceans(5), an atmosphere, gravity, land, water, air, life | color: blue and green from space
+sky | is: above us, blue in the daytime, dark at night | isnot: green, a solid | color: blue by day and black at night | has: clouds, the Sun, the Moon, stars
+air | is: invisible, all around us, a mixture of gases | isnot: visible, a solid, a liquid | made: nitrogen and oxygen for the most part | can: move as wind, carry sound, fill a balloon | used: breathing | has: oxygen, nitrogen, carbon dioxide
+wind | is: moving air, invisible | can: blow, move leaves, fly kites, turn windmills | cannot: be seen
+grass | isa: plant | color: green | is: green, soft | can: grow | at: fields, gardens, lawns, parks
+leaf | color: green | is: part of a plant | can: fall, change colour in autumn, make food from sunlight
+rose | isa: flower | color: red | has: thorns, petals | can: smell sweet
+sunflower | isa: flower | color: yellow | has: seeds, a tall stem | is: tall
+rhododendron | isa: flower | is: the national flower of Nepal | color: red
+lotus | isa: flower | at: ponds, water | color: pink
+rock, stone | is: hard, heavy, solid | isnot: soft, alive, edible | can: sink in water, break glass | cannot: grow, move by itself, float
+sand | is: made of tiny grains of rock | at: beaches, deserts | used: making glass, making concrete | color: yellow or brown
+soil, mud | is: brown | used: growing plants | at: the ground, gardens, fields
+mountain | is: high, tall, big, made of rock | has: a peak, slopes | at: the Himalayas, Nepal | can: be climbed | cannot: move
+river | is: flowing water, fresh water | can: flow, flood, carry boats | has: banks, fish, water | cannot: flow uphill
+sea, ocean | is: salty, huge, deep, wet | isnot: fresh water, sweet, good to drink | has: fish, waves, salt water, whales, sharks | color: blue | can: have waves, have tides
+lake | is: a large area of water surrounded by land | has: fish, water
+desert | is: dry, often sandy | has: very little rain, sand, cactus plants | isnot: wet
+forest, jungle | has: many trees, animals, birds, plants | is: full of trees
+rainbow | has: colours(7) | color: red, orange, yellow, green, blue, indigo and violet | can: appear when the sun shines through rain | made: sunlight and raindrops | is: colourful, curved
+lightning | is: hot, bright, dangerous, a giant spark of electricity | can: strike, start fires
+thunder | is: loud, the sound made by lightning
+volcano | can: erupt | has: lava, a crater | is: dangerous, hot
+earthquake | can: shake the ground, damage buildings | is: dangerous
+gold | isa: metal | color: yellow | is: valuable, heavy, shiny, expensive | isnot: magnetic, cheap | used: jewellery, coins | cannot: rust
+silver | isa: metal | color: silvery white | is: shiny, valuable | used: jewellery, coins
+iron | isa: metal | is: hard, strong, heavy, magnetic | can: rust | used: making steel, tools, buildings | color: grey
+steel | isa: metal | made: iron and carbon | is: strong, hard | used: buildings, bridges, cars, knives, tools
+copper | isa: metal | color: reddish brown | can: conduct electricity | used: wires, pipes, coins
+aluminium, aluminum | isa: metal | is: light, silvery | used: cans, foil, aircraft | isnot: magnetic
+diamond | is: the hardest natural material, shiny, valuable, expensive, transparent | made: carbon | used: jewellery, cutting tools
+glass | is: transparent, hard, fragile, smooth | isnot: soft | can: break, shatter, be recycled | made: sand | used: windows, bottles, mirrors, screens
+wood | made: trees | can: burn, float on water, be cut, rot | used: furniture, houses, paper, fuel, pencils, doors | is: hard, solid, brown | isnot: a metal, magnetic
+paper | made: wood | used: writing, drawing, printing, books, wrapping | can: burn, tear, fold, be recycled | is: thin, light, flat | color: white
+plastic | made: oil | is: light, waterproof, cheap, long-lasting | can: melt, be recycled, pollute | used: bottles, bags, toys, packaging | isnot: natural, magnetic
+rubber | is: stretchy, elastic, waterproof, bouncy | used: tyres, erasers, balls, gloves
+cotton | is: soft, light, white, a natural fibre | made: the cotton plant | used: clothes, towels, bed sheets
+wool | made: the hair of sheep | is: warm, soft | used: sweaters, blankets, socks
+silk | made: the threads of silkworms | is: smooth, shiny, soft, expensive
+leather | made: animal skin | used: shoes, bags, belts
+petrol, gasoline | is: flammable, a liquid, a fuel | made: crude oil | used: fuel for cars
+electricity | is: dangerous, invisible, a form of energy | used: powering lights, powering machines, charging phones | can: flow through wires, give a shock
+magnet | can: attract iron, attract steel, stick to a fridge | cannot: attract wood, attract plastic, attract glass, attract paper, attract gold | has: poles(2)
+oxygen | is: a gas, invisible, needed for breathing, needed for fire | at: the air
+smoke | made: fire | is: grey, harmful to breathe
+
+virus | isnot: an animal, a plant, a living thing in the usual sense | cannot: live on its own, reproduce without a host cell | can: cause disease, spread, make copies of itself inside a cell | is: far smaller than a cell, a germ
+bacteria, bacterium | isa: living thing | is: tiny, made of a single cell | can: cause disease, help digestion, multiply | isnot: an animal, a plant, a virus
+mushroom, fungus | isnot: a plant, an animal | is: a fungus | cannot: make its own food from sunlight | at: damp places, forests
+coral | isa: animal, sea animal | isnot: a plant, a rock | at: the sea, reefs
+sponge | isa: animal, sea animal | isnot: a plant | at: the sea
+bamboo | isa: plant | is: a grass, fast-growing, tall | isnot: a tree
+peanut, groundnut | isa: food | is: a legume | isnot: a true nut | at: underground
+pluto | is: a dwarf planet, smaller than the Moon, very far from the Sun, very cold | isnot: a planet, a star, a moon
+mars | isa: planet | is: the fourth planet from the Sun, red, smaller than the Earth, cold | color: red | has: two moons(2) | isnot: a star
+jupiter | isa: planet | is: the largest planet in the Solar System, made mostly of gas | isnot: a star
+saturn | isa: planet | has: rings | is: the second-largest planet
+mercury | isa: planet | is: the closest planet to the Sun, the smallest planet
+venus | isa: planet | is: the hottest planet, the second planet from the Sun
+uranus | isa: planet | is: the seventh planet from the Sun
+neptune | isa: planet | is: the farthest planet from the Sun
+
+# ---------- food ----------
+sugar | is: sweet, white, a solid | isnot: salty, sour, bitter | can: dissolve in water, melt | made: sugarcane or sugar beet | used: sweetening food and drinks
+salt | is: salty, white | isnot: sweet | can: dissolve in water, preserve food | used: seasoning food | at: the sea, salt mines
+honey | is: sweet, sticky, golden | made: nectar, by bees
+lemon | isa: fruit | is: sour, yellow, juicy | isnot: sweet | has: seeds, vitamin C | color: yellow
+lime | isa: fruit | is: sour, green | color: green
+chilli, chili, chilli pepper | isa: vegetable | is: spicy, hot to taste | color: red or green
+apple | isa: fruit | color: red, green or yellow | is: sweet, crunchy, juicy, round, healthy | has: seeds, skin, a core | at: trees, orchards
+banana | isa: fruit | color: yellow | is: sweet, soft, long, curved | has: a peel | at: banana plants
+orange | isa: fruit | color: orange | is: sweet, juicy, round | has: vitamin C, a peel, seeds
+mango | isa: fruit | is: sweet, juicy | color: yellow, orange or green | has: a big stone
+grape | isa: fruit | is: small, round, sweet | color: green or purple | at: vines | used: wine, raisins, juice
+strawberry | isa: fruit | color: red | is: sweet, small | has: seeds on the outside
+watermelon | isa: fruit | color: green outside and red inside | is: big, juicy, sweet, mostly water | has: seeds
+coconut | isa: fruit | has: a hard shell, white flesh, water inside | at: palm trees
+pineapple | isa: fruit | has: prickly skin, a crown of leaves | color: yellow inside | is: sweet and a little sour
+papaya | isa: fruit | color: orange inside | has: black seeds | is: sweet, soft
+tomato | isa: fruit | color: red | is: juicy, round, cooked as a vegetable | has: seeds
+potato | isa: vegetable | at: underground | color: brown outside, white or yellow inside | used: chips, fries, mash, curry
+carrot | isa: vegetable | color: orange | at: underground | is: crunchy, good for the eyes
+onion | isa: vegetable | can: make you cry | has: layers | at: underground
+garlic | isa: vegetable | has: cloves | is: strong-smelling
+cabbage | isa: vegetable | color: green | has: leaves
+spinach | isa: vegetable | color: green | has: leaves, iron
+cucumber | isa: vegetable | color: green | is: mostly water, cool, crunchy
+corn, maize | isa: grain | color: yellow | has: kernels | used: popcorn, flour
+rice | isa: grain, food | color: white | is: a staple food in Nepal and much of Asia | at: paddy fields | can: be boiled
+wheat | isa: grain | used: flour, bread
+bread | isa: food | made: flour, water, yeast | is: soft | can: be toasted, go stale
+milk | isa: food | is: white, a liquid, nutritious | color: white | made: cows, buffaloes, goats | has: calcium, protein | used: butter, cheese, yogurt, ghee, ice cream, tea | can: turn sour
+cheese | isa: food | made: milk | color: yellow or white
+butter | isa: food | made: milk | color: yellow | can: melt
+yogurt, yoghurt, curd, dahi | isa: food | made: milk | is: sour, thick
+egg | isa: food | has: a shell, a yolk, a white | is: fragile, oval, nutritious | color: white or brown outside, with a yellow yolk | can: break, hatch, be boiled, be fried | made: hens and other birds
+chocolate | isa: food | made: cocoa and sugar | is: sweet, brown, bad for dogs | can: melt | color: brown
+ice cream | isa: food | is: cold, sweet, soft, frozen | can: melt | made: milk, cream, sugar
+tea | isa: drink | made: tea leaves and hot water | is: a hot drink | has: caffeine
+coffee | isa: drink | made: coffee beans | is: bitter, brown | has: caffeine | can: keep you awake | color: brown
+juice | isa: drink | made: fruit | is: sweet
+momo | isa: food | is: a dumpling, popular in Nepal, steamed or fried | has: a filling of meat or vegetables
+dal bhat | isa: food | is: lentil soup with rice, the everyday meal of Nepal
+pizza | isa: food | has: cheese, tomato sauce, a crust | is: round, from Italy
+noodles | isa: food | made: flour | is: long, thin
+meat | isa: food | made: animals
+cake | isa: food | is: sweet, soft | made: flour, sugar, eggs, butter | used: birthdays
+
+# ---------- everyday objects ----------
+knife | isa: tool | is: sharp, dangerous | used: cutting | made: metal | has: a blade, a handle | at: kitchens
+scissors | isa: tool | is: sharp | used: cutting paper, cutting cloth, cutting hair | has: blades(2), handles(2)
+spoon | used: eating, stirring | at: kitchens
+fork | used: eating | has: prongs
+plate | used: holding food | is: flat, round
+cup, mug | used: drinking | has: a handle
+bottle | used: holding water, holding liquids
+pen | used: writing, drawing | has: ink
+pencil | used: writing, drawing | made: wood and graphite | can: be sharpened, be erased | hasnot: real lead
+eraser | used: rubbing out pencil marks | made: rubber
+book | used: reading, learning | has: pages, a cover, words | made: paper | at: libraries, schools, shelves, bookshops | isnot: alive
+bag | used: carrying things
+bed | isa: furniture | used: sleeping, resting | at: bedrooms | has: a mattress, pillows, a blanket
+chair | isa: furniture | used: sitting | has: legs(4), a seat, a back
+table | isa: furniture | used: eating, writing, working | has: legs(4), a flat top
+sofa, couch | isa: furniture | used: sitting, relaxing | is: soft
+door | used: going in and out of a room | can: open, close, be locked | has: a handle, hinges
+window | made: glass | used: letting in light and air, looking outside | can: open, close, break
+key | used: opening locks, locking doors | made: metal
+clock | used: telling the time | has: hands, numbers(12), a face | can: tick, ring
+watch | used: telling the time | at: the wrist
+phone, mobile, smartphone, mobile phone | isa: machine | used: calling, texting, taking photos, using the internet | has: a screen, a battery, a camera | needs: charging | can: ring
+computer, laptop | isa: machine | used: working, learning, playing games, using the internet, writing, calculating | has: a screen, a keyboard, a processor, memory | needs: electricity | cannot: feel, work without power
+television, tv | isa: machine | used: watching shows, watching news, watching films | has: a screen | needs: electricity
+radio | isa: machine | used: listening to music and news
+camera | isa: machine | used: taking photos
+light bulb, bulb, lamp | used: giving light | needs: electricity
+torch, flashlight | used: seeing in the dark | needs: batteries
+battery | used: storing electricity | can: run out, be recharged
+fan | isa: machine | used: cooling a room | has: blades | needs: electricity
+fridge, refrigerator | isa: machine | used: keeping food cold and fresh | is: cold inside | at: kitchens | needs: electricity
+oven, stove | used: cooking, baking | is: hot when on | at: kitchens
+washing machine | isa: machine | used: washing clothes
+robot | isa: machine | can: follow instructions, do repeated work | cannot: feel, get tired | needs: power | isnot: alive
+car | isa: vehicle | has: wheels(4), an engine, doors, seats, a steering wheel, brakes, lights, tyres(4) | can: drive on roads, carry people, go fast | cannot: fly, float, swim | needs: fuel, a driver | used: travelling | at: roads, garages
+bus | isa: vehicle | can: carry many people | used: public transport | has: wheels, seats, an engine | at: roads, bus stops
+truck, lorry | isa: vehicle | can: carry heavy goods | has: wheels, an engine
+bicycle, bike, cycle | isa: vehicle | has: wheels(2), pedals(2), a chain, handlebars, a seat, brakes | hasnot: an engine | can: be ridden | cannot: fly | needs: pedalling
+motorcycle, motorbike | isa: vehicle | has: wheels(2), an engine
+tricycle | isa: vehicle | has: wheels(3)
+train | isa: vehicle | has: carriages, an engine, wheels | can: carry many people, go fast | at: stations, railway tracks | needs: tracks
+plane, airplane, aeroplane, aircraft | isa: vehicle | can: fly, carry passengers, land, take off | cannot: fly into space, float on water | has: wings(2), engines, a tail, wheels, a cockpit | at: airports, the sky | needs: fuel, a pilot
+helicopter | isa: vehicle | can: fly, hover, take off straight up | has: rotor blades
+boat, ship | isa: vehicle | can: float, sail, carry people and goods | cannot: fly, drive on roads | at: water, the sea, rivers, harbours
+submarine | isa: vehicle | can: travel underwater
+rocket | isa: vehicle | can: fly into space | used: launching satellites, carrying astronauts
+ball | is: round | can: bounce, roll, be thrown, be kicked | used: playing games
+kite | can: fly in the wind | has: a string
+balloon | can: float, pop, be blown up | has: air or helium inside
+umbrella | used: keeping off the rain | can: open, close
+soap | used: washing, cleaning | can: make bubbles | is: slippery when wet
+towel | used: drying
+toothbrush | used: brushing teeth
+comb | used: combing hair | has: teeth
+mirror | can: reflect light, show your reflection | made: glass | used: looking at yourself
+shoe, shoes | used: protecting the feet, walking | at: the feet
+sock, socks | used: keeping feet warm | at: the feet
+hat, cap | used: covering the head | at: the head
+glove, gloves | used: keeping hands warm | at: the hands
+glasses, spectacles | used: helping people see better | has: lenses(2) | at: the face
+blanket | used: keeping warm | is: soft, warm
+pillow | used: resting your head | is: soft
+house, home | isa: building | used: living in, shelter | has: rooms, doors, windows, a roof, walls, a floor | made: bricks, wood, stone, concrete
+kitchen | used: cooking | has: a stove, a sink, a fridge
+bathroom | used: washing, bathing | has: a toilet, a sink, a shower
+bedroom | used: sleeping | has: a bed
+school | isa: building | used: learning, teaching | has: teachers, students, classrooms, books, a playground
+hospital | isa: building | used: treating sick or injured people | has: doctors, nurses, patients, beds
+library | isa: building | used: reading, borrowing books | has: books | is: quiet
+bank | isa: building | used: keeping money safe, borrowing money
+shop, store, market | used: buying and selling things
+airport | used: planes taking off and landing | has: runways, planes
+zoo | has: animals | used: seeing animals
+farm | used: growing crops, keeping animals | has: fields, animals
+restaurant | used: eating meals | has: tables, cooks, waiters
+park, playground | used: playing, relaxing | has: trees, grass, swings
+money | used: buying things, paying | made: paper and metal | can: be saved, be spent, be earned | isnot: alive, edible
+
+# ---------- body ----------
+eye | used: seeing | at: the face
+ear | used: hearing | at: the head
+nose | used: smelling, breathing | at: the face
+tongue | used: tasting, speaking | at: the mouth
+tooth, teeth | used: chewing, biting | at: the mouth | is: hard, white
+hand | used: holding, touching, writing | has: fingers(5)
+finger | at: the hand | has: a nail
+leg | used: walking, running, standing
+foot, feet | used: walking, standing | has: toes(5)
+heart | used: pumping blood | is: a muscle | at: the chest | can: beat
+lung, lungs | used: breathing | at: the chest
+brain | used: thinking, controlling the body | at: the head
+stomach | used: digesting food | at: the belly
+skin | used: protecting the body | is: the largest organ of the body
+bone | is: hard, white | used: supporting the body
+blood | color: red | is: a liquid, red | used: carrying oxygen around the body
+hair | at: the head | can: grow, be cut
+kidney | used: cleaning the blood
+
+# ---------- music and sport ----------
+guitar | isa: musical instrument | has: strings(6) | can: be played, be strummed
+piano | isa: musical instrument | has: keys(88), black and white keys
+violin | isa: musical instrument | has: strings(4), a bow
+drum | isa: musical instrument | can: be hit, keep a beat
+flute | isa: musical instrument | can: be blown
+madal | isa: musical instrument | is: a hand drum from Nepal
+football, soccer | isa: sport | has: players(11), a ball, goals(2) | used: playing with the feet
+cricket | isa: sport | has: players(11), a bat, a ball, wickets
+basketball | isa: sport | has: players(5), a ball, a hoop
+volleyball | isa: sport | has: players(6), a ball, a net | is: the national sport of Nepal
+tennis | isa: sport | has: a racket, a ball, a net
+badminton | isa: sport | has: a racket, a shuttlecock, a net
+chess | isa: game | has: squares(64), pieces(32) | is: a board game for two players

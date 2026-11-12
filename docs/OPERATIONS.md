@@ -3,14 +3,17 @@
 ## Requirements
 
 Node.js ≥ 18.17 (developed and measured on 20.x). Nothing else: there are **no npm dependencies** and no build step.
+The built-in brain's data files (`engine/brain/data/`, 4 MB) are prebuilt and part of the repository.
 Outbound HTTPS must be allowed. No API key is required and no LLM key exists.
+Memory: about 115 MB resident once the brain's data is loaded (about 50 MB before the first chat message).
 
 ## Run locally
 
 ```bash
 git clone <your copy> infini-ai && cd infini-ai
 node server/server.js                 # → http://localhost:8787
-node cli.js "Why do stars shine?"     # one question from the terminal
+node cli.js "how are you"             # answered by the built-in brain
+node cli.js "Why do stars shine?"     # answered from the web, with sources
 node cli.js                           # interactive session with follow-ups (/new, /quit)
 node cli.js --depth deep --json "Compare Python and Rust"
 ```
@@ -24,6 +27,7 @@ node cli.js --depth deep --json "Compare Python and Rust"
 | `PORT`, `HOST` | `8787`, `0.0.0.0` | Listen address. |
 | `INFINI_CONTACT` | empty | A URL or e-mail of the operator. It is sent **only to Wikimedia hosts** (in the User-Agent, as their API policy asks); every other site gets a generic User-Agent. **Set this in production**: Wikimedia APIs allow identified clients 200 requests/min; without it the limit is 10/min and the engine budgets itself to 9/min (answers degrade to page fetches and other sources when the budget is used up). |
 | `INFINI_USER_AGENT` | derived | Full User-Agent override. |
+| `INFINI_CREATOR` | `an independent developer` | Who built this deployment. The built-in brain uses it when asked “who made you” (at most 60 characters; letters, digits, spaces and `. , ' & -`). |
 | `TAVILY_API_KEY` | empty | Tavily Search (free key, no payment method, about 1,000 searches a month). Server-side only; only result links are requested. |
 | `FIRECRAWL_API_KEY` | empty | Firecrawl Search works **without** a key inside a daily allowance per server address; a free key (no payment method, 1,000 credits a month) replaces that allowance with the account’s quota. Set it when the keyless route is refused or used up on your host. |
 | `BRAVE_API_KEY` | empty | Brave Search API. Still supported, but Brave now asks for a payment method even for its free credit, so it is not the recommended route. |
@@ -47,9 +51,9 @@ See `.env.example`. Secrets are read from the environment only, are never writte
 
 | Endpoint | Purpose |
 |---|---|
-| `POST /api/ask` `{question, context?, settings?{depth, providersOff[], feeds[]}, learned?, regenerate?}` | Streams newline-delimited JSON events: `stage` (start/done with real details), `search`, `fetch`, `note`, `answer` (the full result), `done`, or `error`. Closing the connection stops retrieval. |
+| `POST /api/ask` `{question, context?, settings?{depth, route?, providersOff[], feeds[]}, learned?, regenerate?, tz?}` | Streams newline-delimited JSON events: `stage` (start/done with real details), `search`, `fetch`, `note`, `answer` (the full result), `done`, or `error`. Closing the connection stops retrieval. `tz` is the device's IANA time zone (for “what time is it”). `settings.route: "web"` skips the built-in brain and searches for the text exactly as typed. `context` carries the conversation memory, including the brain's (`context.brain`); send back the `context` of the previous answer. A reply from the brain has `kind: "brain"`, an `origin`, `suggestions`, and no sources. |
 | `POST /api/preview` `{url}` | Extracted text of a source page (same guarded fetch path; text blocks only). |
-| `GET /api/status` | Version, provider availability, cache counters, Wikimedia budget. No secrets. |
+| `GET /api/status` | Version, provider availability, cache counters, Wikimedia budget, the size of the brain's data (`brain`) and how many messages it answered (`totals.brain`). No secrets. |
 | `GET /api/health` | Liveness. |
 
 ## Production deployment
@@ -66,7 +70,7 @@ Put it behind a TLS reverse proxy (Caddy, nginx) and set `TRUST_PROXY=1`. Disabl
 ```bash
 docker build -t infini-ai . && docker run -p 8787:8787 -e INFINI_CONTACT=https://your-domain.example/about --read-only --cap-drop ALL --memory 400m infini-ai
 ```
-The image is Node + this repository (no `npm install`). The process needs no writable disk.
+The image is Node + this repository (no `npm install`): `engine/` includes the brain's data. The process needs no writable disk.
 
 ### Vercel (serverless)
 
@@ -82,7 +86,7 @@ Serverless notes: rate limiting and the page cache are per warm instance (best e
 When only the Vercel API is available (inline text files, no Git, no CLI), the source bundle cannot be sent directly. The procedure used:
 
 1. Project settings: framework preset `vite`, build command `node bootstrap.mjs`, install command `echo no-install-needed`, output directory `public`; environment variables `INFINI_CONTACT`, `TRUST_PROXY=1` (plus optional keys).
-2. `tar czf bundle.tgz api server engine public scripts package.json` and note its SHA-256.
+2. `tar czf bundle.tgz api server engine public scripts package.json` and note its SHA-256. With the brain's data the bundle is about 1.3 MB; the upload relay accepts 2 MB.
 3. Deploy a temporary stage to production: a placeholder page plus a key-protected upload relay function; `PUT` the bundle to it. (Only production domains are public; preview URLs sit behind Vercel’s login.) The site shows the placeholder for about a minute.
 4. Deploy the real stage: a single `bootstrap.mjs` that downloads the bundle, verifies the SHA-256, unpacks it and runs `scripts/vercel-build.mjs` (Build Output API v3: static files + one streaming function). The relay does not exist in this deployment; delete the temporary one.
 
@@ -107,6 +111,9 @@ Open the HTTPS deployment in Chrome → menu → *Install app*. The app shell wo
 
 * **Capacity:** one question uses ~0.2–0.4 s of CPU and reads 0.5–4 MB; a 1-vCPU instance handles a few questions per second in bursts but is bounded by upstream rate limits long before CPU.
 * **Upstream etiquette:** identify yourself (`INFINI_CONTACT`), keep the default budgets, keep robots.txt handling on. The DuckDuckGo HTML interface, Firecrawl’s keyless allowance and the public Marginalia key are best-effort; for dependable web search add a free Tavily key or run your own SearXNG.
-* **Monitoring:** `/api/status` → `totals.insufficient / totals.asks` (share of unanswered questions) and cache hit counters; request logs are JSON lines.
+* **Monitoring:** `/api/status` → `totals.insufficient / totals.asks` (share of unanswered questions), `totals.brain` (messages answered without a search) and cache hit counters; request logs are JSON lines with `kind` (`brain`, `retrieval`, …).
 * **Data protection:** the server stores nothing about users. Conversations, saved answers and statistics live in the user’s browser and are cleared from Settings.
 * **Updating word lists and rules:** `engine/nlp/lexicon.js` (language), `engine/providers/feeds.js` (feed catalogue), `engine/evidence/evidence.js` (publisher classes), `engine/providers/wikidata.js` (relation lexicon), `engine/plan/plan.js` (routing vocabulary).
+* **Changing what the brain says or understands:** edit the text files in `tools/brain/` (situations and replies in `intents/`, jokes and riddles in `fun.txt`, everyday facts in `commonsense/`, names the spelling repair must keep in `spell-names.txt`), then run `node tools/brain/build.mjs dialogue`, read `engine/brain/data/build-report.txt`, run `npm test` and deploy. `tools/` is not part of the deployment bundle; the built files in `engine/brain/data/` are. Guide: `docs/BRAIN.md`.
+* **Rebuilding the brain's common-sense file from the original datasets** is only needed to change how they are filtered: `BRAIN_RAW=/some/dir node tools/brain/fetch-raw.mjs` downloads WordNet 3.1 and ConceptNet 5.7 (about 520 MB), then `BRAIN_RAW=/some/dir node tools/brain/build.mjs commonsense`. Without the downloads the build keeps the existing long tail.
+* **Licences inside the brain's data:** `engine/brain/data/NOTICE.md` must stay with the data files, and the credits in the app's About dialog must stay visible. `commonsense.json`, `vocab.txt` and `spell-guard.txt` are under CC BY-SA 4.0 (share-alike).

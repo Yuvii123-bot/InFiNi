@@ -10,6 +10,7 @@ const depth = flag('--depth') || 'balanced';
 const json = has('--json'), quiet = has('--quiet'), verbose = has('--verbose');
 if (has('--help') || has('-h')) { console.log('Usage: infini [--depth fast|balanced|deep] [--json] [--quiet] [--verbose] ["question"]\nWithout a question an interactive session starts (follow-ups keep their context).'); process.exit(0); }
 const engine = createEngine(loadConfig());
+let TZ = ''; try { TZ = Intl.DateTimeFormat().resolvedOptions().timeZone || ''; } catch { /* the brain then uses UTC */ }
 const c = process.stdout.isTTY ? { dim: '\x1b[2m', b: '\x1b[1m', r: '\x1b[0m', g: '\x1b[32m', y: '\x1b[33m', c: '\x1b[36m' } : { dim: '', b: '', r: '', g: '', y: '', c: '' };
 
 export function render(result) {
@@ -25,14 +26,17 @@ export function render(result) {
   }
   if (result.confidence) out.push(`\n${c.b}${result.confidence.label}${c.r} (${Math.round(result.confidence.score * 100)}%)${result.confidence.caps && result.confidence.caps.length ? ` — capped: ${result.confidence.caps.join('; ')}` : ''}`);
   if (result.sources.length) out.push(`${c.b}Sources${c.r}\n` + result.sources.map((s) => `  [${s.id}] ${s.title} — ${s.domain} · ${s.category} · ${s.evidenceLevel}${s.published ? ' · ' + s.published.slice(0, 10) : s.modified ? ' · updated ' + s.modified.slice(0, 10) : ''}\n      ${s.url}`).join('\n'));
+  if (result.kind === 'brain' && result.suggestions && result.suggestions.length) out.push(`${c.dim}You could say: ${result.suggestions.join('  ·  ')}${c.r}`);
   if (result.unavailable.length) out.push(`${c.dim}Unavailable: ${result.unavailable.map((u) => `${u.domain} (${u.error})`).join('; ')}${c.r}`);
   return out.join('\n');
 }
 
 async function run(question, context) {
-  const result = await engine.ask({ question, context, settings: { depth } }, {
+  const result = await engine.ask({ question, context, settings: { depth }, tz: TZ }, {
     onEvent: (ev) => {
       if (json || quiet) return;
+      if (ev.type === 'stage' && ev.stage === 'understanding' && ev.detail && ev.detail.brain) return;      // a chat reply: nothing was searched
+      if (ev.type === 'stage' && ev.status === 'start' && ev.stage === 'understanding') return;              // instant; only a rewording is worth a line
       if (ev.type === 'stage' && ev.status === 'start') process.stderr.write(`${c.dim}▸ ${ev.stage}${ev.round > 1 ? ' (round ' + ev.round + ')' : ''}…${c.r}\n`);
       else if (ev.type === 'stage' && ev.stage === 'understanding' && ev.detail.rewrites.length) process.stderr.write(`${c.dim}  understood as: ${ev.detail.resolved}${c.r}\n`);
       else if (ev.type === 'search') process.stderr.write(`${c.dim}  ${ev.ok ? '✓' : '✗'} ${ev.label}: ${String(ev.query).slice(0, 70)} → ${ev.ok ? ev.results + ' results' : ev.error} (${ev.ms} ms)${c.r}\n`);
@@ -49,7 +53,7 @@ if (args.length) { await run(args.join(' '), {}); engine.close(); }
 else {
   const rl = readline.createInterface({ input: process.stdin, output: process.stdout, prompt: 'you › ' });
   let context = {};
-  console.log(`${c.b}INFINI AI${c.r} — answers come from live retrieval, not from a language model. Type a question (/new to reset, /quit to exit).`);
+  console.log(`${c.b}INFINI AI${c.r} — chat comes from a built-in brain, facts from live retrieval; there is no language model. Say hello or ask a question (/new to reset, /quit to exit).`);
   rl.prompt();
   for await (const line of rl) {
     const q = line.trim();

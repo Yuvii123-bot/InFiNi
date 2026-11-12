@@ -1,5 +1,5 @@
 {
- "date": "2026-11-12T02:31:53.586Z",
+ "date": "2026-11-12T06:03:25.552Z",
  "pass": 20,
  "total": 20,
  "results": [
@@ -43,7 +43,7 @@
    "area": "Resource limits",
    "name": "request timeout enforced",
    "ok": true,
-   "info": "timeout after 500 ms"
+   "info": "timeout after 501 ms"
   },
   {
    "area": "Resource limits",

@@ -104,6 +104,8 @@ a:hover { text-decoration: underline; }
 .bot-body { min-width: 0; }
 .understood { display: inline-flex; flex-wrap: wrap; gap: 6px; align-items: baseline; font-size: 13px; color: var(--muted); background: var(--surface); border: 1px dashed var(--border-strong); border-radius: 10px; padding: 5px 10px; margin-bottom: 10px; }
 .understood b { color: var(--text); font-weight: 600; }
+.as-typed { border: 0; background: none; padding: 0 0 0 4px; font: inherit; font-weight: 600; color: var(--accent); cursor: pointer; text-decoration: underline; text-underline-offset: 2px; }
+.as-typed:hover { text-decoration-thickness: 2px; }
 
 .activity { border: 1px solid var(--border); background: var(--surface); border-radius: var(--radius); padding: 12px 14px; margin-bottom: 12px; font-size: 13.5px; box-shadow: var(--shadow-sm); }
 .activity.done { padding: 0; border: 0; background: none; box-shadow: none; margin-bottom: 8px; }
@@ -292,3 +294,20 @@ pre { background: #12151c; color: #e7e9ef; border-radius: 12px; padding: 13px 15
   #toast { bottom: 140px; }
 }
 @media (prefers-reduced-motion: reduce) { * { animation: none !important; transition: none !important; scroll-behavior: auto !important; } }
+
+/* ---- replies from the built-in brain ---- */
+.typing { display: inline-flex; align-items: center; gap: 5px; padding: 12px 2px 6px; }
+.typing i { width: 7px; height: 7px; border-radius: 50%; background: var(--faint); animation: typing 1.1s ease-in-out infinite; }
+.typing i:nth-child(2) { animation-delay: .15s; }
+.typing i:nth-child(3) { animation-delay: .3s; }
+@keyframes typing { 0%, 60%, 100% { opacity: .3; transform: translateY(0); } 30% { opacity: 1; transform: translateY(-3px); } }
+@media (prefers-reduced-motion: reduce) { .typing i { animation: none; opacity: .6; } }
+.origin { display: flex; align-items: center; gap: 6px; margin: 2px 0 8px; font-size: 12.5px; color: var(--faint); }
+.origin .ico { color: var(--accent); flex: 0 0 auto; }
+.chips { display: flex; flex-wrap: wrap; gap: 8px; margin: 10px 0 2px; }
+.chip { display: inline-flex; align-items: center; gap: 6px; max-width: 100%; border: 1px solid var(--border-strong); background: var(--surface); color: var(--text); border-radius: 999px; padding: 7px 13px; font-size: 13.5px; font-weight: 550; line-height: 1.3; text-align: left; transition: border-color .15s, background .15s; }
+.chip span { overflow-wrap: anywhere; }
+.chip:hover { border-color: var(--accent); background: var(--accent-soft); }
+.chip.web { color: var(--accent-text); border-color: color-mix(in srgb, var(--accent) 40%, var(--border)); }
+.chip .ico { color: var(--accent); flex: 0 0 auto; }
+.about .credits { font-size: 12.5px; color: var(--muted); line-height: 1.5; }

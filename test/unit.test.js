@@ -271,7 +271,9 @@ test('question understanding: types', () => {
   assert.deepEqual(part('Is Rust faster than Python?').compare.items, ['Rust', 'Python']);
   assert.equal(part('What happened in Nepal today?').temporal.freshness, 'day');
   assert.equal(analyze('what is 15% of 240').intent, 'calc');
-  assert.equal(analyze('hi').intent, 'smalltalk');
+  assert.equal(analyze('hi').intent, 'question', 'small talk is no longer decided here: the built-in brain sees every message first');
+  assert.equal(analyze('double-check that').meta, 'verify');
+  assert.equal(analyze('are you sure').intent, 'question', '"are you sure" is answered by the brain from the stored confidence');
   assert.equal(analyze('').intent, 'empty');
   assert.equal(analyze('Summarize https://example.com/a').intent, 'url');
   assert.equal(analyze('Explain the answer more simply.').meta, 'simplify');
@@ -380,8 +382,11 @@ test('engine answers locally without the network when no retrieval is needed', a
   assert.equal(r.kind, 'calc');
   assert.match(r.answer.text, /84/);
   assert.ok(!events.some((e) => /searching|reading/.test(e)), 'no fake search stages for a calculation');
-  assert.equal((await engine.ask({ question: 'who are you?' })).kind, 'smalltalk');
-  assert.match((await engine.ask({ question: 'who are you?' })).answer.text, /not a large language model/);
+  const who = await engine.ask({ question: 'who are you?' }, { onEvent: (e) => events.push(e.type + ':' + (e.stage || '')) });
+  assert.equal(who.kind, 'brain');
+  assert.match(who.answer.text, /INFINI AI/);
+  assert.match((await engine.ask({ question: 'are you chatgpt?' })).answer.text, /language model/);
+  assert.ok(!events.some((e) => /searching|reading/.test(e)), 'no fake search stages for a chat reply');
   assert.equal((await engine.ask({ question: 'Compare these two programming languages.' })).kind, 'clarification');
   assert.equal((await engine.ask({ question: 'Explain the answer more simply.' })).kind, 'meta');
   assert.equal((await engine.ask({ question: '   ' })).kind, 'empty');
@@ -468,4 +473,10 @@ test('ranking: keyword tag lines are not treated as statements', async () => {
   assert.equal(isKeywordRun('map method, new array creation, callback function, JavaScript array methods, element transformation, parseInt function, array map usage'), true);
   assert.equal(isKeywordRun('The elements include hydrogen, helium, lithium, beryllium, boron, carbon, nitrogen and oxygen.'), false);
   assert.equal(isKeywordRun('The `map` method creates a new array populated with the results of calling a provided function.'), false);
+  // an aside about the page is not a statement about the subject either
+  const { isAside } = await import('../engine/rank/rank.js');
+  for (const t of ['(Note: This article describes quantum computers that do computations using logic gates, similar to classical computers.', 'Note: prices were checked in March.', 'This article is about the programming language.', 'See also: List of quantum processors', 'Disclaimer: This is not financial advice.', 'Editor’s note: this story was updated.'])
+    assert.equal(isAside(t), true, t);
+  for (const t of ['A quantum computer is a computer that represents and processes information using quantum states.', 'This article of the constitution guarantees equality.', 'Notes are stored on the device (and nowhere else).', '(Mount Everest) is the highest mountain on Earth.', 'Updated models use qubits made of trapped ions.'])
+    assert.equal(isAside(t), false, t);
 });

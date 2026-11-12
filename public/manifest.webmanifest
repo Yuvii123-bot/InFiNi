@@ -1,7 +1,7 @@
 {
   "name": "INFINI AI",
   "short_name": "INFINI",
-  "description": "Internet-native assistant: answers from live retrieval with citations. No language model.",
+  "description": "Chats with its own built-in brain and answers questions from live web pages, with citations. No language model.",
   "start_url": "/",
   "scope": "/",
   "display": "standalone",

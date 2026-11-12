@@ -1,106 +1,118 @@
 {
- "date": "2026-11-11T13:44:59.455Z",
+ "date": "2026-11-12T06:01:38.170Z",
  "node": "v20.20.2",
  "cpu": "Intel(R) Xeon(R) Processor @ 2.60GHz",
  "cores": 2,
  "totalRamMB": 1983,
  "coldStart": {
-  "engineImportMs": 50.3,
-  "rssMB": 49.8,
-  "heapMB": 6.4
+  "engineImportMs": 51.8,
+  "rssMB": 52.1,
+  "heapMB": 7.7
  },
  "server": {
-  "readyMs": 92,
-  "idleRssMB": 50.1,
-  "rssAfterQuestionsMB": 108.7
+  "readyMs": 85,
+  "idleRssMB": 52.9,
+  "rssAfterQuestionsMB": 133.9
  },
  "footprint": {
-  "engineKB": 384,
-  "engineFiles": 25,
-  "serverKB": 11,
-  "publicKB": 164,
-  "clientJsKB": 41,
-  "clientCssKB": 20,
+  "engineKB": 660,
+  "engineFiles": 35,
+  "brainDataKB": 4037,
+  "brainDataFiles": 8,
+  "serverKB": 12,
+  "publicKB": 158,
+  "clientJsKB": 52,
+  "clientCssKB": 31,
   "runtimeDependencies": 0,
   "nodeModules": false
  },
+ "brain": {
+  "firstChatReplyMs": 155,
+  "firstCommonSenseReplyMs": 74,
+  "firstSpellingRepairMs": 1.5,
+  "avgReplyMs": 0.39,
+  "repliesTimed": 520,
+  "rssAfterFirstReplyMB": 86,
+  "rssAllDataMB": 120.2,
+  "heapAllDataMB": 30.9
+ },
  "extraction": {
   "inputKB": 585,
-  "msPerPage": 66.4,
-  "mbPerSec": 8.6,
+  "msPerPage": 49.9,
+  "mbPerSec": 11.5,
   "blocks": 1500
  },
  "analysis": {
-  "usPerQuestion": 271
+  "usPerQuestion": 236
  },
  "ranking": {
   "sentences": 4000,
   "passages": 1600,
-  "ms": 190.9
+  "ms": 162.7
  },
  "live": [
   {
    "q": "Why do stars shine?",
-   "coldMs": 1711,
-   "warmMs": 261,
-   "cpuMs": 880,
+   "coldMs": 1320,
+   "warmMs": 204,
+   "cpuMs": 680,
    "stages": {
-    "understanding": 28,
+    "understanding": 11,
     "planning": 3,
-    "searching": 742,
-    "reading": 730,
-    "comparing": 182,
-    "constructing": 5
+    "searching": 460,
+    "reading": 464,
+    "comparing": 94,
+    "constructing": 2
    },
-   "searches": 5,
-   "pages": 4,
-   "kB": 3134,
-   "cachedPagesOnRepeat": 4,
+   "searches": 4,
+   "pages": 3,
+   "kB": 1296,
+   "cachedPagesOnRepeat": 3,
    "confidence": "medium"
   },
   {
    "q": "What is the capital of Nepal?",
-   "coldMs": 2752,
-   "warmMs": 840,
-   "cpuMs": 980,
+   "coldMs": 2246,
+   "warmMs": 682,
+   "cpuMs": 500,
    "stages": {
-    "understanding": 8,
-    "planning": 3,
-    "searching": 596,
-    "reading": 1939,
-    "comparing": 184,
-    "constructing": 17
+    "understanding": 1,
+    "planning": 2,
+    "searching": 671,
+    "reading": 1395,
+    "comparing": 143,
+    "constructing": 12
    },
-   "searches": 5,
-   "pages": 4,
-   "kB": 2860,
-   "cachedPagesOnRepeat": 4,
-   "confidence": "medium"
+   "searches": 4,
+   "pages": 5,
+   "kB": 557,
+   "cachedPagesOnRepeat": 5,
+   "confidence": "high"
   },
   {
    "q": "What happened in Nepal today?",
-   "coldMs": 3495,
-   "warmMs": 123,
-   "cpuMs": 260,
+   "coldMs": 5861,
+   "warmMs": 3118,
+   "cpuMs": 180,
    "stages": {
-    "understanding": 4,
-    "planning": 1,
-    "searching": 1582,
-    "reading": 1876,
-    "comparing": 23,
-    "constructing": 3
+    "understanding": 0,
+    "planning": 0,
+    "searching": 1761,
+    "reading": 4058,
+    "comparing": 20,
+    "constructing": 4
    },
    "searches": 5,
-   "pages": 4,
-   "kB": 369,
-   "cachedPagesOnRepeat": 4,
-   "confidence": "medium"
+   "pages": 3,
+   "kB": 250,
+   "cachedPagesOnRepeat": 3,
+   "confidence": "high"
   }
  ],
  "cache": {
   "entries": 26,
-  "bytes": 6802903,
+  "bytes": 2533706,
   "hits": 25,
-  "misses": 29
+  "misses": 37
  }
 }

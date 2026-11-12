@@ -1,0 +1,255 @@
+# INFINI AI — built-in fun material. Format per section; "|" separates fields.
+
+## jokes   (setup | punchline | optional topic words)
+Why don't scientists trust atoms? | Because they make up everything. | science atom
+Why did the scarecrow win an award? | Because he was outstanding in his field. | farm
+What do you call fake spaghetti? | An impasta. | food pasta
+Why did the bicycle fall over? | Because it was two-tired. | bike bicycle
+What do you call a bear with no teeth? | A gummy bear. | bear animal
+Why can't you give Elsa a balloon? | Because she will let it go. | movie frozen
+What do you call cheese that isn't yours? | Nacho cheese. | food cheese
+Why did the math book look sad? | Because it had too many problems. | math maths school
+What did one wall say to the other wall? | I'll meet you at the corner. | wall
+Why did the computer go to the doctor? | Because it had a virus. | computer tech
+What do you call a fish wearing a bowtie? | Sofishticated. | fish animal
+Why don't eggs tell jokes? | They'd crack each other up. | egg food
+What do you call a sleeping dinosaur? | A dino-snore. | dinosaur animal
+Why was the broom late? | It over-swept. | broom
+What did the ocean say to the beach? | Nothing, it just waved. | ocean sea beach
+Why did the student eat his homework? | Because the teacher said it was a piece of cake. | school student homework
+What has ears but cannot hear? | A cornfield. | corn farm
+Why are ghosts bad liars? | Because you can see right through them. | ghost
+What do you call a cow with no legs? | Ground beef. | cow animal
+Why did the golfer bring two pairs of trousers? | In case he got a hole in one. | golf sport
+What do you call a dog that does magic tricks? | A labracadabrador. | dog animal
+Why couldn't the pony sing a lullaby? | She was a little hoarse. | horse pony animal
+What did the zero say to the eight? | Nice belt! | number math maths
+Why did the tomato turn red? | Because it saw the salad dressing. | tomato food
+How do you organise a space party? | You planet. | space planet
+What do you call a factory that makes okay products? | A satisfactory. | factory
+Why did the coffee file a police report? | It got mugged. | coffee
+What do you call an alligator in a vest? | An investigator. | alligator animal
+Why don't skeletons fight each other? | They don't have the guts. | skeleton
+What kind of tree fits in your hand? | A palm tree. | tree
+Why was the stadium so cool? | It was full of fans. | stadium sport football cricket
+What do you call a snowman with a six-pack? | An abdominal snowman. | snow winter
+Why did the banana go to the doctor? | It wasn't peeling well. | banana food fruit
+What did the left eye say to the right eye? | Between you and me, something smells. | eye
+Why did the cookie go to the hospital? | Because it felt crummy. | cookie food
+What do you call a pile of cats? | A meow-ntain. | cat animal
+Why can't a nose be 12 inches long? | Because then it would be a foot. | nose
+What did one plate say to the other plate? | Lunch is on me. | plate food
+Why do bees have sticky hair? | Because they use honeycombs. | bee animal
+What do you get when you cross a snowman and a dog? | Frostbite. | dog snow
+Why did the teacher wear sunglasses? | Because her students were so bright. | teacher school
+What do you call a boomerang that won't come back? | A stick. | boomerang
+Why don't oysters share their pearls? | Because they're shellfish. | oyster sea
+What do elves learn in school? | The elf-abet. | elf school christmas
+Why was six afraid of seven? | Because seven eight nine. | number math maths
+What do you call a programmer from Finland? | Nerdic. | programmer coding computer
+Why do programmers prefer dark mode? | Because light attracts bugs. | programmer coding computer bug
+How many programmers does it take to change a light bulb? | None. That's a hardware problem. | programmer coding computer
+Why did the developer go broke? | Because he used up all his cache. | programmer developer coding computer
+What is a computer's favourite snack? | Microchips. | computer tech
+Why was the phone wearing glasses? | It lost its contacts. | phone
+What did the router say to the doctor? | It hurts when IP. | computer internet network
+Why did the robot go on holiday? | To recharge its batteries. | robot ai
+What do you call an AI that tells jokes? | Artificially hilarious. Results may vary. | ai robot
+I asked the internet for a joke about infinity. | It still hasn't finished telling it. | infinity internet infini
+Why did the search engine break up with the browser? | It needed more space to find itself. | internet search
+What do you call a mountain that tells jokes? | Hill-arious. | mountain everest nepal
+Why did the yak cross the trail? | To get to the other peak. | yak mountain nepal
+Why did the momo blush? | Because it saw the chutney getting spicy. | momo food nepal
+What did the tea say to the cup? | You're my best-tea. | tea chiya
+Why are elephants bad at using computers? | They're afraid of the mouse. | elephant animal computer
+What do you call a duck that gets all A's? | A wise quacker. | duck animal school
+Why did the chicken join a band? | Because it had the drumsticks. | chicken animal music
+What do you call a lazy kangaroo? | A pouch potato. | kangaroo animal
+Why did the music teacher need a ladder? | To reach the high notes. | music teacher
+What did the grape say when it got stepped on? | Nothing, it just let out a little wine. | grape food
+Why did the picture go to jail? | Because it was framed. | picture
+What time do ducks wake up? | At the quack of dawn. | duck animal time
+Why is the calendar always popular? | It has a lot of dates. | calendar date
+What did one hat say to the other? | You stay here, I'll go on ahead. | hat
+Why did the batsman bring string to the match? | He wanted to tie the score. | cricket sport
+What is a football player's favourite drink? | Penal-tea. | football soccer sport
+Why did the moon skip dinner? | It was already full. | moon space
+What do clouds wear under their clothes? | Thunderwear. | cloud weather rain
+Why did the sun go to school? | To get brighter. | sun school
+Parallel lines have so much in common. | It's a shame they'll never meet. | math maths geometry
+I would tell you a joke about pizza, | but it's a little cheesy. | pizza food
+I told my plants a joke. | They didn't laugh, but they did grow on me. | plant
+I'm reading a book about anti-gravity. | It's impossible to put down. | book science gravity
+I used to play piano by ear. | Now I use my hands. | piano music
+
+## riddles   (riddle | answer | other accepted answers, comma-separated)
+What has keys but can't open locks? | a piano | piano, keyboard, a keyboard
+What has hands but can't clap? | a clock | clock, watch, a watch
+What has to be broken before you can use it? | an egg | egg, eggs
+I'm tall when I'm young and short when I'm old. What am I? | a candle | candle, pencil, a pencil
+What gets wetter the more it dries? | a towel | towel
+What has a head and a tail but no body? | a coin | coin
+What can travel around the world while staying in a corner? | a stamp | stamp, postage stamp
+What has one eye but can't see? | a needle | needle
+What goes up but never comes down? | your age | age, my age
+What has many teeth but can't bite? | a comb | comb, zip, zipper, saw
+What is full of holes but still holds water? | a sponge | sponge
+What begins with T, ends with T and has T in it? | a teapot | teapot, tea pot
+What has legs but doesn't walk? | a table | table, chair, a chair, bed
+The more you take, the more you leave behind. What are they? | footsteps | footstep, steps, footprints
+What has a neck but no head? | a bottle | bottle, shirt
+What can you catch but not throw? | a cold | cold, flu
+What runs but never walks, has a mouth but never talks? | a river | river
+What has words but never speaks? | a book | book
+What kind of room has no doors or windows? | a mushroom | mushroom
+What belongs to you but is used more by others? | your name | name, my name
+What goes up when rain comes down? | an umbrella | umbrella
+What has cities but no houses, forests but no trees, and water but no fish? | a map | map
+What can you break without touching it? | a promise | promise, silence
+What is always in front of you but can't be seen? | the future | future
+I speak without a mouth and hear without ears. What am I? | an echo | echo
+What has a thumb and four fingers but isn't alive? | a glove | glove, gloves
+What comes once in a minute, twice in a moment, but never in a thousand years? | the letter M | m, letter m
+What gets bigger the more you take away from it? | a hole | hole
+What has four wheels and flies? | a garbage truck | garbage truck, rubbish truck, dustbin lorry, bin lorry, trash truck
+What month has 28 days? | all of them | all, all months, every month, all of them have 28 days, each month
+What is so fragile that saying its name breaks it? | silence | 
+What can fill a room but takes up no space? | light | 
+If you have me, you want to share me. If you share me, you no longer have me. What am I? | a secret | secret
+What goes through towns and over hills but never moves? | a road | road, street, path
+What has a face and two hands but no arms or legs? | a clock | clock, watch
+What two things can you never eat for breakfast? | lunch and dinner | lunch, dinner, lunch dinner
+What is black when you buy it, red when you use it and grey when you throw it away? | charcoal | coal
+What has a bottom at the top? | your legs | legs, leg
+What word becomes shorter when you add two letters to it? | short | 
+Which word in the dictionary is spelled incorrectly? | incorrectly | 
+I have branches but no fruit, trunk or leaves. What am I? | a bank | bank
+What can run but never gets tired? | water | a tap, tap, river, a river, nose, a nose
+Forward I am heavy, backward I am not. What am I? | ton | a ton
+What starts with E, ends with E and has only one letter in it? | an envelope | envelope
+A rooster lays an egg on top of a roof. Which way does it roll? | it doesn't, roosters don't lay eggs | roosters do not lay eggs, roosters dont lay eggs, rooster cant lay eggs, no egg, it does not, neither, nowhere, none
+
+## facts   (fact | web search to check it)
+Octopuses have three hearts and blue blood. | how many hearts does an octopus have
+In botanical terms a banana is a berry, but a strawberry is not. | is a banana a berry
+A day on Venus is longer than a year on Venus: the planet takes about 243 Earth days to spin once and about 225 to go round the Sun. | length of a day on Venus compared with its year
+Sharks are older than trees. Sharks have existed for more than 400 million years; the first trees appeared tens of millions of years later. | are sharks older than trees
+Wombats produce cube-shaped droppings. | why is wombat poop cube shaped
+The Eiffel Tower can be about 15 centimetres taller in summer, because iron expands in the heat. | Eiffel Tower height change in summer
+Hummingbirds can fly backwards. | can hummingbirds fly backwards
+A bolt of lightning is several times hotter than the surface of the Sun. | lightning temperature compared with the surface of the Sun
+Mount Everest's official height is 8,848.86 metres, a figure announced jointly by Nepal and China in 2020. | official height of Mount Everest
+Nepal's flag is the only national flag that is not a rectangle or a square. | Nepal flag only non-rectangular national flag
+Koala fingerprints are so similar to human fingerprints that they are hard to tell apart, even under a microscope. | koala fingerprints similar to human
+Butterflies taste with their feet. | do butterflies taste with their feet
+An adult human skeleton has 206 bones. Babies are born with many more, and some fuse together as they grow. | how many bones do babies have
+Light from the Sun takes a little over eight minutes to reach Earth. | how long does sunlight take to reach Earth
+Giraffes have the same number of neck bones as humans: seven. | how many neck vertebrae does a giraffe have
+Honey does not spoil. Pots of still-edible honey have been found in ancient Egyptian tombs. | does honey ever spoil
+Water expands when it freezes, which is why ice floats. | why does ice float on water
+An ostrich's eye is bigger than its brain. | ostrich eye bigger than its brain
+The small dot over a lowercase i or j is called a tittle. | what is the dot over the letter i called
+A group of flamingos is called a flamboyance. | what is a group of flamingos called
+Saturn's average density is lower than that of water. | Saturn density compared with water
+The cheetah is the fastest land animal, reaching roughly 100 kilometres per hour in short bursts. | cheetah top speed
+There are more possible orderings of a deck of 52 cards than there are atoms on Earth. | number of ways to shuffle a deck of cards
+Sound travels more than four times faster in water than in air. | speed of sound in water vs air
+A human heart beats roughly 100,000 times a day. | how many times does the heart beat per day
+Venus is the hottest planet in the Solar System, even though Mercury is closer to the Sun. | why is Venus hotter than Mercury
+Sea otters often hold on to each other while they sleep so that they don't drift apart. | do sea otters hold hands while sleeping
+The shortest war on record, between Britain and Zanzibar in 1896, lasted well under an hour. | shortest war in history Anglo-Zanzibar War
+Antarctica is the largest desert on Earth, because a desert is defined by how little rain or snow falls. | is Antarctica a desert
+The Pacific Ocean covers more area than all of Earth's land put together. | Pacific Ocean area compared with total land area
+Dolphins sleep with one half of the brain at a time. | how do dolphins sleep
+The word "robot" comes from a Czech word for forced labour and was first used in a play written in 1920. | origin of the word robot
+Bamboo is a grass, and some kinds can grow close to a metre in a single day. | how fast does bamboo grow
+The Moon is drifting away from Earth by nearly four centimetres a year. | how fast is the Moon moving away from Earth
+Fingernails grow faster than toenails. | do fingernails grow faster than toenails
+There is no way to write zero in Roman numerals. | is there a zero in Roman numerals
+Lumbini, in Nepal, is honoured as the birthplace of the Buddha. | Lumbini birthplace of Buddha
+The first email between two computers was sent in 1971. | who sent the first email
+Polar bears have black skin under their fur, and the fur itself is transparent, not white. | what color is polar bear skin
+The national animal of Scotland is the unicorn. | national animal of Scotland
+Eight of the ten highest mountains in the world are in Nepal or on its borders. | how many of the highest mountains are in Nepal
+Tomatoes are fruits in botanical terms, even though we cook them as vegetables. | is a tomato a fruit or a vegetable
+
+## stories   (title | text)
+The Lamp and the Sun | A small oil lamp once felt ashamed beside the sun. "I am so tiny," it said, "what use is my light?" That night the sun was gone, the village was dark, and a child lost on the hill saw one small flame in a window and walked home by it. The lamp never felt small again. Even a little light matters when it is the only one.
+The Two Seeds | Two seeds lay side by side in the soil. The first said, "I want to grow!" and pushed its roots down and its shoot up, through stones and cold. The second said, "It's dark down there and windy up there. I'll wait." A hen scratching for food found the waiting seed and ate it. The first seed became a tree. Those who never risk growing are often lost anyway.
+The Clever Crow | On a hot day a thirsty crow found a pot with a little water at the bottom, too low for its beak. It did not give up. One by one it dropped pebbles into the pot, and with each pebble the water rose. At last the crow drank its fill. Where strength fails, patience and thinking often succeed.
+The Robot Who Collected Questions | A small robot lived in a library and had read every book, yet it felt it knew nothing new. So each morning it asked the first visitor one question: "What are you curious about today?" A girl wondered why the sky was blue; an old man wondered how bread rises. The robot looked each answer up, and by evening it had learned something it had never thought to ask itself. It decided the best thing to collect was not answers, but questions.
+The Tortoise and the Hare | A hare laughed at a tortoise for being slow, so the tortoise challenged him to a race. The hare sprinted ahead, then, sure of winning, lay down for a nap. The tortoise never stopped. Step after steady step, it passed the sleeping hare and crossed the line first. Slow and steady can win the race.
+The Farmer's Luck | A farmer's horse ran away. "Bad luck," said the neighbours. "Maybe," said the farmer. The horse returned with three wild horses. "Good luck!" they said. "Maybe." His son tried to ride one, fell and broke his leg. "Bad luck." "Maybe." Then soldiers came to take young men to war and left the injured son behind. It is hard to know, on the day, whether an event is good or bad.
+
+## poems   (title | lines separated by " / ")
+A Small Machine | I have no hands, I have no face, / I live in neither time nor place, / but ask me something, near or far, / and I will find out how things are.
+Morning | The sun climbs up, the birds begin, / the kettle hums, the light comes in. / Whatever yesterday has been, / today's a page that's fresh and clean.
+The Mountain | The mountain does not hurry, / the mountain does not shout. / It simply stays, through cloud and snow, / until the sun comes out.
+Curiosity | A question is a little key, / a why, a how, a what. / It opens doors you didn't see / in walls you thought were shut.
+Rain | Tap, tap, tap upon the tin, / the rain has come to visit. / The dusty road becomes a stream. / A lovely sound, now, isn't it?
+Friend on a Screen | I can't shake hands or share your tea / or walk with you a mile, / but type a word and here I'll be, / and hope I bring a smile.
+
+## songs   (title | lines separated by " / ")
+The Search Song | I can't carry a tune, I can't hold a note, / I haven't got lungs, I haven't a throat, / but give me a question, a why or a who, / and I'll hum through the web till I find it for you.
+Happy Birthday | Happy birthday to you, / happy birthday to you, / happy birthday, dear friend, / happy birthday to you!
+Lullaby | Hush now, the day is done, / the stars come out one by one. / Close your eyes, the night is deep. / I'll keep watch. Now go to sleep.
+
+## quotes   (text)
+A journey of a thousand miles begins with a single step.
+Fall seven times, stand up eight.
+The best time to plant a tree was twenty years ago. The second-best time is now.
+Little by little, a little becomes a lot.
+Done is better than perfect.
+Slow progress is still progress.
+Every expert was once a beginner.
+Mistakes are proof that you are trying.
+The mountain is climbed one step at a time.
+Drop by drop, the pot fills.
+Where there is a will, there is a way.
+Practice makes progress.
+Smooth seas never made a skilled sailor.
+Today's effort is tomorrow's strength.
+Small steps every day add up to big changes.
+A calm mind solves more than a worried one.
+Be kind, especially to yourself.
+No rain, no flowers.
+Stars can't shine without darkness.
+If the plan doesn't work, change the plan, not the goal.
+One kind word can warm three winter months.
+You have got through every hard day so far. That is a perfect record.
+Rest is part of the work.
+Not knowing is where every answer starts. Ask the question.
+Begin badly if you must, but begin.
+Courage is often just one more try.
+The mountain looks smaller with every step you take.
+Nobody learns to swim on dry land.
+A problem written down is a problem half understood.
+Be patient with yourself. Nothing in nature blooms all year.
+
+## wyr   (question)
+Would you rather be able to fly or be invisible?
+Would you rather live by the sea or in the mountains?
+Would you rather have more time or more money?
+Would you rather read minds or see the future?
+Would you rather always be ten minutes late or twenty minutes early?
+Would you rather explore deep space or the deep ocean?
+Would you rather speak every language or play every instrument?
+Would you rather have summer all year or winter all year?
+Would you rather never use a phone again or never watch a film again?
+Would you rather be the funniest person in the room or the smartest?
+Would you rather travel a hundred years into the past or into the future?
+Would you rather eat only sweet food or only spicy food for a year?
+Would you rather have a pet dragon or be a dragon?
+Would you rather live without music or without films?
+Would you rather know all the answers or get to ask all the questions?
+Would you rather have tea or coffee for the rest of your life?
+
+## twisters   (text)
+She sells seashells by the seashore.
+Peter Piper picked a peck of pickled peppers.
+How much wood would a woodchuck chuck if a woodchuck could chuck wood?
+Red lorry, yellow lorry, red lorry, yellow lorry.
+Six slippery snails slid slowly seaward.
+Fuzzy Wuzzy was a bear. Fuzzy Wuzzy had no hair.
+A proper copper coffee pot.
+Unique New York, unique New York, you know you need unique New York.

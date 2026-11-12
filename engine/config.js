@@ -1,6 +1,6 @@
 // INFINI AI — configuration (environment-driven; every value has a safe default; no key is required).
 
-export const VERSION = '1.2.0';
+export const VERSION = '2.0.0';
 
 const WIKIMEDIA_HOST = /(^|\.)(wikipedia|wikidata|wikimedia|mediawiki|wiktionary|wikinews|wikibooks|wikiquote|wikivoyage|wikiversity|wikisource)\.org$/;
 const WIKIMEDIA_API_PATH = /^\/(w\/api\.php|w\/rest\.php|api\/rest_v1|core\/v1)/;
@@ -22,6 +22,7 @@ export function loadConfig(env = (typeof process !== 'undefined' ? process.env :
   return {
     version: VERSION,
     contact, userAgent,
+    creator: String(env.INFINI_CREATOR || '').trim().slice(0, 60).replace(/[^\p{L}\p{N} .,'&-]/gu, '') || 'an independent developer',
     port: num(env.PORT, 8787, 1, 65535),
     host: env.HOST || '0.0.0.0',
     keys: { brave: env.BRAVE_API_KEY || '', marginalia: env.MARGINALIA_API_KEY || '', stackexchange: env.STACKEXCHANGE_KEY || '', tavily: env.TAVILY_API_KEY || '', firecrawl: env.FIRECRAWL_API_KEY || '' },

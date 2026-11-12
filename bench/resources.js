@@ -30,9 +30,24 @@ out.server = { readyMs: Math.round(up), idleRssMB: mb(rssOf(child.pid)) };
 
 // 3) footprint
 const size = (dir) => { let n = 0, files = 0; for (const f of fs.readdirSync(dir, { withFileTypes: true })) { const p = path.join(dir, f.name); if (f.isDirectory()) { const s = size(p); n += s.n; files += s.files; } else { n += fs.statSync(p).size; files++; } } return { n, files }; };
-const eng = size(path.join(ROOT, 'engine')), srv = size(path.join(ROOT, 'server')), pub = size(path.join(ROOT, 'public'));
+const engAll = size(path.join(ROOT, 'engine')), brainData = size(path.join(ROOT, 'engine/brain/data')), srv = size(path.join(ROOT, 'server')), pub = size(path.join(ROOT, 'public'));
+const eng = { n: engAll.n - brainData.n, files: engAll.files - brainData.files };          // code only; the brain's data files are reported separately
 const clientJs = fs.statSync(path.join(ROOT, 'public/app.js')).size, clientCss = fs.statSync(path.join(ROOT, 'public/app.css')).size;
-out.footprint = { engineKB: Math.round(eng.n / 1024), engineFiles: eng.files, serverKB: Math.round(srv.n / 1024), publicKB: Math.round(pub.n / 1024), clientJsKB: Math.round(clientJs / 1024), clientCssKB: Math.round(clientCss / 1024), runtimeDependencies: Object.keys(JSON.parse(fs.readFileSync(path.join(ROOT, 'package.json'), 'utf8')).dependencies || {}).length, nodeModules: fs.existsSync(path.join(ROOT, 'node_modules')) };
+out.footprint = { engineKB: Math.round(eng.n / 1024), engineFiles: eng.files, brainDataKB: Math.round(brainData.n / 1024), brainDataFiles: brainData.files, serverKB: Math.round(srv.n / 1024), publicKB: Math.round(pub.n / 1024), clientJsKB: Math.round(clientJs / 1024), clientCssKB: Math.round(clientCss / 1024), runtimeDependencies: Object.keys(JSON.parse(fs.readFileSync(path.join(ROOT, 'package.json'), 'utf8')).dependencies || {}).length, nodeModules: fs.existsSync(path.join(ROOT, 'node_modules')) };
+// 3b) the built-in brain in a fresh process: first replies (they load the data), steady-state speed, memory
+{
+  const script = `const rss=()=>process.memoryUsage().rss;const {createBrain}=await import('${ROOT}/engine/brain/index.js');const {repairForWeb}=await import('${ROOT}/engine/brain/spell.js');const b=createBrain({version:'bench'});const now=Date.now(),tz='Asia/Katmandu';
+let t=performance.now();b.respond({question:'hello',now,tz});const first=performance.now()-t;const r1=rss();
+t=performance.now();b.respond({question:'can a penguin fly',now,tz});const sense=performance.now()-t;
+t=performance.now();repairForWeb('what si a quantum conputer');const spell=performance.now()-t;
+const msgs=['hi','how are you','what is your name','tell me a joke','can a fish swim','what time is it','thanks','my name is ram','what is my name','who made you','why is the sky blue','roll a dice','bye'];
+let state=null,n=0;t=performance.now();for(let i=0;i<40;i++)for(const m of msgs){const r=b.respond({question:m,state,now,tz});state=r.state;n++;}
+const per=(performance.now()-t)/n;console.log(JSON.stringify({first,sense,spell,per,n,r1,r2:rss(),heap:process.memoryUsage().heapUsed}));`;
+  const runs = [];
+  for (let i = 0; i < 3; i++) { const r = spawnSync(process.execPath, ['--input-type=module', '-e', script], { encoding: 'utf8' }); runs.push(JSON.parse(r.stdout)); }
+  const med = (k) => runs.map((x) => x[k]).sort((a, b) => a - b)[1];
+  out.brain = { firstChatReplyMs: Math.round(med('first')), firstCommonSenseReplyMs: Math.round(med('sense')), firstSpellingRepairMs: Number(med('spell').toFixed(1)), avgReplyMs: Number(med('per').toFixed(2)), repliesTimed: runs[0].n, rssAfterFirstReplyMB: mb(med('r1')), rssAllDataMB: mb(med('r2')), heapAllDataMB: mb(med('heap')) };
+}
 
 // 4) CPU-bound throughput (offline, deterministic input)
 const { extractPage } = await import('../engine/extract/readable.js');
@@ -88,7 +103,9 @@ fs.writeFileSync(path.join(ROOT, 'bench/results/resources.md'), [`# Resource ben
   `| Server ready (spawn → first /api/health 200) | ${out.server.readyMs} ms |`, `| Server memory idle | ${out.server.idleRssMB} MB RSS |`, out.server.rssAfterQuestionsMB ? `| Server memory after ${L.length * 2} questions | ${out.server.rssAfterQuestionsMB} MB RSS |` : null,
   `| Question analysis (two-part question) | ${out.analysis.usPerQuestion} µs |`, `| HTML parse + extraction | ${out.extraction.mbPerSec} MB/s (${out.extraction.inputKB} kB page in ${out.extraction.msPerPage} ms → ${out.extraction.blocks} blocks) |`,
   `| Ranking | ${out.ranking.sentences} sentences / ${out.ranking.passages} passages in ${out.ranking.ms} ms |`,
-  `| Code size | engine ${out.footprint.engineKB} kB in ${out.footprint.engineFiles} files · server ${out.footprint.serverKB} kB · client JS ${out.footprint.clientJsKB} kB + CSS ${out.footprint.clientCssKB} kB (unminified) |`,
+  `| Built-in brain, fresh process (median of 3) | first chat reply ${out.brain.firstChatReplyMs} ms (loads the conversation data) · first common-sense reply ${out.brain.firstCommonSenseReplyMs} ms (loads the fact base) · then ${out.brain.avgReplyMs} ms per reply (${out.brain.repliesTimed} replies) |`,
+  `| Brain memory | ${out.brain.rssAfterFirstReplyMB} MB RSS after the first reply · ${out.brain.rssAllDataMB} MB RSS with all data loaded (${out.brain.heapAllDataMB} MB JS heap) |`,
+  `| Code size | engine ${out.footprint.engineKB} kB in ${out.footprint.engineFiles} files · brain data ${out.footprint.brainDataKB} kB in ${out.footprint.brainDataFiles} files · server ${out.footprint.serverKB} kB · client JS ${out.footprint.clientJsKB} kB + CSS ${out.footprint.clientCssKB} kB (unminified) |`,
   `| Runtime dependencies | ${out.footprint.runtimeDependencies} (node_modules present: ${out.footprint.nodeModules}) |`].filter(Boolean).join('\n') +
   (L.length ? '\n\n## Live questions\n\n| Question | Cold | Repeat (cached) | Server CPU | Searches | Pages | Data read | Pages from cache on repeat | Stage times (ms) |\n|---|---|---|---|---|---|---|---|---|\n' + L.map((x) => `| ${x.q} | ${x.coldMs} ms | ${x.warmMs} ms | ${x.cpuMs} ms | ${x.searches} | ${x.pages} | ${x.kB} kB | ${x.cachedPagesOnRepeat} | ${Object.entries(x.stages).map(([k, v]) => `${k} ${v}`).join(', ')} |`).join('\n') : '') + '\n');
-console.log(JSON.stringify({ coldStart: out.coldStart, server: out.server, extraction: out.extraction, analysis: out.analysis, ranking: out.ranking, footprint: out.footprint }));
+console.log(JSON.stringify({ coldStart: out.coldStart, server: out.server, brain: out.brain, extraction: out.extraction, analysis: out.analysis, ranking: out.ranking, footprint: out.footprint }));

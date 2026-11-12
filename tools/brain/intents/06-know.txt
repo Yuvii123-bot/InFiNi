@@ -1,0 +1,223 @@
+# INFINI AI — conversation database, part 6: basic facts that never change (calendar, counting, shapes, colours).
+# These are answered from memory. Anything that can change or needs detail goes to the web.
+
+## know.days_week g=know
+> (how many days (are|are there|is) in (a|one|the) week|how many days in (a|one|the) week|how many days does (a|one) week have|how many days make (a|one) week|days in a week|number of days in a week|a week has how many days|how many days (are )?there in a week|hapta ma kati din|ek hafte me kitne din)
+< There are 7 days in a week: Monday, Tuesday, Wednesday, Thursday, Friday, Saturday and Sunday.
+
+## know.days_names g=know
+> (what are the days of the week|days of the week|name the days of the week|list the days of the week|tell me the days of the week|say the days of the week|what are the seven days of the week|what are the 7 days of the week|what are the names of the days|names of the days of the week|week days|weekdays|days name|days names|all days of the week|what are the days in a week|which are the days of the week)
+< The days of the week are Monday, Tuesday, Wednesday, Thursday, Friday, Saturday and Sunday.
+
+## know.weekend g=know
+> (what is the weekend|which days are the weekend|what days are the weekend|what are the weekend days|which days are weekends|when is the weekend|what are weekdays|which days are weekdays|what are the weekdays|how many weekdays are there|how many weekend days are there)
+< In most countries the weekend is Saturday and Sunday, and Monday to Friday are the weekdays. In Nepal the weekly holiday is Saturday, with Sunday a normal working day.
+
+## know.months_year g=know
+> (how many months (are|are there|is) in (a|one|the) year|how many months in (a|one|the) year|how many months does (a|one) year have|how many months make (a|one) year|months in a year|number of months in a year|a year has how many months|how many months (are )?there in a year|ek saal me kitne mahine|ek barsa ma kati mahina)
+< There are 12 months in a year.
+
+## know.months_names g=know
+> (what are the months of the year|months of the year|name the months of the year|list the months of the year|tell me the months of the year|say the months of the year|what are the twelve months|what are the 12 months|what are the 12 months of the year|names of the months|what are the names of the months|all months of the year|months name|months names|what are the months|what are the months in a year|list the months|name the months|which are the months of the year)
+< The twelve months are January, February, March, April, May, June, July, August, September, October, November and December.
+
+## know.days_year g=know
+> (how many days (are|are there|is) in (a|one|the) year|how many days in (a|one|the) year|how many days does (a|one) year have|how many days make (a|one) year|days in a year|number of days in a year|a year has how many days|how many days (are )?there in a year|how many days in a leap year|how many days (are|are there) in a leap year|how many days does a leap year have|how many days in a normal year|how many days in a common year|ek saal me kitne din|ek barsa ma kati din)
+< A normal year has 365 days. A leap year, which comes every four years with a few exceptions, has 366: the extra day is 29 February.
+
+## know.leap_year g=know
+> (what is a leap year|what is leap year|when is a leap year|when is the next leap year|how often is a leap year|how often does a leap year come|which year is a leap year|what makes a leap year|why is there a leap year|why do we have leap years|how do you know a leap year|how to know a leap year|leap year|what is the rule for leap years|leap year rule)
+< A leap year has 366 days, with an extra day on 29 February. A year is a leap year if it divides by 4, except century years, which must divide by 400. So 2024 and 2028 are leap years, 2000 was, and 1900 was not. It exists because the Earth takes about 365 and a quarter days to go round the Sun.
+
+## know.weeks_year g=know
+> (how many weeks (are|are there|is) in (a|one|the) year|how many weeks in (a|one|the) year|how many weeks does (a|one) year have|how many weeks make (a|one) year|weeks in a year|number of weeks in a year|how many weeks (are )?there in a year)
+< There are 52 weeks in a year, plus one extra day, or two in a leap year.
+
+## know.weeks_month g=know
+> (how many weeks (are|are there|is) in (a|one|the) month|how many weeks in (a|one|the) month|how many weeks does (a|one) month have|weeks in a month|how many weeks make (a|one) month)
+< A month has a little over 4 weeks. Only February in a normal year is exactly 4 weeks, which is 28 days.
+
+## know.days_month g=know h=days_in_month
+> how many days (are|are there|is|does|do)? ?(there )?(in|has|have)? ?(the month of )?(january|february|march|april|may|june|july|august|september|october|november|december|jan|feb|mar|apr|jun|jul|aug|sep|sept|oct|nov|dec) [have|has|this year|in a leap year|in leap year|in a normal year]
+> (days in|number of days in|how many days in the month of) (january|february|march|april|may|june|july|august|september|october|november|december|jan|feb|mar|apr|jun|jul|aug|sep|sept|oct|nov|dec)
+> does (january|february|march|april|may|june|july|august|september|october|november|december) have (28|29|30|31) days
+> (which|what) months have (28|29|30|31) days
+> how many months have (28|29|30|31) days
+> (how many days (are|are there|is) in (a|one|the) month|how many days in (a|one|the) month|how many days does (a|one) month have|days in a month|how many days make (a|one) month)
+
+## know.order g=know h=order_after
+> (what|which) (day |month |letter |number |season )?(comes|is|come|falls) (right |just |immediately |directly )?(after|before|next after|next to|following) {x}
+> (what is|what was|which is|what will be|which was) the (day|month|season) (after|before|following) {x}
+> (what|which) (day|month|season) (is|comes|was) (after|before) {x}
+> (the day|the month|day|month) (after|before) {x}
+> what is the (next|previous) (day|month) (after|before|of|to)? ?{x}
+> (what|which) (comes|is) (between) {x}
+> (what|which) (is|was) the (first|second|third|fourth|fifth|sixth|seventh|eighth|ninth|tenth|eleventh|twelfth|last|1st|2nd|3rd|4th|5th|6th|7th|8th|9th|10th|11th|12th) (day of the week|month of the year|month|day of a week|month in a year|month of a year)
+> (which|what) month is (number )?(1|2|3|4|5|6|7|8|9|10|11|12|one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve)
+> (which|what) (number )?month is (january|february|march|april|may|june|july|august|september|october|november|december)
+> (january|february|march|april|may|june|july|august|september|october|november|december) is (which|what) (number )?month
+
+## know.hours_day g=know
+> (how many hours (are|are there|is) in (a|one|the) day|how many hours in (a|one|the) day|how many hours does (a|one) day have|how many hours make (a|one) day|hours in a day|number of hours in a day|a day has how many hours|how many hours (are )?there in a day|ek din me kitne ghante|ek din ma kati ghanta)
+< There are 24 hours in a day.
+
+## know.minutes_hour g=know
+> (how many minutes (are|are there|is) in (a|an|one|the) hour|how many minutes in (a|an|one|the) hour|how many minutes does (a|an|one) hour have|how many minutes make (a|an|one) hour|minutes in an hour|number of minutes in an hour|how many minutes (are )?there in an hour|how many minutes in half an hour|how many minutes in a quarter of an hour)
+< There are 60 minutes in an hour, so half an hour is 30 minutes and a quarter of an hour is 15.
+
+## know.seconds_minute g=know
+> (how many seconds (are|are there|is) in (a|one|the) minute|how many seconds in (a|one|the) minute|how many seconds does (a|one) minute have|how many seconds make (a|one) minute|seconds in a minute|number of seconds in a minute|how many seconds (are )?there in a minute)
+< There are 60 seconds in a minute.
+
+## know.seconds_hour g=know
+> (how many seconds (are|are there|is) in (a|an|one|the) hour|how many seconds in (a|an|one) hour|how many seconds does an hour have|seconds in an hour|how many seconds make an hour)
+< There are 3,600 seconds in an hour: 60 minutes of 60 seconds each.
+
+## know.seconds_day g=know
+> (how many seconds (are|are there|is) in (a|one|the) day|how many seconds in (a|one) day|how many seconds does a day have|seconds in a day|how many minutes (are|are there) in a day|how many minutes in (a|one) day|minutes in a day)
+< A day has 24 hours, which is 1,440 minutes or 86,400 seconds.
+
+## know.hours_week g=know
+> (how many hours (are|are there|is) in (a|one|the) week|how many hours in (a|one) week|hours in a week|how many hours (are|are there) in a year|how many hours in (a|one) year|hours in a year)
+< A week has 168 hours (7 days of 24 hours). A normal year has 8,760 hours.
+
+## know.time_units g=know
+> (how many years (are|are there|is)? ?in a (decade|century|millennium)|how long is a (decade|century|millennium|fortnight|score)|what is a (decade|century|millennium|fortnight)|how many years is a (decade|century|millennium)|how many years make a (decade|century|millennium)|how many days (are |is )?in a fortnight|how many weeks in a fortnight|a decade is how many years|a century is how many years|how many decades in a century|how many centuries in a millennium)
+< A decade is 10 years, a century is 100 years and a millennium is 1,000 years. A fortnight is two weeks, or 14 days.
+
+## know.seasons g=know
+> (how many seasons (are|are there)? ?(there )?(in a year)?|what are the seasons|what are the four seasons|what are the 4 seasons|name the seasons|list the seasons|seasons of the year|the four seasons|seasons name|seasons names|what are the names of the seasons|how many seasons in a year|how many seasons do we have|which are the seasons|kati ritu|kitne mausam)
+< Most of the world counts four seasons: spring, summer, autumn (fall) and winter. Nepal's traditional calendar counts six: Basanta (spring), Grishma (summer), Barsha (monsoon), Sharad (autumn), Hemanta (pre-winter) and Shishir (winter).
+
+## know.rainbow g=know
+> (how many colors (are|are there)? ?(there )?in (a|the) rainbow|how many colors does (a|the) rainbow have|what are the colors of (a|the) rainbow|what colors are in (a|the) rainbow|what color is (a|the) rainbow|colors of (a|the) rainbow|rainbow colors|name the colors of (a|the) rainbow|list the colors of (a|the) rainbow|what are the seven colors of the rainbow|what are the 7 colors of the rainbow|what is vibgyor|vibgyor|what does vibgyor stand for|what are rainbow colors|which colors are in a rainbow)
+< A rainbow has seven colours: red, orange, yellow, green, blue, indigo and violet. People remember them backwards as VIBGYOR.
+
+## know.primary_colors g=know
+> (what are the primary colors|primary colors|what are the three primary colors|what are the 3 primary colors|name the primary colors|how many primary colors are there|which are the primary colors|what are primary colors|what are the basic colors|what are secondary colors|what are the secondary colors|secondary colors)
+< In painting, the primary colours are red, yellow and blue, and mixing pairs of them gives the secondary colours: orange, green and purple. For light, as on screens, the primaries are red, green and blue.
+
+## know.color_mix g=know h=color_mix
+> what (color|colors) (do|does|will|would|can) (you|we|i|it|they) (get|make|have|give|become) (when|if) (you|we|i) (mix|combine|add|blend|put) {x}
+> what (color|colors) (do|does) {x} (make|give|create|become|form|produce)
+> what (do|does) {x} (make|give|create|become|form|produce)
+> what (color|colors) (is|are) (made|formed|created|produced) (by|from|when|with) (mixing|combining|adding|you mix)? ?{x}
+> (mix|mixing|combine|combining|add|adding) {x} (makes|gives|make|give|creates|becomes|is|equals) what (color)?
+> what (happens|color comes) (when|if) (you|we|i) mix {x}
+> {x} (makes|make|gives|give|equals|is) (what|which) color
+> (which|what) (two )?colors (make|makes|give|form|create|are mixed to make|are needed to make|do you mix to make|do i mix to make|mix to make) {x}
+> how (do|can|to) (you|i|we)? ?(make|get|mix) (the color )?{x} (color|paint)?
+> what (color )?do (you|i|we) get (by|from) mixing {x}
+
+## know.shapes g=know h=shape_sides
+> how many (sides|corners|edges|angles|vertices|faces|points) (does|do|are in|are on|are there in|are there on|in|on|has|have) (a|an|the)? ?{x} (have|has|got)?
+> (a|an) {x} has how many (sides|corners|edges|angles|vertices|faces)
+> what shape has {x} (sides|corners|edges|angles|faces)
+> (which|what) shape has (no|zero|0) (sides|corners|edges)
+> what (is|do you call) a shape with {x} (sides|corners|angles)
+> what is a {x} sided shape called
+> what is the name of a {x} sided shape
+> (how many degrees (are|are there)? ?in (a|an) (triangle|circle|square|rectangle|right angle|straight line|straight angle|quadrilateral)|how many degrees does a (triangle|circle|square|rectangle|quadrilateral) have|what is the sum of (the )?angles (in|of) a (triangle|square|rectangle|quadrilateral)|how many degrees is a (right angle|circle|straight line|full turn|half turn))
+> (what are the (basic |main |common )?shapes|name some shapes|list of shapes|basic shapes)
+
+## know.continents g=know
+> (how many continents (are|are there)? ?(there )?(in the world|on earth)?|what are the continents|what are the seven continents|what are the 7 continents|name the continents|list the continents|continents of the world|names of the continents|what are the names of the continents|name the seven continents|which are the continents|how many continents do we have|continents name|kati mahadesh|kitne mahadweep)
+< There are seven continents: Asia, Africa, North America, South America, Antarctica, Europe and Australia (Oceania). Asia is the largest, and Nepal is in Asia.
+
+## know.oceans g=know
+> (how many oceans (are|are there)? ?(there )?(in the world|on earth)?|what are the oceans|what are the five oceans|what are the 5 oceans|name the oceans|list the oceans|oceans of the world|names of the oceans|what are the names of the oceans|which are the oceans|how many oceans do we have|oceans name)
+< There are five oceans: the Pacific, the Atlantic, the Indian, the Southern and the Arctic. The Pacific is the largest.
+
+## know.planets g=know
+> (how many planets (are|are there)? ?(there )?(in (the|our) solar system|in space)?|what are the planets|what are the eight planets|what are the 8 planets|name the planets|list the planets|planets of the solar system|planets in (the|our) solar system|names of the planets|what are the names of the planets|what are the planets in (the|our) solar system|what are the planets in order|planets in order|order of the planets|which are the planets|how many planets do we have|planets name|name all the planets|name all planets|all planets name|all the planets)
+< There are eight planets in the Solar System. In order from the Sun: Mercury, Venus, Earth, Mars, Jupiter, Saturn, Uranus and Neptune. Pluto has been classed as a dwarf planet since 2006.
+* Search the web: why is Pluto not a planet
+
+## know.directions g=know
+> (how many directions are there|what are the directions|what are the four directions|what are the 4 directions|name the four directions|what are the cardinal directions|cardinal directions|the four directions|what are the main directions|name the directions|what are the compass directions|compass directions|what are the compass points|compass points|north south east west)
+< The four main directions are north, south, east and west. Between them are north-east, south-east, south-west and north-west.
+
+## know.sun_rise g=know
+> (where does the sun (rise|set|come up|go down)|which (direction|side) does the sun (rise|set)( in| from)?|in which direction does the sun (rise|set)|the sun (rises|sets) in (which|what) direction|from which direction does the sun rise|from where does the sun rise|where does the sun (rise|set) from|does the sun rise in the (east|west)|does the sun set in the (east|west)|sun rises in the|sun rise direction|sunrise direction|sunset direction|where is sunrise|where is sunset|surya kata bata udaucha|suraj kahan se nikalta hai)
+< The Sun rises in the east and sets in the west. That is because the Earth spins from west to east.
+
+## know.senses g=know
+> (how many senses (do|does) (we|humans|people|you|a human|i|a person) have|how many senses are there|what are the five senses|what are the 5 senses|what are the senses|what are our senses|what are human senses|name the five senses|name the senses|list the five senses|the five senses|five senses|sense organs|what are the sense organs|what are the five sense organs|name the sense organs|how many sense organs (do we have|are there))
+< Humans have five main senses: sight (eyes), hearing (ears), smell (nose), taste (tongue) and touch (skin).
+
+## know.states_matter g=know
+> (what are the states of matter|what are the three states of matter|what are the 3 states of matter|states of matter|how many states of matter are there|name the states of matter|three states of matter|what are the forms of matter|what are the three forms of water|what are the states of water|three states of water)
+< The three everyday states of matter are solid, liquid and gas. Water shows all three: ice, liquid water and steam. Physicists also count plasma as a fourth state.
+
+## know.water_points g=know
+> (at what temperature does water (boil|freeze)|what temperature does water (boil|freeze)( at)?|what is the (boiling|freezing|melting) point of (water|ice)|(boiling|freezing|melting) point of (water|ice)|when does water (boil|freeze)|at what temperature does ice melt|what temperature does ice melt( at)?|what is the (boiling|freezing) temperature of water|how hot is boiling water|how cold is ice|at what degree does water (boil|freeze)|water (boils|freezes) at what temperature|water (boiling|freezing) point)
+< At sea level, water freezes at 0 °C (32 °F) and boils at 100 °C (212 °F). Higher up, as in the mountains of Nepal, it boils at a lower temperature because the air pressure is lower.
+
+## know.body_temp g=know
+> (what is (the )?normal body temperature|what is (the )?(normal|average) (human )?body temperature|normal body temperature|what is the temperature of the human body|what is (a )?normal temperature for (a human|humans|a person|an adult)|how hot is the human body|human body temperature|what temperature is a fever|what is considered a fever|when is it a fever)
+< Normal human body temperature is about 37 °C (98.6 °F), and it varies a little from person to person and through the day. A temperature of roughly 38 °C (100.4 °F) or more usually counts as a fever. For anything worrying, please ask a doctor.
+
+## know.alphabet_count g=know
+> (how many letters (are|are there)? ?(there )?in (the|english) (alphabet|alphabets|english alphabet|english language)|how many letters does the (english )?alphabet have|how many alphabets (are|are there)? ?(there )?in english|how many letters in english|number of letters in the alphabet|how many characters in the alphabet|abcd ma kati akshar|english me kitne letter)
+< The English alphabet has 26 letters: 5 vowels (A, E, I, O, U) and 21 consonants.
+
+## know.big_numbers g=know h=big_number
+> how many (zeros|zeroes|0s|digits|noughts) (are|are there|is|does)? ?(there )?(in|has|have)? ?(a|an|one|1)? ?(hundred|thousand|ten thousand|lakh|lac|million|ten million|crore|billion|trillion|arab|kharab|hundred thousand|quadrillion|googol|dozen) (have|has)?
+> (what is|whats|how much is|how many is) (a|an|one|1) (lakh|lac|crore|million|billion|trillion|arab|kharab|dozen|score|gross|googol|half dozen|bakers dozen|pair|couple|trio|quartet|hundred|thousand) (in numbers|in figures|in digits|in number|in english|in words|in millions|in lakhs|in crores|in rupees|equal to)?
+> (how much|how many) (is|are|makes|make) (a|an|one|1|in a|in one) (lakh|lac|crore|million|billion|trillion|arab|kharab|dozen|score|gross|googol|half dozen|pair|couple)
+> how many (lakhs|lakh|lacs|crores|crore|thousands|thousand|millions|million|hundreds|hundred) (are|are there|is|make|makes|in)? ?(there )?(in|a|an|one|1)? ?(a|an|one|1)? ?(lakh|lac|crore|million|billion|trillion|arab|kharab|thousand)
+> (1|one|a) (lakh|lac|crore|million|billion|trillion|arab|kharab|dozen) (is equal to|equals|is|means|=) (how much|how many|what)
+> (1|one|a) (million|billion|crore|lakh) (in|to) (lakhs|lakh|crores|crore|millions|million|thousands|rupees)
+> how many (things|items|eggs|pieces|units) (are|is)? ?in (a|one|half a) (dozen|score|gross|pair|couple)
+
+## know.number_facts g=know
+> (what is the (smallest|first|lowest) (prime number|prime)|what is the only even prime( number)?|is (1|one) a prime number|is one prime|is 1 prime|is (2|two) a prime number|is (0|zero) a prime number|what are prime numbers|what is a prime number|prime numbers|what are the first (five|ten|5|10) prime numbers|list (the )?prime numbers|first ten prime numbers)
+< A prime number is a whole number greater than 1 that divides only by 1 and itself. The first ten are 2, 3, 5, 7, 11, 13, 17, 19, 23 and 29. Two is the smallest prime and the only even one; 1 and 0 are not prime.
+
+## know.zero g=know
+> (is (0|zero) (even|odd|even or odd|odd or even|a number|an even number|an odd number|positive|negative|positive or negative|a whole number|a natural number)|what is (0|zero)|is zero a number|is zero nothing|what kind of number is zero|who invented zero)
+< Zero is a number, and it is even, because it divides by 2 with nothing left over. It is neither positive nor negative. The idea of zero as a number in its own right was developed in ancient India.
+* Search the web: who invented zero
+
+## know.biggest_number g=know
+> (what is the (biggest|largest|highest|greatest|last|final) number|which is the (biggest|largest|highest|last) number|is there a (biggest|largest|last) number|what is the (biggest|largest|highest) number in the world|what comes after (infinity|a trillion|trillion)|what is (infinity|infinite)|is infinity a number|how big is infinity|what is the smallest number|what number is infinity|what is infinity plus one|what is infinity minus infinity|infinity plus infinity|infinity)
+< There is no biggest number: whatever number you name, you can always add one. Infinity is not a number but the idea of going on without end, which, as it happens, is where my name comes from. After a trillion come a quadrillion, a quintillion and so on.
+
+## know.pi g=know
+> (what is pi|what is the value of pi|value of pi|pi value|what is pi equal to|what does pi equal|tell me pi|what is pie in math|what is pi in maths|what is the number pi|digits of pi|first digits of pi|how many digits (does pi have|are in pi|in pi)|is pi infinite|does pi end|is pi rational|is pi irrational)
+< Pi (π) is the circumference of any circle divided by its diameter: about 3.14159. Its digits go on for ever without repeating, so it can never be written out in full. The fraction 22/7 is a handy approximation.
+
+## know.units_length g=know
+> (how many (centimeters|centimetres|cm) (are |is )?(there )?in (a|one|1) (meter|metre|m)|how many (meters|metres|m) (are |is )?(there )?in (a|one|1) (kilometer|kilometre|km)|how many (millimeters|millimetres|mm) (are |is )?(there )?in (a|one|1) (centimeter|centimetre|cm|meter|metre)|how many (grams|gram|g) (are |is )?(there )?in (a|one|1) (kilogram|kilo|kg)|how many (kilograms|kilos|kg) (are |is )?(there )?in (a|one|1) (ton|tonne|quintal)|how many (milliliters|millilitres|ml) (are |is )?(there )?in (a|one|1) (liter|litre|l)|how many (milligrams|mg) (are |is )?(there )?in (a|one|1) (gram|g)|how many (inches|inch) (are |is )?(there )?in (a|one|1) (foot|feet|ft)|how many (feet|foot|ft) (are |is )?(there )?in (a|one|1) (yard|mile)|how many (cm|centimeters|centimetres) (are |is )?(there )?in (a|an|one|1) (inch|foot)|how many (ounces|oz) (are |is )?(there )?in (a|one|1) pound|how many (pounds|lbs) (are |is )?(there )?in (a|one|1) (kg|kilogram|kilo))
+< The everyday metric steps: 10 millimetres make a centimetre, 100 centimetres make a metre and 1,000 metres make a kilometre; 1,000 grams make a kilogram and 1,000 kilograms a tonne; 1,000 millilitres make a litre. In the older units, 12 inches make a foot, 3 feet a yard and 16 ounces a pound; an inch is 2.54 cm and a kilogram is about 2.2 pounds. For an exact conversion, give me the numbers, such as "5 feet in cm".
+
+## know.noon g=know
+> (what is noon|when is noon|what time is noon|what is midnight|when is midnight|what time is midnight|what is midday|when is midday|is noon (12 am|12 pm|am or pm)|is midnight (12 am|12 pm|am or pm)|is 12 pm (noon|midnight|noon or midnight)|is 12 am (noon|midnight|noon or midnight)|what is 12 am|what is 12 pm|what does (am|pm) mean|what do am and pm mean|what is am and pm|what does am and pm stand for|what is the meaning of am and pm|am and pm|am pm meaning|what is the full form of (am|pm)|full form of am and pm|what comes first am or pm)
+< Noon, or midday, is 12 o'clock in the daytime (12 pm), and midnight is 12 o'clock at night (12 am), when a new day starts. AM is short for the Latin "ante meridiem", before midday, and PM for "post meridiem", after midday.
+
+## know.vowels_y g=know
+> (is y a vowel|is y a vowel or a consonant|is y a consonant|is w a vowel|why is y sometimes a vowel|sometimes y)
+< Y is usually counted as a consonant, but it often stands for a vowel sound, as in "sky", "happy" and "gym". That is why people say the vowels are "A, E, I, O, U, and sometimes Y".
+
+## know.wheels g=know
+> (how many wheels (does|do) (a|an)? ?(car|cars) (have|has)|how many tyres does a car have|how many wheels on a car|how many wheels are on a car|how many wheels in a car)
+< A car normally has four wheels, plus a spare one in the boot.
+
+## know.kilo_trick g=know
+> (which|what) (is|weighs) (heavier|more|lighter|less) (a|one|1) (kilo|kg|kilogram|pound|ton|tonne|gram) of (feathers|cotton|iron|steel|gold|stones|bricks|lead|wood|rice|water|sand|paper) or (a|one|1) (kilo|kg|kilogram|pound|ton|tonne|gram) of (feathers|cotton|iron|steel|gold|stones|bricks|lead|wood|rice|water|sand|paper)
+> (a|one|1) (kilo|kg|kilogram|pound|ton|tonne) of (feathers|cotton|iron|steel|gold|stones|bricks|lead|wood) or (a|one|1) (kilo|kg|kilogram|pound|ton|tonne) of (feathers|cotton|iron|steel|gold|stones|bricks|lead|wood) (which|what) is (heavier|lighter)
+< Neither. They weigh exactly the same, because a kilogram is a kilogram whatever it is made of. The feathers would just take up far more room.
+
+## know.chicken_egg g=know
+> (which came first the chicken or the egg|what came first the chicken or the egg|which came first chicken or egg|what came first chicken or egg|chicken or egg|the chicken or the egg|who came first the chicken or the egg|did the chicken or the egg come first|egg or chicken|which came first the egg or the chicken|what came first egg or hen|pahile kukhura ki anda|pehle murgi aayi ya anda)
+< The classic puzzle! Common sense gets stuck in a loop on that one, which is why it's famous. Biologists usually answer "the egg": egg-laying animals existed long before chickens did. I can look up the details if you like.
+* Search the web: which came first, the chicken or the egg
+
+## know.sky_blue g=know
+> (is the sky (really )?blue|what color is the sky|the sky is what color|which color is the sky|what is the color of the sky|color of the sky|sky color|is sky blue)
+< By day the sky looks blue. At sunrise and sunset it turns orange and red, at night it is dark, and on a cloudy day it is grey. If you'd like to know why it is blue, ask me and I'll look up the explanation.
+* Why is the sky blue?
+
+## know.water_wet g=know
+> (is water wet|is water really wet|water is wet|is water dry|why is water wet)
+< In everyday terms, yes: water is wet, and it makes whatever it touches wet. Some people enjoy arguing that "wet" only describes things that water is on, so water itself isn't. That's a debate about a word, not about water.

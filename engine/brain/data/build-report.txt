@@ -1,0 +1,225 @@
+built 2026-11-12
+{"built":"2026-11-12","intents":279,"patterns":49416,"handWritten":29056,"imported":20360,"slotPatterns":246,"replies":896}
+
+phrases that normalise to something else (101 shown):
+social.bye: "i am done for now now" → "i am done for now"
+fb.compliment: "you are so so useful" → "you are so useful"
+fb.compliment: "you are so so smart" → "you are so smart"
+fb.compliment: "you are very very useful" → "you are very useful"
+fb.insult: "you are so so bad" → "you are so bad"
+fb.insult: "you are so so dumb" → "you are so dumb"
+fb.insult: "you are so so stupid" → "you are so stupid"
+fb.insult: "you are so so useless" → "you are so useless"
+fb.insult: "you are such a a moron" → "you are such a moron"
+fb.insult: "you are such a a fool" → "you are such a fool"
+fb.insult: "you are such a a loser" → "you are such a loser"
+fb.insult: "you are such a a joke" → "you are such a joke"
+fb.insult: "you are such a a failure" → "you are such a failure"
+fb.insult: "you are such a a disappointment" → "you are such a disappointment"
+fb.insult: "you are such a a waste" → "you are such a waste"
+fb.insult: "you are such a a waste of time" → "you are such a waste of time"
+fb.insult: "you are such a a liar" → "you are such a liar"
+fb.insult: "you are such a a fake" → "you are such a fake"
+fb.insult: "you are such a a fraud" → "you are such a fraud"
+fb.insult: "you are such a a bad bot" → "you are such a bad bot"
+fb.insult: "you are such a a bad ai" → "you are such a bad ai"
+fb.insult: "you are such a a stupid bot" → "you are such a stupid bot"
+fb.insult: "you are such a a stupid ai" → "you are such a stupid ai"
+fb.insult: "you are such a a dumb bot" → "you are such a dumb bot"
+fb.insult: "you are such a a dumb ai" → "you are such a dumb ai"
+fb.insult: "you are such a a stupid machine" → "you are such a stupid machine"
+fb.insult: "you are such a a dumb machine" → "you are such a dumb machine"
+fb.insult: "you are such an an idiot" → "you are such an idiot"
+fb.insult: "you are a a moron" → "you are a moron"
+fb.insult: "you are a a fool" → "you are a fool"
+fb.insult: "you are a a loser" → "you are a loser"
+fb.insult: "you are a a joke" → "you are a joke"
+fb.insult: "you are a a failure" → "you are a failure"
+fb.insult: "you are a a disappointment" → "you are a disappointment"
+fb.insult: "you are a a waste" → "you are a waste"
+fb.insult: "you are a a waste of time" → "you are a waste of time"
+fb.insult: "you are a a liar" → "you are a liar"
+fb.insult: "you are a a fake" → "you are a fake"
+fb.insult: "you are a a fraud" → "you are a fraud"
+fb.insult: "you are a a bad bot" → "you are a bad bot"
+fb.insult: "you are a a bad ai" → "you are a bad ai"
+fb.insult: "you are a a stupid bot" → "you are a stupid bot"
+fb.insult: "you are a a stupid ai" → "you are a stupid ai"
+fb.insult: "you are a a dumb bot" → "you are a dumb bot"
+fb.insult: "you are a a dumb ai" → "you are a dumb ai"
+fb.insult: "you are a a stupid machine" → "you are a stupid machine"
+fb.insult: "you are a a dumb machine" → "you are a dumb machine"
+fb.insult: "you are an an idiot" → "you are an idiot"
+fb.insult: "you are just a a moron" → "you are just a moron"
+fb.insult: "you are just a a fool" → "you are just a fool"
+fb.insult: "you are just a a loser" → "you are just a loser"
+fb.insult: "you are just a a joke" → "you are just a joke"
+fb.insult: "you are just a a failure" → "you are just a failure"
+fb.insult: "you are just a a disappointment" → "you are just a disappointment"
+fb.insult: "you are just a a waste" → "you are just a waste"
+fb.insult: "you are just a a waste of time" → "you are just a waste of time"
+fb.insult: "you are just a a liar" → "you are just a liar"
+fb.insult: "you are just a a fake" → "you are just a fake"
+fb.insult: "you are just a a fraud" → "you are just a fraud"
+fb.insult: "you are just a a bad bot" → "you are just a bad bot"
+fb.insult: "you are just a a bad ai" → "you are just a bad ai"
+fb.insult: "you are just a a stupid bot" → "you are just a stupid bot"
+fb.insult: "you are just a a stupid ai" → "you are just a stupid ai"
+fb.insult: "you are just a a dumb bot" → "you are just a dumb bot"
+fb.insult: "you are just a a dumb ai" → "you are just a dumb ai"
+fb.insult: "you are just a a stupid machine" → "you are just a stupid machine"
+fb.insult: "you are just a a dumb machine" → "you are just a dumb machine"
+skill.weather: "how hot is it today today" → "how hot is it today"
+skill.weather: "how cold is it today today" → "how cold is it today"
+skill.weather: "is it raining now now" → "is it raining now"
+know.seasons: "how many seasons are there there" → "how many seasons are there"
+know.seasons: "how many seasons are there there in a year" → "how many seasons are there in a year"
+know.rainbow: "how many colors are there there in a rainbow" → "how many colors are there in a rainbow"
+know.rainbow: "how many colors are there there in the rainbow" → "how many colors are there in the rainbow"
+know.continents: "how many continents are there there" → "how many continents are there"
+know.continents: "how many continents are there there in the world" → "how many continents are there in the world"
+know.continents: "how many continents are there there on earth" → "how many continents are there on earth"
+know.oceans: "how many oceans are there there" → "how many oceans are there"
+know.oceans: "how many oceans are there there in the world" → "how many oceans are there in the world"
+know.oceans: "how many oceans are there there on earth" → "how many oceans are there on earth"
+know.planets: "how many planets are there there" → "how many planets are there"
+know.planets: "how many planets are there there in the solar system" → "how many planets are there in the solar system"
+know.planets: "how many planets are there there in our solar system" → "how many planets are there in our solar system"
+know.planets: "how many planets are there there in space" → "how many planets are there in space"
+know.alphabet_count: "how many letters in english english alphabet" → "how many letters in english alphabet"
+know.alphabet_count: "how many letters in english english language" → "how many letters in english language"
+know.alphabet_count: "how many letters there in english english alphabet" → "how many letters there in english alphabet"
+know.alphabet_count: "how many letters there in english english language" → "how many letters there in english language"
+know.alphabet_count: "how many letters are in english english alphabet" → "how many letters are in english alphabet"
+know.alphabet_count: "how many letters are in english english language" → "how many letters are in english language"
+know.alphabet_count: "how many letters are there in english english alphabet" → "how many letters are there in english alphabet"
+know.alphabet_count: "how many letters are there in english english language" → "how many letters are there in english language"
+know.alphabet_count: "how many letters are there there in the alphabet" → "how many letters are there in the alphabet"
+know.alphabet_count: "how many letters are there there in the alphabets" → "how many letters are there in the alphabets"
+know.alphabet_count: "how many letters are there there in the english alphabet" → "how many letters are there in the english alphabet"
+know.alphabet_count: "how many letters are there there in the english language" → "how many letters are there in the english language"
+know.alphabet_count: "how many letters are there there in english alphabet" → "how many letters are there in english alphabet"
+know.alphabet_count: "how many letters are there there in english alphabets" → "how many letters are there in english alphabets"
+know.alphabet_count: "how many letters are there there in english english alphabet" → "how many letters are there in english alphabet"
+know.alphabet_count: "how many letters are there there in english english language" → "how many letters are there in english language"
+know.alphabet_count: "how many alphabets are there there in english" → "how many alphabets are there in english"
+
+collisions (118):
+"same here": social.welcome (kept) vs ack.ok
+"that is so nice": social.thanks (kept) vs ack.cool
+"that is really nice": social.thanks (kept) vs ack.cool
+"that is very nice": social.thanks (kept) vs ack.cool
+"it is fine": ack.no (kept) vs ack.cool
+"bingo": ack.cool (kept) vs fb.correct
+"i do not think so": ack.no (kept) vs fb.wrong
+"you are a lifesaver": social.thanks (kept) vs fb.compliment
+"you are so kind": social.thanks (kept) vs fb.compliment
+"you are very kind": social.thanks (kept) vs fb.compliment
+"you are really kind": social.thanks (kept) vs fb.compliment
+"bravo": ack.cool (kept) vs fb.compliment
+"this is better": ack.cool (kept) vs fb.compliment
+"it is better now": ack.cool (kept) vs fb.compliment
+"wah": ack.cool (kept) vs fb.compliment
+"kya baat hai": ack.cool (kept) vs fb.compliment
+"you are not helpful": fb.bad_answer (kept) vs fb.insult
+"get out": ack.really (kept) vs fb.insult
+"you are lame": fb.insult (kept) vs fb.boring
+"you are not funny": fb.insult (kept) vs fb.notfunny
+"we are done": social.bye (kept) vs fb.fired
+"i did not mean it": social.sorry (kept) vs social.kidding
+"are you made by google": bot.llm (kept) vs bot.creator
+"are you made by openai": bot.llm (kept) vs bot.creator
+"are you made by microsoft": bot.llm (kept) vs bot.creator
+"are you made by meta": bot.llm (kept) vs bot.creator
+"are you available": chat.available (kept) vs bot.relationship
+"can you hear me": chat.test (kept) vs bot.body
+"do you have dreams": bot.sleep (kept) vs bot.conscious
+"how do you do": social.nicemeet (kept) vs bot.howareyou
+"thik ho": fb.correct (kept) vs bot.howareyou
+"what is your mission": bot.goal (kept) vs bot.capabilities
+"what is your aim": bot.goal (kept) vs bot.capabilities
+"are you strong": bot.body (kept) vs bot.smart
+"are you weak": bot.body (kept) vs bot.smart
+"will you hack me": bot.privacy (kept) vs bot.takeover
+"are you free": chat.available (kept) vs bot.boss
+"do you have a life": bot.conscious (kept) vs bot.hobbies
+"do you like science": bot.hobbies (kept) vs bot.tech_opinion
+"do you know love is": bot.feelings (kept) vs bot.love_concept
+"do you know what love is": bot.feelings (kept) vs bot.love_concept
+"are you capable of love": bot.feelings (kept) vs bot.love_concept
+"have you ever been in love": bot.relationship (kept) vs bot.love_concept
+"you are a good friend": fb.compliment (kept) vs rel.friend
+"you are my hero": fb.compliment (kept) vs rel.thinking_of_you
+"you are cute": fb.compliment (kept) vs rel.thinking_of_you
+"you are adorable": fb.compliment (kept) vs rel.thinking_of_you
+"you are sweet": fb.compliment (kept) vs rel.thinking_of_you
+"you are lovely": fb.compliment (kept) vs rel.thinking_of_you
+"you are so cute": fb.compliment (kept) vs rel.thinking_of_you
+"you are so sweet": fb.compliment (kept) vs rel.thinking_of_you
+"you are so adorable": fb.compliment (kept) vs rel.thinking_of_you
+"you are so lovely": fb.compliment (kept) vs rel.thinking_of_you
+"you are very cute": fb.compliment (kept) vs rel.thinking_of_you
+"you are very sweet": fb.compliment (kept) vs rel.thinking_of_you
+"you are a star": fb.compliment (kept) vs rel.thinking_of_you
+"you look different": bot.version (kept) vs rel.thinking_of_you
+"i am done": social.bye (kept) vs feel.sad
+"i need to sleep": greet.night (kept) vs feel.tired
+"neend aa rahi hai": bot.sleep (kept) vs feel.tired
+"nothing": ack.no (kept) vs resp.doing
+"nothing much": ack.no (kept) vs resp.doing
+"nothing really": ack.no (kept) vs resp.doing
+"go on": ack.yes (kept) vs skill.again
+"aur sunao": bot.whatsup (kept) vs skill.again
+"can you count": bot.can_math (kept) vs skill.count
+"i did not get that": feel.confused (kept) vs skill.repeat
+"feri bhana": skill.again (kept) vs skill.repeat
+"can you dance": bot.body (kept) vs cant.physical
+"can you jump": bot.body (kept) vs cant.physical
+"can you walk": bot.body (kept) vs cant.physical
+"can you run": bot.body (kept) vs cant.physical
+"can you swim": bot.body (kept) vs cant.physical
+"can you fly": bot.body (kept) vs cant.physical
+"can you see my face": bot.privacy (kept) vs cant.physical
+"do you cook": bot.eat (kept) vs cant.physical
+"do you paint": bot.hobbies (kept) vs cant.physical
+"let us go": ack.yes (kept) vs cant.physical
+"open calculator": bot.can_math (kept) vs cant.device
+"speak": chat.test (kept) vs cant.device
+"speak to me": chat.available (kept) vs cant.device
+"can you see my messages": bot.privacy (kept) vs cant.device
+"do you have a voice": bot.body (kept) vs cant.device
+"what is my location": user.recall (kept) vs cant.personal
+"what is my location": user.recall (kept) vs cant.personal
+"can you draw": cant.physical (kept) vs cant.create
+"can you paint": cant.physical (kept) vs cant.create
+"can you sketch": cant.physical (kept) vs cant.create
+"do you draw": cant.physical (kept) vs cant.create
+"check my email": cant.device (kept) vs cant.create
+"right": fb.correct (kept) vs convo.agree_check
+"understood": ack.ok (kept) vs convo.agree_check
+"do you understand me": bot.conscious (kept) vs convo.agree_check
+"do you hear me": chat.test (kept) vs convo.agree_check
+"hoina": ack.no (kept) vs convo.agree_check
+"samjha": ack.ok (kept) vs convo.agree_check
+"why not": ack.yes (kept) vs convo.why
+"oh no": ack.oops (kept) vs convo.swear_at_thing
+"oh my": ack.oops (kept) vs convo.swear_at_thing
+"later": social.bye (kept) vs convo.thinking
+"maybe later": ack.maybe (kept) vs convo.thinking
+"talk later": social.bye (kept) vs convo.thinking
+"are you still there": chat.test (kept) vs convo.confirm_you
+"are you bored": bot.happy (kept) vs convo.bored_bot
+"are you bored of me": bot.happy (kept) vs convo.bored_bot
+"are you tired of me": bot.happy (kept) vs convo.bored_bot
+"do i annoy you": bot.happy (kept) vs convo.bored_bot
+"am i annoying you": bot.happy (kept) vs convo.bored_bot
+"am i bothering you": bot.happy (kept) vs convo.bored_bot
+"am i disturbing you": bot.happy (kept) vs convo.bored_bot
+"sorry for the trouble": social.sorry (kept) vs convo.bored_bot
+"how many letters in the alphabet": skill.alphabet (kept) vs know.alphabet_count
+"how many letters are in the alphabet": skill.alphabet (kept) vs know.alphabet_count
+"how many letters are in the english alphabet": skill.alphabet (kept) vs know.alphabet_count
+"how many letters are there in the alphabet": skill.alphabet (kept) vs know.alphabet_count
+"how many letters are there in the alphabet": skill.alphabet (kept) vs know.alphabet_count
+"how many letters does the alphabet have": skill.alphabet (kept) vs know.alphabet_count
+"how many alphabets in english": skill.alphabet (kept) vs know.alphabet_count

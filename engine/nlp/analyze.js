@@ -64,18 +64,9 @@ export function normalizeQuestion(raw) {
   return s.trim();
 }
 
-function smalltalk(l) {
-  if (/^(hi|hello|hey|hiya|namaste|yo|hola|greetings|good (morning|afternoon|evening|day))( there| infini| ai)?$/.test(l)) return 'greeting';
-  if (/^(thanks|thank you|thx|ty|thanks a lot|thank you so much|thank you very much|many thanks|great thanks|ok thanks|okay thanks|cheers)$/.test(l)) return 'thanks';
-  if (/^(bye|goodbye|see you|good night|cya|see ya)$/.test(l)) return 'bye';
-  if (/^(who|what) are you\b|^what is your name\b|^are you (an? )?(ai|llm|chatgpt|gpt|bot|robot|human|real|language model|person|chatbot)\b|^what (model|llm) (are you|do you use)\b|^(which|what) (ai |language )?model\b.*\byou\b|^how do you work\b|^who (made|built|created|developed) you\b|^do you use (an? )?(llm|gpt|chatgpt|language model|neural)|^are you (powered|based) (by|on)\b/.test(l)) return 'identity';
-  if (/^what can you do\b|^help$|^how (can|do) i use (you|this)\b|^what are you (able|capable)\b|^what do you do$/.test(l)) return 'capabilities';
-  if (/^(how are you|how are you doing|how is it going|what is up|sup)$/.test(l)) return 'howareyou';
-  return null;
-}
 function metaKind(l) {
   if (/^(what are (your|the) sources|(show|list|give)( me)?( the| your)? sources|where did you (get|find) (that|this|it)|cite( your)? sources|sources|source|how do you know( that| this)?|where is (that|this) from)$/.test(l)) return 'sources';
-  if (/^(are you sure|is (that|this|it) (true|correct|right|accurate)|really|double[- ]check( that| this| it)?|verify (that|this|it)|check again|fact[- ]check( that| this| it)?|is that so)$/.test(l)) return 'verify';
+  if (/^(double[- ]check( that| this| it)?|verify (that|this|it)|check again|check (that|this|it) again|fact[- ]check( that| this| it)?)$/.test(l)) return 'verify';
   for (const [kind, re] of META_CUES) {
     if (!re.test(l)) continue;
     const rest = l.replace(/[^a-z0-9\s]/g, ' ').split(/\s+/).filter((w) => w && !META_WORDS.has(w));
@@ -539,8 +530,6 @@ export function analyze(raw, context = {}, opts = {}) {
     return { ...base, intent: 'url', urls: urls.slice(0, 3), parts: summarize ? [] : [part], urlTask: summarize ? 'summarize' : 'question' };
   }
   const lower = text.toLowerCase().replace(/[?!.,]+$/g, '').replace(/[,]/g, '').trim();
-  const st = smalltalk(lower);
-  if (st) return { ...base, intent: 'smalltalk', smalltalk: st };
   const c = calc(text);
   if (c) return { ...base, intent: 'calc', calc: c };
   const mk = metaKind(lower);

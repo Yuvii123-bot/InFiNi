@@ -1,0 +1,206 @@
+# INFINI AI — conversation database, part 4: built-in skills (fun, time and date, words and numbers).
+
+## fun.joke g=fun h=joke
+> (tell me a joke|tell a joke|tell me another joke|tell me one more joke|another joke|one more joke|a joke|joke|jokes|joke please|say a joke|give me a joke|crack a joke|share a joke|i want a joke|i want to hear a joke|i need a joke|i would like a joke|i would like to hear a joke|let me hear a joke|got any jokes|got a joke|have you got any jokes|do you know a joke|do you know any jokes|do you know any good jokes|do you have a joke|do you have any jokes|know any jokes|any jokes|can you tell a joke|can you tell me a joke|can you joke|can you be funny|can you make me laugh|will you tell me a joke|make me laugh|make me smile|say something funny|tell me something funny|something funny|be funny|humor me|humour me|amuse me with a joke|do you know something funny|i need a laugh|i need to laugh|i could use a laugh|cheer me up with a joke|tell me a funny joke|tell me a good joke|tell me a short joke|tell me a dad joke|tell me a silly joke|tell me a clean joke|tell me a pun|a pun|pun|give me a pun|funny joke|next joke|more jokes|tell me more jokes|can you tell jokes|do you tell jokes|do you know jokes|can you tell me jokes|can you tell me some jokes|tell jokes|tell me jokes|are you funny|joke sunau|joke suna|joke sunao|ek joke sunao|chutkula sunao|euta joke bhana|joke bhana|hasau|malai hasau|hasao|mujhe hasao)
+> (tell me|give me|say|share|do you know|got|know) (a|another|any|one|some) (joke|jokes|pun|puns|one liner|one liners) about {x}
+> (joke|jokes|pun|puns) (about|on) {x}
+! ms 33 34 35
+! clinc tell_joke
+
+## skill.again g=meta h=again
+> (more|one more|another one|another|again|do it again|next|next one|next please|more please|one more please|another one please|and another|and another one|one more time please|keep going|keep them coming|go on|continue|carry on|encore|give me another|give me another one|give me one more|tell me another|tell me another one|tell me one more|say another|say another one|do another|do another one|one more one|more more|yet another|ek aur|ek aur sunao|arko|arko bhana|feri|pheri|feri bhana|aur sunao|aur ek)
+< Another what? I can tell you another joke, riddle or fun fact, or you can ask me a new question.
+< I'm not sure what to repeat. Pick one: a joke, a riddle, a fun fact, or a fresh question.
+* Tell me a joke | Give me a riddle | Tell me a fun fact
+
+## fun.riddle g=fun h=riddle
+> (tell me a riddle|give me a riddle|ask me a riddle|a riddle|riddle|riddles|riddle me|riddle me this|another riddle|one more riddle|next riddle|more riddles|i want a riddle|i like riddles|i love riddles|do you know a riddle|do you know any riddles|do you have a riddle|do you have any riddles|got a riddle|got any riddles|know any riddles|can you tell me a riddle|can you give me a riddle|can you ask me a riddle|test me|test my brain|challenge me|give me a challenge|give me a puzzle|a puzzle|puzzle|puzzle me|ask me a puzzle|give me a brain teaser|brain teaser|ask me a tricky question|ask me something tricky|quiz me|give me a quiz|ask me a quiz question|gau khane katha|gaun khane katha|gau khane katha bhana|paheli|paheli pucho|paheli sunao|ek paheli)
+
+## fun.fact g=fun h=funfact
+> (tell me a fun fact|tell me a fact|give me a fun fact|give me a fact|a fun fact|fun fact|fun facts|random fact|a random fact|another fact|another fun fact|one more fact|next fact|more facts|interesting fact|an interesting fact|tell me an interesting fact|tell me a random fact|tell me something interesting|tell me something new|tell me something cool|tell me something i do not know|tell me something amazing|tell me something surprising|tell me something random|something interesting|say something interesting|share a fact|share a fun fact|do you know any fun facts|do you know any interesting facts|do you know a fun fact|know any fun facts|know any interesting facts|got any fun facts|did you know|surprise me|amaze me|blow my mind|teach me something|teach me something new|i want to learn something|i want to learn something new|what is something interesting|what is a fun fact|what is an interesting fact|give me some trivia|trivia|tell me some trivia|random trivia|euta fact bhana|kei interesting bhana|kuch interesting batao|koi fact batao)
+! clinc fun_fact -/about|regarding| on | of | for |concerning|related/
+
+## fun.story g=fun h=story
+> (tell me a story|tell a story|a story|story|story please|tell me a short story|tell me a bedtime story|a bedtime story|bedtime story|tell me another story|another story|one more story|read me a story|i want a story|i want to hear a story|do you know any stories|do you know a story|can you tell me a story|can you tell a story|tell me a tale|tell me a fairy tale|once upon a time|story time|storytime|katha sunau|katha suna|euta katha bhana|kahani sunao|ek kahani sunao|kahani)
+
+## fun.poem g=fun h=poem
+> (tell me a poem|say a poem|recite a poem|a poem|poem|poem please|read me a poem|give me a poem|another poem|one more poem|do you know a poem|do you know any poems|can you recite a poem|can you say a poem|tell me a rhyme|a rhyme|say a rhyme|recite something|recite a verse|write a poem|write me a poem|can you write a poem|make a poem|kabita sunau|kabita|kavita sunao|ek kavita|shayari sunao|shayari)
+
+## fun.sing g=fun h=sing
+> (sing|sing a song|sing me a song|sing for me|sing something|sing to me|can you sing|can you sing a song|can you sing for me|do you sing|will you sing|sing a lullaby|sing me a lullaby|sing happy birthday|sing happy birthday to me|sing a little song|hum a tune|hum something|give me a song|a song|rap|rap for me|can you rap|drop a beat|beatbox|geet gau|geet gaau|gaana gao|ek gaana gao|gana sunao)
+! ms 37
+
+## fun.quote g=fun h=quote
+> (motivate me|inspire me|give me motivation|i need motivation|i need some motivation|i need inspiration|say something motivating|say something motivational|say something inspiring|tell me something motivating|tell me something inspiring|give me a quote|a quote|quote|quotes|quote of the day|give me a motivational quote|give me an inspirational quote|motivational quote|inspirational quote|inspiring quote|tell me a quote|share a quote|give me a thought|thought of the day|thought for the day|give me a proverb|a proverb|proverb|tell me a proverb|tell me a saying|give me some wisdom|say something wise|words of wisdom|give me a pep talk|pep talk|i need a pep talk|encourage me|i need encouragement|give me strength|give me courage|give me hope|boost me up|push me|motivate|motivation|inspire|ukhan tukka|ukhan bhana|prerna deu|motivate karo|kuch motivational bolo)
+
+## fun.cheer g=fun
+> (cheer me up|make me feel better|make me happy|say something nice|say something nice to me|say something kind|say something sweet|tell me something nice|tell me something good|tell me something positive|tell me something happy|compliment me|give me a compliment|flatter me|praise me|be nice to me|comfort me|console me|i need comfort|i need cheering up|i need to feel better|lift my mood|brighten my day|make my day|i need a friend right now|tell me it will be ok|tell me it will be okay|tell me everything will be (ok|okay|fine|alright)|will everything be (ok|okay|fine|alright)|will it be (ok|okay|fine|alright)|is everything going to be (ok|okay|fine|alright)|it will be (ok|okay|fine|alright) right)
+<[named] Here's something true, {name}: you took a moment today to reach out and talk, and that's a small, good thing. Whatever today looks like, it isn't the whole story.
+< Here's something true: you're doing better than you think. Most people are. And today is one day, not the whole story.
+< You asked, so here it is: you're curious, you're kind enough to chat with a program, and you're still trying. That counts for a lot.
+< Things have a way of working out more often than our worries predict. One step at a time. I'm in your corner.
+< You deserve a good day. If today isn't it, tomorrow gets another try. Meanwhile, want a joke?
+* Tell me a joke | Tell me a fun fact
+
+## fun.game g=fun h=game_menu
+> (let us play|let us play a game|let us play something|play a game|play a game with me|play with me|can we play|can we play a game|can you play|can you play games|can you play a game|do you play games|do you know any games|do you have games|do you have any games|what games do you have|what games can you play|what games can we play|what can we play|i want to play|i want to play a game|i wanna play|i wanna play a game|wanna play|wanna play a game|want to play a game|games|game|a game|game time|let us have some fun|khelau|khelum|game khelau|game khelum|khel khelte hain|game khelte hain|chalo khelte hain)
+
+## game.rps g=fun h=rps
+> (rock paper scissors|rock paper scissor|rock paper scissors shoot|let us play rock paper scissors|play rock paper scissors|play rock paper scissors with me|can we play rock paper scissors|i want to play rock paper scissors|rps|stone paper scissors|stone paper scissor|let us play stone paper scissors|play stone paper scissors|i (choose|pick|play|throw|go with|say) (rock|paper|scissors|scissor|stone)|my choice is (rock|paper|scissors|scissor|stone))
+
+## game.guess g=fun h=guess_start
+> (guess the number|guess my number|number guessing game|guessing game|a guessing game|play guess the number|let us play guess the number|play the number game|number game|i want to guess a number|think of a number|think of a number and i will guess|pick a number and i will guess|let me guess your number|guess game|play number guessing)
+
+## game.wyr g=fun h=wyr
+> (would you rather|play would you rather|let us play would you rather|ask me a would you rather|ask me would you rather|a would you rather question|would you rather question|this or that|play this or that|ask me a this or that)
+
+## game.knock g=fun h=knock
+> (knock knock|knock knock joke|i have a knock knock joke|tell me a knock knock joke|knock knock who is there)
+
+## game.userjoke g=fun
+> (can i tell you a joke|i have a joke|i have a joke for you|i know a joke|let me tell you a joke|want to hear a joke|wanna hear a joke|do you want to hear a joke|would you like to hear a joke|i will tell you a joke|i want to tell you a joke|listen to my joke|hear my joke|here is a joke|here is a joke for you|my turn to tell a joke|can i tell you a riddle|i have a riddle|i have a riddle for you|let me ask you a riddle|can i ask you a riddle|i will ask you a riddle|solve my riddle|answer my riddle)
+< Go ahead! I'm listening.{?userjoke}
+< I'd love to hear it. Go on.{?userjoke}
+< Yes please. I'm all ears, figuratively.{?userjoke}
+
+## convo.news g=user
+> (guess what|you know what|know what|guess what happened|you will not believe (this|what happened)|you will never guess|i have (news|good news|bad news|big news|great news|some news|exciting news)|i have something to (tell|say|share)|i have something to tell you|i have to tell you something|i need to tell you something|i want to tell you something|i wanna tell you something|let me tell you something|can i tell you something|may i tell you something|i want to share something|can i share something|want to hear something|wanna hear something|want to know something|wanna know something|want to know a secret|i have a secret|i have a story|i have a story to tell|something happened|something happened today|something (funny|strange|weird|amazing|terrible|bad|good|great|crazy|interesting) happened|listen|listen to this|hear me out|so listen|ek kura bhanu|euta kura bhanu|kura sunnu na|ek baat bataun|ek baat bolu|suno na)
+< What is it? Tell me!{?tellmore}
+< I'm listening. Go on.{?tellmore}
+<[named] Now I'm curious, {name}. What happened?{?tellmore}
+< Ooh, tell me. I'm all attention.{?tellmore}
+
+## skill.time g=skill h=time
+> (what time is it|what time is it now|what time is it right now|what is the time|what is the time now|what is the current time|what is the time right now|whats the time|time|the time|time now|time please|current time|local time|what is the local time|tell me the time|tell me the current time|tell me what time it is|can you tell me the time|can you tell me what time it is|could you tell me the time|do you know the time|do you know what time it is|do you have the time|have you got the time|got the time|what does the clock say|what hour is it|is it late|how late is it|check the time|give me the time|show me the time|time check|clock|what time|what is time now|what time is it please|kati bajyo|kati baje|kati bajyo aile|aile kati bajyo|ahile kati bajyo|time kati bhayo|time kati bhayo aile|samaya kati bhayo|kitne baje hain|kitna baja hai|kitne baj gaye|time kya hua|time kya hua hai|time kya ho raha hai|samay kya hua)
+> (what time is it|what is the time|what is the current time|what is the local time|current time|local time|time now|time|what time is it now|what time is it right now|tell me the time|the time|whats the time) (in|at|for) {x}
+> (what time is it|what is the time) {x}
+> {x} (time now|current time|local time)
+> what time is it in {x} (now|right now|currently|at the moment)
+> what time (it is|is it) in {x}
+! clinc time -/zone|timezone|until|till|how long|how much time|take|left|remaining/
+
+## skill.date g=skill h=date
+> (what is the date|what is the date today|what is today date|what is todays date|what is today|what date is it|what date is it today|what date is today|what is the current date|whats the date|date|the date|date today|today date|todays date|current date|date please|tell me the date|tell me today date|tell me the current date|can you tell me the date|do you know the date|do you know what day it is|what day is it|what day is it today|what day is today|which day is it|which day is today|what is the day|what is the day today|what day of the week is it|what day of the week is today|day|today|what is today day|is it (monday|tuesday|wednesday|thursday|friday|saturday|sunday) [today]|is today (monday|tuesday|wednesday|thursday|friday|saturday|sunday)|(today is|it is) (monday|tuesday|wednesday|thursday|friday|saturday|sunday) [today]|is it the weekend|is it weekend|is today a weekend|is today the weekend|is it a weekday|is today a weekday|is today a holiday|what month is it|what month is this|which month is it|which month is this|what is the month|what is the current month|current month|what month are we in|what year is it|what year is this|which year is it|which year is this|what is the year|what is the current year|current year|what year are we in|what is this year|what century is it|what week is it|what week of the year is it|which week is it|week number|what is the week number|what day is tomorrow|what is tomorrow|what day is it tomorrow|what is tomorrow date|what is the date tomorrow|tomorrow date|what date is tomorrow|what day will it be tomorrow|what is the day tomorrow|what day was yesterday|what was yesterday|what was yesterday date|what was the date yesterday|yesterday date|what date was yesterday|what day was it yesterday|what is the day after tomorrow|what day is the day after tomorrow|day after tomorrow|what was the day before yesterday|what day was the day before yesterday|day before yesterday|is this a leap year|is it a leap year|is this year a leap year|how many days (are )?in this month|how many days (are )?in this year|how many days does this month have|how many days are left in (this|the) (year|month)|how many days left in (this|the) (year|month)|how many days until the weekend|how many days till the weekend|how long until the weekend|is it (morning|afternoon|evening|night)|is it (day|night) [time]|is it day or night|aaja kati tarikh|aaja kun bar|aaja k bar|aaja ke bar ho|aaja kati gate|aaja ko date|aaj kya tarikh hai|aaj kaun sa din hai|aaj kya din hai|aaj ki date|aaj ki tarikh)
+> how many days (until|till|to|before|are left until|left until|left till|are there until|are there till) {x}
+> how (long|many days|many weeks|many months) (until|till|to|before) {x}
+> (when is|what day is|what date is|what day of the week is) (christmas|new year|new years|new years day|new year eve|new years eve|valentines day|valentine day|halloween|christmas eve|april fools day|may day|labour day|labor day|boxing day|international womens day|womens day|earth day|world environment day|childrens day) [this year|next year]
+> is {x} a leap year
+> what day (of the week )?(is|was|will be) {x}
+! clinc date
+
+## skill.coin g=skill h=coin
+> (flip a coin|flip coin|flip the coin|toss a coin|toss coin|toss the coin|coin flip|coin toss|coin|heads or tails|head or tail|heads or tail|head or tails|flip a coin for me|toss a coin for me|can you flip a coin|can you toss a coin|will you flip a coin|please flip a coin|do a coin flip|do a coin toss|flip it|toss it|flip again|toss again|flip another coin|flip one more|let us flip a coin|let us toss a coin|i need a coin flip|i need a coin toss|flip a quarter|flip a penny|call it heads or tails|sikka uchala|sikka uchhalo|toss gara|toss karo)
+! clinc flip_coin
+
+## skill.dice g=skill h=dice
+> (roll a dice|roll a die|roll dice|roll the dice|roll the die|roll a dice for me|roll dice for me|dice|dice roll|roll|roll it|roll again|roll one more|throw a dice|throw the dice|throw a die|throw dice|can you roll a dice|can you roll a die|can you roll dice|will you roll a dice|please roll a dice|please roll the dice|do a dice roll|let us roll a dice|let us roll the dice|i need a dice roll|roll for me|roll two dice|roll 2 dice|roll three dice|roll 3 dice|roll a pair of dice|roll a d4|roll a d6|roll a d8|roll a d10|roll a d12|roll a d20|roll a d100|roll d4|roll d6|roll d8|roll d10|roll d12|roll d20|roll d100|d6|d20|d12|d10|d8|d4|d100|paasa faka|pasa fyak|dice faka|dice ghumau)
+> roll (a|an|one|two|three|four|five|six|1|2|3|4|5|6) {x} sided (dice|die)
+> roll (a|an|one|two|three|four|five|six|1|2|3|4|5|6) (dice|die) with {x} sides
+> roll {x} (dice|die)
+> roll {x}
+! clinc roll_dice
+
+## skill.random g=skill h=random
+> (pick a number|pick a random number|pick any number|choose a number|choose a random number|give me a number|give me a random number|random number|a random number|say a number|say a random number|tell me a number|tell me a random number|generate a number|generate a random number|number please|any number|pick a number for me|think of a number for me|lucky number|give me a lucky number|what is my lucky number|my lucky number)
+> (pick|choose|give me|generate|say|tell me|select|think of) (a|any|one|a random|some) (number|random number|integer|digit) (between|from|in the range|in range|within) {a} (and|to|through|till|until) {b}
+> (random number|number|a number|random integer) (between|from) {a} (and|to|through|till) {b}
+> (pick|choose|give me|generate|say) (a|any|one|a random) (number|integer) (up to|under|below|less than|from 1 to|between 1 and) {b}
+
+## skill.choose g=skill h=choose
+> (choose|pick|select|decide) (between|from|among|one of|one from|one) {x}
+> (choose|pick|select|decide) for me {x}
+> (help me choose|help me pick|help me decide) (between|from|among) {x}
+> (you choose|you pick|you decide) {x}
+> (choose|pick|select) (one|for me|randomly|at random) (between|from|among|out of) {x}
+> randomly (choose|pick|select) (between|from|among|one of) {x}
+
+## skill.spell g=skill h=spell
+> (spell|spell out|spell the word|please spell|can you spell|could you spell|how do you spell|how do i spell|how to spell|how do we spell|how would you spell|what is the spelling of|what is the correct spelling of|what is the spelling for|spelling of|correct spelling of|the spelling of|tell me the spelling of|give me the spelling of|spell for me|spell me) {x}
+> {x} (spelling|spelled|spelt)
+> how is {x} (spelled|spelt)
+> how do you spell {x} (correctly|properly|in english)
+! clinc spelling
+
+## skill.reverse g=skill h=reverse
+> (reverse|reverse the word|reverse the text|reverse this|reverse the string|flip the word|mirror) {x}
+> (say|spell|write|type|read) {x} (backwards|backward|in reverse|reversed)
+> what is {x} (backwards|backward|in reverse|reversed|spelled backwards|spelled backward)
+> {x} (backwards|backward|in reverse|reversed)
+> what is the reverse of {x}
+
+## skill.count g=skill h=count
+> (count|count up|can you count|please count|count for me|let us count|start counting) (to|till|until|up to|upto) {b}
+> (count|count up|can you count|please count) from {a} (to|till|until|up to|through) {b}
+> (count down|count backwards|count backward|countdown|count back) from {a} [to {b}]
+> (count|say|list|tell me|recite) (the )?numbers from {a} (to|till|until|through) {b}
+> (count by|skip count by|count in) {s} (to|till|until|up to) {b}
+> (can you count|do you know how to count|count|count for me|count numbers|counting|start counting|let us count)
+
+## skill.letters g=skill h=letters
+> how many (letters|characters|alphabets|vowels|consonants|syllables|words) (are|is) (there )?in [the word|the name|the sentence|the phrase] {x}
+> how many (letters|characters|alphabets|vowels|consonants|words) in [the word|the name|the sentence|the phrase] {x}
+> how many (letters|characters|alphabets|vowels|consonants) does [the word|the name] {x} have
+> (count|count the) (letters|characters|vowels|consonants|words) (in|of) [the word|the name] {x}
+> (number of|no of) (letters|characters|vowels|consonants|words) in [the word|the name] {x}
+> (length of|what is the length of|how long is the word) [the word|the name] {x}
+> is {x} a palindrome
+> is [the word] {x} palindrome
+> what is the (first|last|second|third|middle) letter (of|in) [the word|the name] {x}
+> what (letter )?does {x} (start|begin|end) with
+> (uppercase|capitalize|capitalise|lowercase|make uppercase|make lowercase|all caps|in capitals|in capital letters) {x}
+> (write|say|type|put) {x} in (uppercase|lowercase|capitals|capital letters|caps|all caps|small letters)
+
+## skill.echo g=skill h=echo
+> (say|repeat|repeat after me|say after me|echo|please say|can you say|just say) {x}
+> (say|tell) (hi|hello|hey|bye|goodbye|good morning|good night|good evening|good afternoon|thanks|thank you|sorry|happy birthday|congratulations|namaste|i love you|welcome|good luck|get well soon) to {x}
+> (wish|greet) {x}
+> (introduce yourself to|say something to) {x}
+
+## skill.alphabet g=skill h=alphabet
+> (say the alphabet|say the alphabets|say abc|say abcd|recite the alphabet|tell me the alphabet|what is the alphabet|the alphabet|alphabet|alphabets|abc|abcd|abcdefg|a b c|a b c d|sing the alphabet|sing abc|sing the abc song|abc song|do you know the alphabet|do you know abc|do you know your abcs|can you say the alphabet|can you say abc|list the alphabet|english alphabet|what are the letters of the alphabet|letters of the alphabet|how many letters are in the alphabet|how many letters in the alphabet|how many letters are there in the alphabet|how many letters does the alphabet have|how many letters are in the english alphabet|how many alphabets are there|how many alphabets in english|what are the vowels|what are vowels|vowels|the vowels|list the vowels|name the vowels|how many vowels are there|how many vowels in english|how many vowels are in the alphabet|what are the consonants|consonants|how many consonants are there|how many consonants in english|say the alphabet backwards|alphabet backwards|reverse alphabet|z to a|what comes after {x} in the alphabet|what letter comes after {x}|what letter comes before {x}|what comes before {x} in the alphabet|which letter comes after {x}|which letter comes before {x}|what is the (first|last|second|third|fourth|fifth|tenth|middle) letter of the alphabet|what is the {x} letter of the alphabet|ka kha ga|ka kha ga gha|a aa i ee)
+
+## skill.math_words g=skill h=math_words
+> (add|sum|plus) {a} (and|to|with|plus) {b}
+> (what is|whats|calculate|compute|find|tell me|how much is|give me)? ?(the )?(sum|total|addition) of {a} and {b}
+> (subtract|minus|take away|take|deduct|remove) {a} from {b}
+> (what is|whats|calculate|compute|find|tell me|how much is)? ?(the )?(difference between|difference of) {a} and {b}
+> (multiply|times) {a} (by|and|with|into|times) {b}
+> (what is|whats|calculate|compute|find|tell me|how much is)? ?(the )?(product of|multiplication of) {a} and {b}
+> (divide) {a} (by|with|into) {b}
+> (what is|whats|how much is)? ?{a} into {b}
+> (what is|whats|calculate|compute|find|tell me|how much is)? ?(half|a half|one half) of {a}
+> (what is|whats|calculate|compute|find|tell me|how much is)? ?(a quarter|one quarter|a fourth|one fourth|a third|one third|a tenth|one tenth) of {a}
+> (what is|whats|calculate|compute|find|tell me|how much is)? ?(double|twice|triple|thrice|two times|three times) (of )?{a}
+> (what is|whats|calculate|compute|find|tell me)? ?(the )?(average|mean) of {x}
+> (is|are) {a} (bigger|greater|larger|more|higher|smaller|less|lower|fewer) than {b}
+> (which is|what is|which one is|which number is) (bigger|greater|larger|more|higher|smaller|less|lower) {a} or {b}
+> is {a} (an )?(even|odd|a prime|prime|a prime number|an even number|an odd number|even or odd|odd or even|a perfect square|a square number|positive|negative|divisible by {b}|a multiple of {b}|a factor of {b})
+> (what comes|what number comes|which number comes) (after|before|next after) {a}
+> what is (the number )?(after|before) {a}
+> [what are|list|find|tell me|give me|show me|what is] [the] (factors|multiples|divisors) of {a}
+> (what is|find|calculate|tell me)? ?(the )?(factorial|square|cube|square root|cube root|absolute value|table|multiplication table|times table) of {a}
+> (table of|times table of|multiplication table of|table for|say the table of|write the table of|tell me the table of|tell the table of) {a}
+> {a} (ka pahada|ko table|ka table|times table|table)
+> (what is|whats|convert)? ?{a} in (roman numerals|roman|roman numbers|binary|hex|hexadecimal|octal|words)
+> (convert|write|change) {a} (to|into|in) (roman numerals|roman|roman numbers|binary|hex|hexadecimal|octal|words)
+> (what is|whats)? ?(the )?(roman numeral|roman number|binary|hexadecimal|hex) (for|of) {a}
+> (round|round off) {a} [to the nearest (ten|hundred|thousand|whole number|integer|tenth|10|100|1000)]
+> (what is|whats)? ?(the )?(hcf|gcd|gcf|lcm|highest common factor|greatest common divisor|greatest common factor|lowest common multiple|least common multiple) of {a} and {b}
+
+## skill.repeat g=meta h=repeat
+> (repeat|repeat that|repeat it|repeat please|please repeat|please repeat that|repeat again|repeat the answer|repeat your answer|repeat what you said|repeat yourself|say that again|say it again|say again|say that one more time|one more time|once more|once again|come again|what did you say|what did you just say|what was that|what was that again|sorry what did you say|i did not hear you|i did not catch that|i did not get that|i missed that|i missed what you said|can you repeat|can you repeat that|can you repeat it|can you say that again|can you say it again|could you repeat that|could you say that again|tell me again|tell me that again|tell me once more|pardon|i beg your pardon|beg your pardon|say what again|feri bhana|feri bhannu na|feri ek choti|pheri bhana|phir se bolo|phir se batao|dobara bolo|dubara batao|ek baar aur)
+! clinc repeat
+
+## skill.stop g=ack
+> (stop|stop it|stop that|stop now|please stop|stop talking|stop speaking|stop please|just stop|enough|that is enough|ok enough|enough now|enough already|be quiet|quiet|quiet please|silence|silent|be silent|hush|shh|shhh|shush|zip it|shut it|shut up please|keep quiet|stay quiet|do not talk|do not speak|do not say anything|say nothing|no more|no more talking|stop responding|stop answering|stop replying|do not reply|do not answer|leave me alone please|go to sleep|sleep|turn off|shut down|power off|switch off|exit|quit|close|end|end chat|end conversation|stop the chat|pause|mute|chup lag na|chup basa|bas|bas bas|bas karo|bas kar|bus|ruk|ruko|rok|pugyo|bhayo|bhayo pugyo|pugyo aba)
+! ms 36
+< Okay. I'll be quiet until you need me.
+< Understood. I'll stop. Just type when you want me back.
+< Sure. Going quiet now.
+
+## skill.weather g=skill h=weather
+> (what is|how is|hows|whats|tell me|check|show me|give me|and) [the] (weather|forecast|weather forecast|temperature|weather report|weather update) [like] [today|now|outside|tomorrow|right now|here|this week|this weekend|for today|for tomorrow]
+> (weather|forecast|weather forecast|temperature|weather report|weather update) [today|now|outside|tomorrow|right now|here|this week|this weekend|for today|for tomorrow|please]
+> (will|is|does) it [going to|gonna] (rain|snow|be sunny|be hot|be cold|be cloudy|be windy) [today|tomorrow|tonight|now|this week|this weekend|later|here]
+> (is it going to rain|is it gonna rain|will it rain|do i need an umbrella|do i need a jacket|do i need a coat|should i take an umbrella|should i carry an umbrella|how hot is it|how cold is it|how hot is it outside|how cold is it outside|how hot is it today|how cold is it today|what is it like outside|is it hot outside|is it cold outside|is it raining|is it raining outside|is it raining now|is it snowing|is it sunny|is it sunny outside|is it cloudy|is it windy) [today|tomorrow|tonight|now|here]
+> (aaja ko mausam|mausam kasto cha|aaja mausam kasto cha|aaj ka mausam|mausam kaisa hai|aaj mausam kaisa hai|aaja pani parcha|pani parcha|aaja ko tapkram)

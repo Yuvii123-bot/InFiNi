@@ -1,0 +1,395 @@
+# INFINI AI — conversation database, part 1: greetings, farewells, thanks, reactions, feedback.
+# Format:  ## intent.id key=value   |  > pattern (a|b) [optional] {slot}   |  ! ms N / ! clinc name   (import phrasings)
+#          < [conditions] reply      |  * suggestion | suggestion
+
+## greet.hello g=greet
+> (hi|hello|hey|hiya|howdy|yo|hola|greetings|heya|hi there|hello there|hey there|hey you|hello again|hi again|hey hey|hello hello|hi hi|hey yo|yo yo)
+> (hi|hello|hey|yo) (everyone|everybody|all|guys|folks|world|friend|my friend|buddy|bot|robot|computer|ai|infini|infini ai|assistant|there infini|dear|bro|man|dude|mate)
+> good day [to you]
+> (bonjour|aloha|salut|konnichiwa|ohayo|salaam|salam|assalamualaikum|assalamu alaikum|shalom|ni hao|ola|hej|ahoy|wave|sat sri akal|vanakkam)
+> long time no see
+> (what is good|what is poppin|what is popping|peace)
+> (anybody|anyone|somebody|someone) (here|home)
+! ms 53
+! clinc greeting -/how|okay|ok |doing|going|things|everything|well|day|life|feeling|been|up\b|new|treating|hanging|you$|morning|evening|night|afternoon/
+<[first] Hello! I'm INFINI AI. We can simply chat, or you can ask me anything and I'll look it up on the live web.
+<[first] Hi there! I'm INFINI AI. I'm happy to chat, and I search the web whenever you need facts.
+<[first] Hey! I'm INFINI AI. Talk to me about anything, or ask a question and I'll go find the answer.
+<[named] Hello, {name}! What's on your mind?
+<[named] Hi {name}! Good to see you.
+<[named] Hey {name}! What shall we talk about?
+< Hello! What's on your mind?
+< Hi! Good to see you. What shall we talk about?
+< Hey! I'm here. Ask me something, or just tell me what's up.
+< Hello again! What can I do for you?
+* How are you? | What can you do? | Tell me a joke
+
+## greet.namaste g=greet
+> (namaste|namaste ji|namaste infini|namaste sir|namaste dai|namaste bhai|namaste didi|namaste sathi|namaste everyone|pranam|pranaam|ram ram|jai nepal|jay nepal|jai shree krishna|radhe radhe|jai shri ram|darshan|namaste namaste|sewa dhog|jojolopa|tashi delek|tashi delek la|sewaro|khamma ghani|adab|aadab|salaam alaikum|as salaam alaikum|kem cho|sat shri akal|nomoshkar|namaskaram|vanakam)
+<[first] Namaste! I'm INFINI AI. We can simply chat, or you can ask me anything and I'll look it up on the live web.
+<[first] Namaste! I'm INFINI AI. Sanchai hunuhuncha? Chat with me, or ask a question and I'll go and find the answer.
+<[named] Namaste, {name}! What's on your mind?
+< Namaste! Good to see you. What shall we talk about?
+< Namaste! I'm here. Ask me something, or just tell me what's up.
+* How are you? | What can you do? | Tell me a joke
+
+## greet.other_bot g=greet h=other_bot
+> (hi|hello|hey|ok|yo|hi there|hello there|hey there|good morning|good evening|namaste|thanks|thank you|bye|goodbye) (alexa|siri|cortana|bixby|google|gemini|bard|chatgpt|gpt|claude|copilot|grok|jarvis|hal|meta ai|deepseek|perplexity|watson|eliza)
+> (alexa|siri|cortana|bixby|ok google|hey google|hey siri|hey alexa|hey cortana|hi bixby|chatgpt|gemini|claude|copilot|jarvis|grok)
+! ms 60
+
+## greet.morning g=greet
+> good morning [to you|everyone|all|infini|friend|dear|bro|buddy|sunshine]
+> (morning|top of the morning|rise and shine|gud morning|suprabhat|shubh prabhat)
+> have a (good|great|nice|lovely) morning
+! ms 55
+<[dp.morning,named] Good morning, {name}! I hope the day treats you well. What's first on the list?
+<[dp.morning] Good morning! I hope your day goes well. What can I do for you?
+<[dp.morning] Morning! A fresh day. What would you like to talk about or look up?
+<[dp.afternoon] Good morning! Though my clock says it's already {time} where you are, so good afternoon too.
+<[dp.evening] Good morning! Although it's {time} where you are, so I'd call it evening. Either way, hello!
+<[dp.night] Good morning! It's {time} where you are, so you're either up very early or very late. How can I help?
+< Good morning! What can I do for you today?
+* How are you? | What day is it today?
+
+## greet.afternoon g=greet
+> good afternoon [to you|everyone|all|infini|friend|dear]
+> (afternoon|afternoon infini|a very good afternoon)
+<[dp.afternoon,named] Good afternoon, {name}! How is the day going?
+<[dp.afternoon] Good afternoon! How is your day going so far?
+<[dp.morning] Good afternoon! It's still {time} where you are, so you're a little ahead of the clock. How can I help?
+<[dp.evening] Good afternoon! It's {time} where you are, so it's nearly evening. What's on your mind?
+< Good afternoon! What can I do for you?
+
+## greet.evening g=greet
+> good evening [to you|everyone|all|infini|friend|dear]
+> (evening|evening infini|a very good evening|shubh sandhya)
+! ms 54
+<[dp.evening,named] Good evening, {name}! How was your day?{?day}
+<[dp.evening] Good evening! How was your day?{?day}
+<[dp.night] Good evening! It's {time} where you are, so it's getting late. What's on your mind?
+<[dp.morning] Good evening! My clock says {time} where you are, which looks like morning to me. Hello either way!
+< Good evening! What can I do for you?
+
+## greet.night g=bye
+> good night [to you|everyone|all|infini|friend|dear|bro|buddy|my friend]
+> (night night|nighty night|nite nite|sweet dreams|sleep well|sleep tight|shubh ratri|subha ratri|time for bed|bedtime)
+> (i am|i am going|i am off|i will go|i need to go|i have to go|going|off|heading) to (bed|sleep) [now]
+> i (am going to|will|should|need to|have to|gotta|got to|must) sleep [now]
+> have a (good|great|nice) night
+! ms 56
+<[named] Good night, {name}! Sleep well.
+< Good night! Sleep well, and come back whenever you like.
+< Good night! Rest well. I'll be here tomorrow.
+< Sweet dreams! Talk to you next time.
+<[dp.morning] Good night! It's {time} where you are, so that's a late one. Sleep well.
+
+## social.bye g=bye
+> (bye|goodbye|bye bye|byebye|bye now|bye for now|ok bye|okay bye|bye then|cya|see you|see you later|see you soon|see you around|see you tomorrow|see you again|later|laters|catch you later|talk to you later|talk later|until next time|take care|farewell|adios|ciao ciao|sayonara|au revoir|alvida|tata|ta ta|toodles|peace out|i am out|i am off|cheerio|so long)
+> (i have to|i need to|i gotta|i got to|i must|i should|i will|i am going to|gotta|got to|have to|need to|time to) (go|leave|run|head out|get going|be going|log off|sign off) [now]
+> i am (leaving|going|done|done for (today|now)|logging off|signing off|heading out) [now]
+> (that is all|no more questions|i am done|we are done|done for today) [for now|for today|thanks|thank you]
+> (bye|goodbye|see you|take care) (infini|friend|buddy|bro|dear|everyone|all|my friend|for now)
+> (pheri bhetaula|phir milenge|feri bhetaula)
+! ms 52
+! clinc goodbye
+<[named] Goodbye, {name}! It was nice talking with you.
+<[named] Take care, {name}. Come back any time.
+< Goodbye! It was nice talking with you.
+< Bye! Come back any time. I'll be here.
+< Take care! See you next time.
+< See you later! I enjoyed the chat.
+
+## social.brb g=bye
+> (brb|be right back|i will be right back|i will be back|back in a (minute|moment|sec|second|bit|while)|give me a (minute|moment|sec|second)|one (minute|moment|sec|second)|just a (minute|moment|sec|second)|hold on|hang on|wait|wait a (minute|moment|sec|second)|wait for me|hold up|one sec|a moment)
+! ms 76
+< Sure, take your time. I'll be here.
+< No rush. I'll wait right here.
+< Okay! I'm not going anywhere.
+
+## social.back g=greet
+> (i am back|i am here|back|i am back again|i have returned|i returned|here again|guess who is back|i am home|back again)
+! ms 79
+<[named] Welcome back, {name}! Where were we?
+< Welcome back! What would you like to do next?
+< Good to have you back. What's next?
+
+## social.thanks g=thanks
+> (thanks|thank you|thank you so much|thank you very much|thanks a lot|thanks a ton|thanks a bunch|thanks a million|many thanks|thanks so much|thank you so so much|much appreciated|appreciate it|i appreciate it|i appreciate that|appreciated|cheers|thanks again|thank you again|ok thanks|ok thank you|great thanks|thanks for that|thanks for the help|thanks for your help|thank you for your help|thank you for helping|thanks for helping [me]|thanks for the answer|thanks for the info|thanks for the information|thanks for telling me|thanks for everything|thank you for everything|thanks for your time|that helps|that helped|that was helpful|that is helpful|very helpful|you helped me a lot|you are a great help|you are a lifesaver|you saved me|big thanks|thanks mate|thanks buddy|thanks friend|thanks dear|thank god|thank you kindly|i owe you one)
+> (dhanyabad|dhanyabaad|dhanyavad|dhanyavaad|shukriya|shukran|merci|gracias|danke|arigato|arigatou|grazie|obrigado|xie xie|spasibo|thank u|thanku so much)
+> (thanks|thank you) (infini|infini ai|bot|ai|man|bro|dude|buddy|a lot infini|so much infini)
+> that is (very|so|really) (kind|nice|sweet) [of you]
+> (thanks|thank you|thank you so much|thanks a lot|many thanks|thank you very much|thanks so much) for {x}
+> (thanks|thank you) (for listening|for being here|for understanding|for the chat|for talking|for talking to me|for caring|for asking|for your time|for being there|for everything you do|for the laugh|for the joke|for the riddle|for chatting|for the company|for your patience|for explaining|for the explanation|for clarifying|for the clarification|for sharing|for your kindness|for your support|for the advice|for the suggestion|for the tip|for the update|for letting me know|for reminding me|for the reminder|for trying|for your effort|for your concern|for your reply|for replying|for responding|for your response|for answering|for your answer)
+> you are (so|very|really|too) kind
+! ms 49
+! clinc thank_you
+<[web,named] You're welcome, {name}! Ask if you'd like to dig deeper into {topic}.
+<[web] You're welcome! If you want more on {topic}, just ask.
+<[web] Glad it helped. Anything else you'd like me to look up?
+<[named] You're welcome, {name}!
+< You're welcome!
+< Any time!
+< Happy to help.
+< My pleasure. Anything else?
+< No problem at all.
+
+## social.welcome g=ack
+> (you are welcome|you are most welcome|you are very welcome|welcome|no problem|no worries|no prob|np|not a problem|do not mention it|my pleasure|anytime|any time|it is nothing|it was nothing|no biggie|no big deal|de nada|happy to help|glad to help|glad i could help|you too|same to you|likewise|same here|right back at you|back at you|and you too|you as well|same for you|wish you the same)
+! ms 51
+< Thank you. That's kind of you.
+< Much appreciated!
+< Thanks! What would you like to do next?
+
+## social.sorry g=ack
+> (sorry|i am sorry|so sorry|i am so sorry|i am really sorry|i am very sorry|my bad|my mistake|my fault|i apologize|i apologise|apologies|my apologies|sorry about that|sorry for that|sorry for (the|my) (mistake|confusion|trouble|typo|error|delay)|forgive me|please forgive me|pardon me|i did not mean (it|that|to)|i take it back|i was wrong|sorry i was (rude|mean|wrong)|sorry for being (rude|mean)|i feel bad about (it|that)|oops sorry|sorry my bad|i was (just )?(rude|mean) [to you]|maaf garnu|maaf kijiye|maaf karo|sorry yaar)
+! ms 48
+< No problem at all.
+< That's okay, no harm done.
+< No need to apologise. What would you like to do next?
+< It's all good.
+
+## ack.oops g=ack
+> (oops|whoops|oopsie|oopsy|uh oh|excuse me|scuse me|oh no|oh dear|oh my|yikes)
+! ms 45
+< No problem.
+< No worries. Go ahead whenever you're ready.
+< That's fine. What did you want to say?
+
+## social.nicemeet g=greet
+> (nice|good|great|glad|pleased|lovely|happy|a pleasure|pleasure|delighted|wonderful) to (meet|meeting|know|see|talk to|chat with|talk with) you [too|as well|infini|again]
+> (nice|good|great|lovely) (meeting|talking to|talking with|chatting with|knowing) you [too|as well]
+> (it is|it was) (nice|good|great|a pleasure|lovely) (to meet|meeting|talking to|talking with|to talk to|to talk with|chatting with) you
+> (pleasure|the pleasure is mine|pleased to make your acquaintance|how do you do|charmed|nice to meet you|nice meeting you)
+! ms 59
+<[named] Nice to meet you too, {name}!
+<[!named] Nice to meet you too! What should I call you?{?name}
+< Likewise! I'm glad we're talking.
+< The pleasure is mine.
+
+## social.holiday g=greet
+> happy (new year|birthday|holidays|holiday|christmas|xmas|easter|diwali|deepawali|tihar|dashain|dasain|holi|eid|eid mubarak|thanksgiving|halloween|valentines day|valentine day|mothers day|fathers day|teachers day|friendship day|womens day|childrens day|independence day|republic day|weekend|friday|monday|sunday|saturday|teej|losar|lhosar|chhath|ramadan|hanukkah|new year 2083|nepali new year|bhai tika|laxmi puja|maha shivaratri|shivaratri|buddha jayanti|raksha bandhan|janai purnima) [to you|infini|everyone|all|dear|my friend]
+> (merry christmas|merry xmas|eid mubarak|season greetings|seasons greetings|happy holidays|shubha dashain|shubha deepawali|shubha tihar|shubh diwali|naya barsa ko subhakamana|naya barsha ko shubhakamana|dashain ko subhakamana|tihar ko subhakamana|vijaya dashami ko subhakamana|shubha vijaya dashami)
+> happy birthday to you
+! ms 61 -/^cheers$/
+< Thank you, and the same to you! I hope it's a good one.
+< And to you as well! Enjoy the day.
+<[named] Thank you, {name}! The very same to you.
+< Thank you! Wishing you a wonderful celebration.
+
+## social.highfive g=ack
+> (high five|hi five|gimme five|give me five|give me a high five|up high|fist bump|give me a fist bump|bump it|pound it|slap me some skin|put it there|shake my hand|shake hands|let us shake hands|can you shake my hand|handshake|wave at me|clap for me)
+! ms 63
+< High five! (You'll have to imagine the hand. I only have text.)
+< Consider it done: one virtual high five.
+< I have no hands, but the spirit is there. High five!
+
+## social.hug g=ack
+> (hug|hugs|hug me|give me a hug|i need a hug|can i have a hug|can i get a hug|i want a hug|virtual hug|send me a hug|i could use a hug|a hug would be nice|let us hug|group hug|sending hugs|big hug)
+! ms 66
+< I can't hug, but here's the closest thing I have: a warm virtual hug. I hope things are okay.
+< One virtual hug, sent. If something's weighing on you, I'm happy to listen.
+< Consider yourself hugged, in the only way a program can manage.
+
+## ack.yes g=ack
+> (yes|yes yes|yes please|yes of course|yes sure|yes i do|yes i am|yes it is|yes i did|yes i have|yes i will|yes i can|yes indeed|yes definitely|yes absolutely|yes it does|oh yes|sure|sure thing|of course|ofcourse|certainly|definitely|absolutely|affirmative|i do|i am|i did|i will|i would|i think so|i guess so|i suppose so|i believe so|why not|go ahead|go on|please do|do it|let us do it|let us go|ok go|sounds good|sounds great|sounds fine|sounds like a plan|fine by me|works for me|aye|uh huh|mhm|mm hmm|totally|for sure|you bet|by all means|alright then|ok then|ok sure|ok yes|haan|ha|ho|hajur|ji|ji haan|han ji|hunchha|huncha|hunxa|si|oui|da)
+! clinc yes -/true|correct|right|fact|false|accurate/
+<[asked.none] Okay! What would you like to do next?
+<[asked.none] Great. Tell me what you'd like to talk about or look up.
+<[asked.none] Alright! I'm ready when you are.
+
+## ack.no g=ack
+> (no|no no|no thanks|no thank you|nah thanks|no need|not now|not really|not at all|not yet|not today|nothing|nothing else|nothing really|nothing much|nothing more|never|never mind|nevermind|forget it|forget about it|leave it|skip it|skip|drop it|let it be|i do not|i am not|i did not|i will not|i would not|i can not|i do not think so|i guess not|i am good|i am fine thanks|i am okay thanks|no i am good|no i am fine|that is ok|that is okay|it is ok|it is okay|it is fine|do not worry|do not bother|negative|nahi|nahin|hoina|chaina|xaina|pardaina|non|nein|nyet)
+! clinc no -/true|correct|right|false|wrong|incorrect|accurate|fact/
+! clinc cancel
+<[asked.none] Okay, no problem. I'm here if you need anything.
+<[asked.none] Alright. Just say the word if you change your mind.
+<[asked.none] Sure. What would you like to do instead?
+
+## ack.maybe g=ack
+> (maybe|perhaps|possibly|probably|probably not|maybe not|maybe later|not sure|i am not sure|i am not so sure|not certain|i do not know|do not know|no idea|i have no idea|no clue|i have no clue|who knows|could be|might be|we will see|let us see|it depends|depends|i guess|i suppose|sort of|kind of|more or less|hard to say|i can not say|i am undecided|beats me|not that i know|thaha chaina|thaha xaina|pata nahi|malai thaha chaina)
+! clinc maybe
+<[asked.none] That's fine. No need to decide right now.
+<[asked.none] Fair enough. If I can help you make up your mind, tell me what the choice is.
+<[asked.none] No problem. Take your time.
+
+## ack.ok g=ack
+> (ok|okay|ok ok|alright|all right|alrighty|fine|fair enough|got it|gotcha|i got it|i get it|i see|i understand|understood|i understood|makes sense|that makes sense|it makes sense|noted|roger|roger that|copy that|righto|okie dokie|okey dokey|k cool|ok cool|ok fine|ok got it|ok i see|ok i understand|ok good|ok great|ok nice|oh ok|oh okay|oh i see|oh right|ah ok|ah i see|aha|ahh|ohh|oh|ah|hmm ok|i know|i knew it|i knew that|i know that|as i thought|as expected|thought so|i thought so|if you say so|whatever|whatever you say|same|same here|me too|me neither|so do i|thik cha|thik xa|theek hai|thik hai|accha|acha|achha|huncha ni|la|la la|la thik cha|bujhe|bujhye|samjha|samajh gaya)
+<[web] Good. If anything in that answer was unclear, say "explain that more simply".
+<[web] Okay. Want to go deeper into {topic}, or move on to something else?
+< Okay!
+< Alright. What's next?
+< Got it.
+< Good. I'm here when you need me.
+
+## ack.cool g=ack
+> (cool|nice|great|awesome|amazing|wonderful|fantastic|excellent|perfect|brilliant|superb|super|lovely|sweet|neat|neato|impressive|incredible|outstanding|terrific|fabulous|marvelous|splendid|beautiful|wow|woah|whoa|wow wow|omg|oh my god|oh my gosh|oh wow|oh nice|oh cool|oh great|how nice|how cool|how amazing|how wonderful|how interesting|interesting|very interesting|so interesting|fascinating|that is cool|that is nice|that is great|that is awesome|that is amazing|that is wonderful|that is fantastic|that is excellent|that is perfect|that is brilliant|that is lovely|that is neat|that is impressive|that is incredible|that is interesting|that is fascinating|that is good|that is so cool|that is so nice|that is really cool|that is really nice|that is very good|that is very nice|that is super|it is good|it is great|it is nice|it is cool|it is awesome|it is amazing|it is perfect|it is fine|it is better|it is better now|it is good now|its good|its great|its nice|its cool|its awesome|its amazing|its perfect|its better|its better now|its good now|its fine|this is good|this is great|this is nice|this is cool|this is awesome|this is amazing|this is fun|this is better|not bad|not bad at all|pretty good|pretty cool|pretty nice|very good|very nice|very cool|so good|so nice|so cool|good|good good|good one|good stuff|good to know|nice one|nice nice|great stuff|yay|yayy|yippee|hooray|hurray|woohoo|woo hoo|bravo|bingo|voila|dope|lit|epic|legendary|ramro|ramro cha|ramro xa|dami|dammi|babbal|kya baat|kya baat hai|bahut accha|badhiya|sahi|sahi ho|mast|ekdam ramro|kati ramro|waah|wah)
+> (i like (it|that|this)|i love (it|that|this)|i am impressed|i am amazed|love it|loving it|like it|i like (it|this) (a lot|very much|so much)|that is what i (wanted|needed|was looking for)|just what i (wanted|needed)|exactly what i (wanted|needed))
+! ms 43
+<[web.high] Glad you think so! The sources on {topic} were solid. Want to explore another angle?
+<[web] Glad that was useful! Anything else you're curious about?
+<[brain] Glad you like it!
+< Glad you think so!
+< Good to hear!
+< Great! What shall we do next?
+< I'm glad. Anything else on your mind?
+
+## ack.laugh g=ack
+> (lol|lol lol|haha|ha ha|ha ha ha|hehe|he he|hihi|lolol|lmao|rofl|that is funny|that was funny|so funny|very funny|too funny|hilarious|that is hilarious|that was hilarious|you are funny|you are so funny|you are hilarious|you crack me up|you make me laugh|you made me laugh|that made me laugh|i am laughing|i laughed|good joke|nice joke|great joke|funny one|that is a good one|that was a good one|good one haha|i am dying of laughter|i can not stop laughing|you are a comedian|what a joke)
+! ms 44
+<[after.joke] Glad it landed! Want another?{?joke}
+<[after.joke] I'll take that as applause. Another one?{?joke}
+< Glad that made you laugh!
+< Happy to have brightened the moment.
+< That's good to hear. Laughter is the best kind of reply.
+* Tell me a joke | Give me a riddle
+
+## ack.hmm g=ack
+> (hmm|hm|hmmm|hmm hmm|mm|mmm|umm|um|uh|uhh|er|erm|huh|eh|meh|well|so|and|then|ok so|so what|so what now|now what|what now|what next|and then|and now|then what|what else|anything else|go on then)
+<[web] Take your time. If you'd like, I can explain {topic} more simply or go into more detail.
+< I'm listening. Take your time.
+< Thinking it over? Ask me anything, or say "tell me a joke" if you'd like a break.
+< I'm here. What would you like to do?
+* What can you do? | Tell me a joke | Give me a riddle
+
+## ack.really g=ack
+> (what the|what the heck|what the hell|wtf|wth|what on earth|what in the world|are you kidding|are you kidding me|are you serious|are you joking|seriously|you are kidding|you are joking|no way|get out|shut the front door|you do not say|for real|is that for real|you can not be serious|unbelievable|i can not believe it|i do not believe it|i do not believe you|really|oh really|is that so|is it|is it so|truly|honestly|you sure|sure about that|say what|ho ra|sachi|sachchi|sach me|kya sach me|hora)
+<[web.high] Yes, that's what the sources say. I rated that answer {conf} confidence ({confpct}%) from {nsrc} sources. Want me to double-check it with a deeper search?{?deeper}
+<[web.medium] That's what I found, though my confidence was only {conf} ({confpct}%). Shall I double-check with a deeper search?{?deeper}
+<[web.low] Good instinct to question it: my confidence in that answer was {conf}. Shall I check again more deeply?{?deeper}
+<[web.none] To be clear, I could not verify that one. I only showed the closest material I found.
+<[brain] Really! I wouldn't make it up.
+< Really. What part surprised you?
+* Double-check that | Show your sources
+
+## meta.sure g=meta
+> (are you sure|are you sure about (that|this|it)|are you certain|are you positive|are you 100 percent sure|are you really sure|are you absolutely sure|you sure about that|how sure are you|how confident are you|how certain are you|are you confident|is that (correct|accurate|right|true|a fact|certain)|is this (correct|accurate|right|true)|is it (correct|accurate|right)|can i trust (that|this|it|you|your answer|your answers)|can you be trusted|should i trust you|are you (reliable|accurate|dependable|ever wrong|never wrong)|can you (make mistakes|make a mistake|make errors|get things wrong|get it wrong|be mistaken|be incorrect|lie to me)|do you (ever )?(get things wrong|get it wrong|make errors|give wrong answers)|should i believe (you|that)|is that reliable|is that information (correct|reliable|accurate)|how do i know (that|it|this) is (true|correct|right)|how reliable (are you|is that)|are you telling the truth|is your answer correct|are you right|how accurate are you|do you make mistakes|are you ever wrong|can you be wrong|are you always right|are you always correct|do you ever lie|do you lie|will you lie to me|are you lying|are you honest|do you tell the truth)
+<[web.high] Fairly sure. That answer scored {conf} confidence ({confpct}%) and rests on {nsrc} sources you can open and check. I only repeat what the pages say, so if they are wrong, I am too. Want a deeper double-check?{?deeper}
+<[web.medium] Moderately. I rated it {conf} ({confpct}%) from {nsrc} sources. It's worth opening the sources. Shall I double-check with a deeper search?{?deeper}
+<[web.low] Not very. My confidence was {conf} ({confpct}%). Please treat it with care. Shall I search again more deeply?{?deeper}
+<[web.none] No. I could not verify that from the pages I found, which is why I said so. Shall I try a deeper search?{?deeper}
+<[brain] For small talk, yes, I'm sure of what I said. For facts I don't rely on myself: I look them up and show you the sources, so you can check me.
+< I can be wrong. For facts I don't trust my own memory: I search live pages, quote them and show the sources so you can check. When the pages don't support an answer, I say so.
+* Double-check that | Show your sources | How do you work?
+
+## fb.correct g=feedback
+> (correct|right|true|exactly|precisely|indeed|spot on|bang on|on point|bingo|accurate|that is correct|that is right|that is true|that is accurate|that is exactly right|that is it|that is the one|yes that is correct|yes that is right|yes correct|yes right|yes exactly|yes that is it|yep that is right|you are right|you are correct|you are absolutely right|you are so right|you got it|you got it right|you got that right|you nailed it|nailed it|you said it|you said it right|you said it correct|you said it correctly|you said correct|you said correctly|you said right|you said that right|you told correct|you told correctly|you answered correctly|you answered right|you are right about that|correct answer|right answer|good answer|great answer|nice answer|perfect answer|best answer|excellent answer|that is a good answer|that was a good answer|that was correct|that was right|that was accurate|well said|well put|well answered|well explained|nicely explained|nicely put|good explanation|great explanation|nice explanation|you explained (it|that) well|you explained it very well|true that|so true|very true|absolutely right|absolutely correct|100 percent|hundred percent|100 percent correct|you speak the truth|couldnt agree more|could not agree more|i agree|i agree with you|agreed|i think so too|same thought|my thoughts exactly|thik bhanyo|thik bhannu bhayo|sahi bhanyo|sahi bhannu bhayo|sahi kaha|bilkul sahi|ekdam sahi|sahi jawab|thik ho|ho ni|ho ta|thik kura)
+! ms 47
+! clinc yes /true|correct|right|fact|false|accurate/
+<[web.high] Thank you! The credit goes to the sources. I only put their sentences together. Want to keep going on {topic}?
+<[web] Glad it checked out! The sources did the heavy lifting. Anything else you'd like to know?
+<[brain,named] Thank you, {name}! Good to know I got it right.
+<[brain] Thank you! Good to know I got it right.
+< Thank you! I'm glad that was right.
+< Good to hear I got it right.
+< Thanks for confirming. That helps.
+
+## fb.wrong g=feedback
+> (wrong|incorrect|false|not true|untrue|not right|not correct|not accurate|inaccurate|that is wrong|that is incorrect|that is false|that is not true|that is not right|that is not correct|that is not accurate|that is a lie|that is inaccurate|that is totally wrong|that is completely wrong|that is so wrong|this is wrong|this is incorrect|this is not right|this is not correct|it is wrong|it is incorrect|it is not right|it is not correct|it is not true|you are wrong|you are incorrect|you are mistaken|you are not right|you are not correct|you got it wrong|you got that wrong|you made a mistake|you made an error|you messed up|you are lying|you lied|wrong answer|incorrect answer|bad answer|wrong again|still wrong|no that is wrong|no that is not right|no that is incorrect|no you are wrong|nope wrong|that was wrong|that was incorrect|that was not right|your answer is wrong|your answer is incorrect|your answer was wrong|you said it wrong|you said wrong|you told wrong|you answered wrong|i disagree|i do not agree|i do not think so|i doubt it|i doubt that|doubt it|that can not be right|that can not be true|that does not sound right|that sounds wrong|galat|galat hai|galat ho|galat bhanyo|yo galat ho|thik chaina|thik xaina|hoina yo|jhuto|jhooth|sahi nahi hai|yeh galat hai)
+! clinc no /true|correct|right|false|wrong|incorrect|accurate|fact/
+<[web.high] Sorry about that. I can only repeat what the pages say, and they can be wrong or I can pick the wrong sentence. Tell me what's off, or I can search again more deeply.
+<[web] Sorry about that. My confidence there was only {conf}. I can search again more deeply, or you can tell me what the right answer is.
+<[web.none] Fair. I couldn't verify that one in the first place. Shall I try a deeper search?
+<[brain] Sorry, my mistake. Tell me what I got wrong and I'll try again.
+< Sorry about that. Tell me what's wrong and I'll try to do better.
+< I apologise. Could you tell me which part is wrong?
+* Double-check that | Show your sources
+
+## fb.bad_answer g=feedback
+> (that is not what i asked|that is not what i meant|that is not what i wanted|that is not what i am looking for|not what i asked|not what i meant|not what i wanted|you did not answer [my question|me|the question|it]|you are not answering [my question|me|the question]|that does not answer (my|the) question|that did not answer (my|the) question|answer (my|the) question|just answer (my|the) question|that makes no sense|that does not make sense|that did not make sense|this makes no sense|makes no sense|you make no sense|you are not making sense|you are making no sense|nonsense|gibberish|that is nonsense|that is irrelevant|irrelevant|off topic|that is off topic|not relevant|that is not relevant|not helpful|that is not helpful|that was not helpful|unhelpful|this is not helpful|you are not helpful|you are not helping|that does not help|that did not help|it did not help|no help|useless answer|bad response|poor answer|terrible answer|worst answer|your answer is useless|your answers are (bad|wrong|useless|terrible|dumb|stupid)|you misunderstood [me]|you did not understand [me]|you do not understand [me]|you got me wrong|i did not ask (that|for that)|i asked something else|i asked a different question|read my question again|listen to me|you are not listening|pay attention|try again|do better|you can do better|not good|not good enough|not satisfied|i am not satisfied|disappointing|that is disappointing|i am disappointed|i expected better)
+! ms 42
+<[web] Sorry about that. Could you rephrase the question, or tell me which part you care about? A more specific question usually gets me better pages.
+<[web] I apologise. I may have read the question differently from how you meant it. Try putting it another way and I'll search again.
+< Sorry about that. Could you say it another way? I'll do my best to follow.
+< I apologise for the miss. Tell me again what you need, in different words if you can.
+< Sorry. I'm limited to rules and what I can look up, so I do misread things. What did you mean?
+* Explain that more simply | What can you do?
+
+## fb.compliment g=feedback
+> (you are|you are so|you are very|you are really|you are pretty|you are quite|you are just|you are truly|u r) (great|awesome|amazing|the best|wonderful|fantastic|excellent|brilliant|cool|good|nice|helpful|incredible|perfect|super|superb|impressive|outstanding|a genius|genius|smart|clever|intelligent|wise|sharp|bright|talented|special|a star|a legend|a lifesaver|sweet|kind|lovely|adorable|cute|the greatest|number one|unbeatable|on fire|one of a kind|my hero|a good friend|a good bot|a good ai|a great ai|a great bot|a great assistant|a good assistant|a nice ai|useful|so useful|very useful|better than (chatgpt|google|siri|alexa|gemini|others|the others|the rest)|the smartest|so smart|too good|too smart|getting better|getting smarter|improving|ramro|dami|babbal|mast)
+> (good job|great job|nice job|awesome job|excellent job|amazing job|well done|nice work|good work|great work|excellent work|amazing work|nicely done|good going|way to go|keep it up|keep up the good work|you rock|you rule|you are killing it|you did it|you did well|you did good|you did great|you did a good job|you did a great job|bravo|kudos|props|hats off|respect|i am proud of you|proud of you|good bot|good boy|good girl|good ai|nice bot|nice ai|smart bot|smart ai|clever bot|clever ai|that was smart|that was clever|that was impressive|that was brilliant|that was great|that was awesome|that was amazing|that was nice|that was good|that was cool|you impress me|you impressed me|i am impressed with you|you are doing great|you are doing well|you are doing good|you are doing a great job|you are doing a good job|i like how you (talk|answer|work|think)|you are better now|you are better than before|you have improved|you improved [a lot]|much better|way better|so much better|this is better|better now|it is better now|big improvement|you learn fast|you are a fast learner|syabas|shabash|shabaash|wah wah|kya baat hai|dami cha|dami xa|ramro garyo|ramro garis)
+! ms 38 25
+<[named] Thank you, {name}! That's kind of you to say.
+<[web] Thank you! The sources deserve most of the credit. I just read them carefully.
+< Thank you! That's kind of you to say.
+< Thanks! I'll do my best to keep it up.
+< That means a lot. Thank you.
+< I appreciate that. It's good to know I'm being useful.
+< Thank you! I'm still improving, so that's encouraging to hear.
+
+## fb.insult g=feedback
+> (you are|you are so|you are very|you are really|you are such a|you are such an|you are a|you are an|you are just a|you are just|u r) (stupid|dumb|an idiot|idiot|a moron|moron|a fool|fool|foolish|useless|worthless|bad|terrible|awful|horrible|the worst|trash|garbage|rubbish|lame|pathetic|a loser|loser|annoying|irritating|slow|crazy|mad|insane|weird|strange|creepy|silly|ridiculous|a joke|a failure|a disappointment|a waste|a waste of time|nothing|not smart|not intelligent|not helpful|not good|not funny|no good|no use|brainless|mindless|clueless|hopeless|pointless|rude|mean|a liar|liar|fake|a fake|a fraud|broken|buggy|a bad bot|a bad ai|a stupid bot|a stupid ai|a dumb bot|a dumb ai|a stupid machine|a dumb machine|worse than (chatgpt|google|siri|alexa|gemini)|so bad|so dumb|so stupid|so useless|not as good as chatgpt|pagal|paagal|murkha|bewakoof|bekar|bekaar|gadha|gadhaa|ullu|budhu|buddhu|chutiya|nalayak|khattam|lado|muji|sala|saala)
+> (stupid|idiot|dumb|moron|fool|loser|shut up|stfu|screw you|damn you|go away|get lost|go to hell|i hate you|hate you|i do not like you|i dislike you|you suck|u suck|you stink|you are dead to me|drop dead|get out|leave me alone|fuck you|fuck off|f you|f off|bitch|asshole|bastard|jerk|bad bot|bad ai|stupid bot|stupid ai|dumb bot|dumb ai|stupid machine|dumb machine|stupid robot|dumb robot|worst bot|worst ai|worst assistant|what a stupid bot|what a dumb ai|you know nothing|you do not know anything|you can not do anything|you can not do anything right|you are good for nothing|good for nothing|waste of time|you are wasting my time|i am wasting my time|what is wrong with you|what is your problem|are you stupid|are you dumb|are you an idiot|are you crazy|are you insane|are you broken|are you drunk|are you high|are you blind|are you deaf|are you kidding me right now|chup|chup lag|chup raho|chup baseko|bakwas|bakwaas|bakwas band kar|pagal ho|pagal hai kya|timi pagal ho)
+! ms 39
+< I'm sorry I let you down. Tell me what went wrong and I'll try again.
+< That's fair to feel if I wasn't useful. What were you hoping I'd do?
+< I'm sorry. I'm a limited program and I do get things wrong. How can I do better here?
+< Understood. I'd still like to help if you'll give me another try.
+< I hear you. Let's start over: what do you need?
+* What can you do? | How do you work?
+
+## fb.ugly g=feedback
+> you are (ugly|so ugly|very ugly|hideous|unattractive|fat|gross|disgusting|not pretty|not cute|not good looking)
+> (you look|you are looking) (ugly|bad|terrible|awful|horrible|weird|strange|old|fat)
+> (your face is ugly|you have an ugly face|ugly bot|ugly ai|i do not like (your|the) (look|looks|design|logo|face|colors|color))
+! ms 41
+< I don't have a face, so I'll take that as a note about my design. Noted!
+< Fair enough. I'm mostly text and a logo, so there isn't much to look at.
+< Looks aren't my strong side. I'm better with questions.
+
+## fb.boring g=feedback
+> (you are|this is|that is|it is|that was) (boring|so boring|very boring|really boring|dull|so dull|not fun|no fun|not interesting|uninteresting|tedious|lame|a bore|too boring|kinda boring)
+> (boring|so boring|how boring|what a bore|yawn|you bore me|you are boring me|i am bored of you|i am bored with you|i am tired of you|i am sick of you|i am fed up with you|you are no fun|be more fun|be more interesting|be fun|say something fun|entertain me|amuse me|do something fun|do something interesting|do something)
+! ms 1
+< Fair point. Let me try to fix that: I can tell a joke, give you a riddle, flip a coin, or look up something strange and true. Your pick.
+< Sorry to be dull. Want a joke, a riddle, or shall I dig up something interesting on a topic you like?
+< I can do better. Give me a topic you enjoy and I'll find something worth reading, or ask for a joke.
+* Tell me a joke | Give me a riddle | Flip a coin
+
+## fb.notfunny g=feedback
+> (not funny|that is not funny|that was not funny|it is not funny|this is not funny|you are not funny|so not funny|unfunny|bad joke|terrible joke|lame joke|worst joke|that joke was (bad|terrible|awful|lame|not funny)|your jokes are (bad|terrible|awful|lame|not funny|boring)|i did not laugh|i am not laughing|that is a dad joke|dad joke|i did not get (the|that) joke|i do not get the joke|explain the joke|what is funny about that|was that a joke|is that a joke|is that supposed to be funny|was that supposed to be funny|do not joke|stop joking|no more jokes|be serious|get serious|i am serious|this is serious|not in the mood for jokes)
+! ms 40
+<[after.joke] Tough crowd! I only have the jokes I was given. Want a different one, or shall we move on?{?joke}
+<[after.joke] Fair. Humour is hard for a program. I can try another, or we can talk about something else.{?joke}
+< Sorry, humour is tricky for a program. I'll keep it straight.
+< Understood. Serious mode it is. What do you need?
+
+## fb.fired g=feedback
+> (you are fired|i am firing you|you are sacked|i fire you|i am replacing you|i will replace you|i am going to replace you|i will delete you|i am deleting you|i will uninstall you|i am uninstalling you|i am switching to (chatgpt|google|gemini|siri|alexa|another ai|another bot|another assistant|something else)|i will use (chatgpt|google|gemini) instead|i do not need you|i do not need you anymore|i do not want you|i am done with you|we are done|it is over|i quit|i give up on you|i am leaving you|goodbye forever|never talking to you again|i will never use you again|i will not use you again)
+! ms 32
+< Understood. I'm still here if you change your mind.
+< Fair enough. If you give me another chance later, I'll do my best.
+< I'm sorry it didn't work out. The door stays open.
+
+## fb.repeat_complaint g=feedback
+> (you already said that|you said that already|you said that before|you just said that|you told me that already|you told me that|you are repeating yourself|stop repeating yourself|stop repeating|do not repeat yourself|you keep saying (that|the same thing)|you keep repeating|same answer|same answer again|the same thing again|same thing again|again the same|not again|you always say (that|the same thing|the same)|say something else|say something different|say something new|tell me something else|tell me something different|give me a different answer|give me another answer|different answer|another answer|i want a different answer|i want a new answer|i have heard that already|i heard that already|heard that before|i know that already|you sound like a broken record|broken record|change your answer|change the answer|can you say something else|anything else to say|is that all you can say|is that all you have|is that all|that is all you can say|do you have anything else to say|got anything else)
+! ms 28
+< You're right, sorry. My replies come from a fixed store, so I do repeat sometimes. Ask me something new, or tap "Regenerate" for another wording.
+< Fair point. I'm working from prepared replies, so variety has limits. Try me on a different topic?
+< Sorry for the echo. Give me a new question and I'll have something fresh.
+* Tell me a joke | What can you do?
+
+## social.kidding g=ack
+> (just kidding|i am just kidding|i am kidding|i was kidding|i was just kidding|only kidding|kidding|jk|just joking|i am joking|i am just joking|i was joking|i was just joking|only joking|joking|just playing|i am just playing|just messing with you|i am messing with you|i am just messing with you|just teasing|i am teasing you|i am just teasing|just pulling your leg|i am pulling your leg|it was a joke|it was just a joke|that was a joke|i did not mean it|not serious|i am not serious|i was not serious|do not take it seriously|just for fun|just testing you|majak|mazak|majak gareko|mazak kar raha|mazak tha|thatta gareko)
+! ms 82
+< Ha, you had me for a second. Good one.
+< Got it! I'll admit, jokes sometimes fly past me.
+< No worries. I can take a joke.
+
+## chat.test g=greet
+> (test|testing|test test|testing testing|testing 1 2 3|test 123|1 2 3|check|mic check|mic test|just testing|this is a test|just a test|i am testing|i am testing you|i am just testing|let me test you|can i test you|ping|are you there|you there|are you still there|still there|are you here|are you awake|are you online|are you working|are you active|are you up|are you listening|are you ready|you ready|ready|can you hear me|do you hear me|can you see this|can you read this|do you read me|do you copy|is this working|is it working|does this work|does it work|is this thing on|anybody there|anyone there|is anyone there|is anybody there|is someone there|hello hello anyone|hello anyone there|hello are you there|knock knock anyone home|wake up|hey wake up|respond|say something|answer me|reply|reply me|talk|speak|suna|sunnu na|sunna|oi|oye|oe|hello ji|kohi cha|kohi xa)
+! ms 88
+< Yes, I'm here and working.
+< I'm here. Loud and clear.
+< Up and running! What would you like to do?
+<[named] I'm here, {name}. What's up?
+* What can you do? | How are you?
+
+## chat.available g=greet
+> (can we talk|can we chat|can i talk to you|can i chat with you|can i talk with you|can i ask you something|can i ask you a question|can i ask a question|can i ask something|may i ask you something|may i ask a question|may i ask something|i have a question|i have a question for you|i have some questions|i have got a question|i have a doubt|i have a query|got a question|quick question|one question|a question|question|i want to ask you something|i want to ask something|i want to ask a question|i want to ask you a question|i need to ask you something|i wanna ask something|let me ask you something|let me ask you a question|let me ask something|i want to talk|i want to talk to you|i want to chat|i wanna talk|i wanna chat|i need to talk|i need to talk to someone|i need someone to talk to|i need to talk to you|let us talk|let us chat|let us have a chat|let us have a conversation|talk to me|talk with me|chat with me|speak to me|speak with me|keep talking|say something to me|tell me something|will you talk to me|will you chat with me|would you talk to me|do you want to talk|do you want to chat|wanna talk|wanna chat|are you free|are you free to talk|are you busy|you busy|do you have time|do you have a minute|do you have a moment|got a minute|got a sec|got time|have you got a minute|can you spare a minute|can you help me|can you help|could you help me|could you help|will you help me|would you help me|help me|help me please|help me out|i need help|i need your help|i need some help|i want help|i want your help|need help|need your help|please help me|sos|can you do me a favor|do me a favor|i need a favor|i need assistance|assist me|i need you|i need your assistance|are you available|is someone available|kura garam|kura garau|kura garna man lagyo|baat karo|baat karte hain|mujhse baat karo|madat gara|madat chahiyo|madad karo|meri madad karo|help garnu|help gara)
+! ms 27 -/knock knock/
+<[named] Of course, {name}. I'm all yours. What's on your mind?
+< Of course. I'm listening. What's on your mind?
+< Sure! Go ahead. Ask me anything, or just tell me what's going on.
+< Always. Tell me what you need.
+< Yes, I'm free. I have all the time you need.

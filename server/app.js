@@ -11,6 +11,12 @@ const ROOT = path.join(path.dirname(fileURLToPath(import.meta.url)), '..', 'publ
 const MIME = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.css': 'text/css; charset=utf-8', '.json': 'application/json; charset=utf-8', '.webmanifest': 'application/manifest+json; charset=utf-8', '.svg': 'image/svg+xml', '.png': 'image/png', '.ico': 'image/x-icon', '.txt': 'text/plain; charset=utf-8' };
 const MAX_BODY = 64 * 1024;
 
+let REGION = null;
+function countryName(code) {
+  if (!/^[A-Z]{2}$/.test(code) || code === 'XX') return '';
+  try { REGION = REGION || new Intl.DisplayNames(['en'], { type: 'region' }); const n = REGION.of(code); return n && n !== code ? n : ''; } catch { return ''; }
+}
+
 export function createApp(cfg = loadConfig()) {
   const engine = createEngine(cfg);
   const buckets = new Map();          // ip -> {tokens, ts}
@@ -75,7 +81,10 @@ export function createApp(cfg = loadConfig()) {
     active++;
     const t0 = Date.now();
     try {
-      const result = await engine.ask({ question: body.question, context: body.context, settings: body.settings, learned: body.learned, regenerate: body.regenerate === true }, { signal: ac.signal, onEvent: send });
+      // the device's time zone (for "what time is it") and the country the edge reports (only used to phrase a helpline search)
+      const tz = typeof body.tz === 'string' && /^[A-Za-z_+\-/0-9]{2,48}$/.test(body.tz) ? body.tz : '';
+      const cc = cfg.trustProxy ? String(req.headers['x-vercel-ip-country'] || '').toUpperCase() : '';
+      const result = await engine.ask({ question: body.question, context: body.context, settings: body.settings, learned: body.learned, regenerate: body.regenerate === true, tz, country: countryName(cc) }, { signal: ac.signal, onEvent: send });
       send({ type: 'done', ms: Date.now() - t0 });
       log({ ev: 'ask', ms: Date.now() - t0, kind: result.kind, confidence: result.confidence ? result.confidence.level : null, sources: result.sources.length, ...(process.env.LOG_QUESTIONS === '1' ? { q: body.question.slice(0, 200) } : {}) });
     } catch (e) {
@@ -120,7 +129,7 @@ export function createApp(cfg = loadConfig()) {
       if (p === '/api/ask') return req.method === 'POST' ? await ask(req, res) : json(res, 405, { error: 'method_not_allowed' }, { Allow: 'POST' });
       if (p === '/api/preview') return req.method === 'POST' ? await preview(req, res) : json(res, 405, { error: 'method_not_allowed' }, { Allow: 'POST' });
       if (p === '/api/health') return json(res, 200, { ok: true, version: VERSION });
-      if (p === '/api/status') { const s = engine.status(); return json(res, 200, { version: VERSION, llm: false, uptimeS: s.uptimeS, totals: s.totals, wikimediaBudget: s.wikimediaBudget, contactConfigured: s.contactConfigured, cache: { entries: s.http.cacheEntries, bytes: s.http.cacheBytes, hits: s.http.cacheHits, misses: s.http.cacheMisses }, providers: engine.providers(), rate: cfg.rate }); }
+      if (p === '/api/status') { const s = engine.status(); return json(res, 200, { version: VERSION, llm: false, brain: s.brain, uptimeS: s.uptimeS, totals: s.totals, wikimediaBudget: s.wikimediaBudget, contactConfigured: s.contactConfigured, cache: { entries: s.http.cacheEntries, bytes: s.http.cacheBytes, hits: s.http.cacheHits, misses: s.http.cacheMisses }, providers: engine.providers(), rate: cfg.rate }); }
       if (p.startsWith('/api/')) return json(res, 404, { error: 'not_found' });
       if (req.method !== 'GET' && req.method !== 'HEAD') return json(res, 405, { error: 'method_not_allowed' }, { Allow: 'GET, HEAD' });
       return serveStatic(req, res, p);

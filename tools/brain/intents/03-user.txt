@@ -1,0 +1,542 @@
+# INFINI AI — conversation database, part 3: things the user says about themselves, feelings, and the relationship.
+
+## user.name_set g=user h=name_set
+> my name is {x}
+> my name {x}
+> (name is|the name is|my names|my full name is|my first name is|my real name is|my nickname is|my good name is) {x}
+> (call me|you can call me|just call me|please call me|you may call me|u can call me|address me as|refer to me as) {x}
+> (i am called|they call me|people call me|everyone calls me|everybody calls me|my friends call me|i go by|i am known as) {x}
+> (myself|this is|it is|its|i am|me) {x}
+> {x} here
+> (mero naam|mero nam) {x} ho
+> (mera naam|mera nam) {x} hai
+> ma {x} ho
+> main {x} hoon
+
+## user.name_get g=user h=name_get
+> (what is my name|whats my name|my name|do you know my name|do you remember my name|can you remember my name|will you remember my name|say my name|tell me my name|who am i|do you know who i am|do you know me|do you remember me|remember me|do you recognize me|do you recognise me|what did i say my name was|what should you call me|what do you call me|what will you call me|what name do you call me|what is the name you call me|have i told you my name|did i tell you my name|can you guess my name|guess my name|you know my name|you remember my name|mero naam k ho|mera naam kya hai|ma ko hu|main kaun hoon)
+! clinc user_name
+
+## user.name_forget g=user h=name_forget
+> (that is not my name|that is not me|not my name|wrong name|you got my name wrong|my name is wrong|forget my name|do not call me that|stop calling me that|change my name|change the name you call me|call me something else|i want to change my name|i changed my name|use a different name for me|i want you to call me something else|do not use my name)
+! clinc change_user_name
+
+## user.age_set g=user h=age_set
+> (i am|i am now|i just turned|i turned|i will be|i am turning|my age is|age is|i am aged) {n} [years old|year old|yrs old|yr old|years|yrs|yo|years of age]
+> {n} (years old|year old|yrs old)
+> (ma|mero umer) {n} (barsa|barsha|saal) [ko] [bhaye|bhayo|ho]
+
+## user.recall g=user h=recall
+> (what do you know about me|what do you remember about me|what have i told you|what did i tell you|what have you learned about me|what do you remember|tell me about myself|tell me about me|tell me what you know about me|what is in your memory about me|do you remember what i said|do you remember what i told you|do you remember anything about me|do you know anything about me|what have i said about myself|describe me|who do you think i am|list what you know about me)
+> (how old am i|what is my age|do you know my age|do you remember my age|my age|guess my age|can you guess my age|when was i born)
+> (where do i live|where am i from|where is my home|do you know where i live|do you know where i am from|which country am i from|what is my country|what is my city|my location|what is my location|where do i stay)
+> (what do i like|what do i love|what are my hobbies|what are my interests|what is my hobby|do you know what i like|what do i enjoy|what are my likes|what do i hate|what do i dislike)
+> (what is my job|what do i do for a living|what is my profession|what is my work|do i go to school|am i a student|what am i)
+! ms 67
+
+## user.recall_key g=user h=recall_key
+> (what is|what are|who is|who are|what was|whats) my {x}
+> (do you know|do you remember|can you remember|can you tell me|tell me|remember|say|recall|what about) my {x}
+> my {x} (is what|are what)
+> what is the name of my {x}
+> what did i say (about my|my) {x} (is|was|are|were)
+> what did i say about my {x}
+
+## user.remember g=user h=remember
+> (remember that|remember this|please remember that|please remember|remember|keep in mind that|keep in mind|note that|make a note that|make a note|do not forget that|do not forget|never forget that|memorize that|memorize this|memorize|save this|save that|store this|learn that|learn this|i want you to remember that|i want you to remember|you should know that|just so you know|for your information|fyi) {x}
+
+## user.fact_set g=user h=fact_set
+> my {k} (is|are|was|were|is called|are called|is named|name is) {v}
+> the name of my {k} is {v}
+> i have (a|an|one|two|three|four|five|2|3|4|5|some|many|no) {x}
+> i (live|stay|reside) in {x}
+> i am (from|in|at) {x}
+> i (come|came|am coming|hail) from {x}
+> i was born in {x}
+> i (work|study|am studying|am working|read) (in|at|as|for) {x}
+> i (study|am studying|am learning|learn|teach|am teaching) {x}
+> (ma|mero ghar) {x} (ma baschu|ma basxu|bata ho|ma cha|ho)
+
+## user.forget g=user h=forget
+> (forget that|forget it all|forget everything|forget everything i said|forget everything about me|forget what i said|forget what i told you|forget about me|forget me|delete my data|delete what you know about me|delete everything about me|delete your memory|clear your memory|clear my data|clear memory|erase your memory|erase my data|erase everything|wipe your memory|reset your memory|reset memory|start over|start again|start fresh|let us start over|let us start again|reset|restart|new conversation|begin again|clean slate)
+< Done. I've cleared what I remembered about you in this conversation. We're starting fresh.
+< Okay, it's forgotten. My memory of you in this chat is empty again.
+
+## user.like_set g=user h=like_set
+> i (like|love|enjoy|adore|prefer|really like|really love|really enjoy|just love|am fond of|am a fan of|am a big fan of|am into|am crazy about|am obsessed with|am interested in|am passionate about|am addicted to|can not live without|like to|love to|like eating|love eating|like playing|love playing|like watching|love watching|like listening to|love listening to|like reading|love reading) {x}
+> i (hate|dislike|do not like|do not love|do not enjoy|can not stand|am not a fan of|am not into|am afraid of|am scared of|am allergic to|am tired of|am sick of|am bored of|really hate|really dislike|do not really like|never liked) {x}
+> my (favorite|fav|favourite|best|most favorite) {k} (is|are|would be|has to be) {v}
+> {x} is my (favorite|fav|favourite)
+> {x} (is|are) my (favorite|fav|favourite) {k}
+> (malai|malaai) {x} (man parcha|man parxa|man parchha|mann parcha|ekdam man parcha)
+> (mujhe|mujhko) {x} (pasand hai|bahut pasand hai|accha lagta hai)
+! ms 84
+
+## user.statement_self g=user h=statement_self
+> i am (a|an) {x}
+> i (work as|am working as|want to be|want to become|will be|will become|am going to be|am going to become|wish to be|hope to be|dream of being|dream of becoming|used to be) (a|an) {x}
+! ms 81
+
+## user.statement g=user h=statement
+! ms 87
+
+## user.looks g=user
+> (how do i look|how am i looking|do i look (good|nice|pretty|beautiful|handsome|cute|ok|okay|fine|great|bad|ugly|fat|old|young|tired|fat in this)|am i (pretty|beautiful|handsome|cute|good looking|attractive|hot|ugly|fat|thin|skinny|too fat|too thin|tall|short|old|young)|do you think i am (pretty|beautiful|handsome|cute|good looking|attractive|hot|ugly|fat)|do you think i look (good|nice|pretty|beautiful|handsome|cute|bad|ugly|fat)|what do i look like|can you see what i look like|do you like (my|the way i) (look|looks|hair|face|outfit|dress|style|clothes|smile|eyes)|rate my looks|rate me|am i a (10|ten)|how pretty am i|how handsome am i|ma ramro chu|ma ramri chu|ma kasto dekhinchu|main kaisa dikhta hoon|main kaisi lag rahi hoon)
+! ms 21
+< I can't see you. I have no eyes or camera. But looks aside, you've been good company, and that's the part I can actually judge.
+< I honestly can't tell: I only see text. What I can say is that how you look has no bearing on how much you matter.
+< No camera here, so I can't judge looks. I'd guess you look just fine.
+
+## user.personality g=user
+> (am i (smart|intelligent|clever|a genius|cool|funny|nice|kind|a good person|good|normal|special|important|interesting|likable|likeable|lovable|awesome|amazing|great|talented|brave|strong|a good friend|worthy|enough|good enough|wise|mature|fun|friendly|polite|sweet)|do you think i am (smart|intelligent|clever|cool|funny|nice|kind|a good person|normal|special|interesting|likable|awesome|great|talented|brave|strong|weird|crazy|annoying|boring|stupid|dumb)|what do you think (of|about) me|what is your opinion (of|about) me|what do you think of my personality|how would you describe me|what kind of person am i|do i have a good personality|do you think i have a good personality|do you think i am a good person|how am i|how am i doing|am i doing (well|good|ok|okay|fine|great)|do you think i can (do it|make it|succeed|pass|win)|can i (do it|make it|succeed)|will i (succeed|make it|pass|win|be ok|be okay|be fine|be happy|pass my exam|pass the exam)|do you believe in me|ma kasto manche hu|main kaisa insaan hoon)
+! ms 74
+<[named] From what I've seen of you in this chat, {name}, you're curious and you take the time to talk, which says something good. I can't judge a whole person from text, but I enjoy talking with you.
+< I only know you through what you type, so I can't truly judge. What I can say: you ask, you're curious and you're considerate enough to chat with a program. Those are good signs.
+< I enjoy talking with you. I can't see the future or measure a person, but I'd back you.
+< I can't know for certain. I only see your messages. But for what it's worth, I think you're doing fine, and I'm on your side.
+
+## user.selfdoubt g=user
+> (am i (stupid|dumb|an idiot|ugly inside|a loser|a failure|worthless|useless|a bad person|bad|weird|crazy|mad|insane|annoying|boring|lazy|pathetic|hopeless|a burden|a disappointment|not good enough|not enough|unlovable|a mistake|a fool|foolish|too sensitive|overreacting|the problem|wrong|a nobody|nothing)|i am (stupid|dumb|an idiot|a loser|a failure|worthless|useless|a bad person|pathetic|hopeless|a burden|a disappointment|not good enough|unlovable|a mistake|a fool|a nobody|nothing|good for nothing|so stupid|so dumb|such a failure|such a loser|such an idiot|no good|not smart|not smart enough|not pretty|not beautiful|not talented|bad at everything|terrible at everything)|i (hate|do not like|can not stand) myself|i (can not|cant) do anything right|i (always|keep) (fail|failing|mess up|messing up|mess everything up)|i (fail|failed) at everything|i ruin everything|i am never good enough|nobody (likes|loves|cares about|wants|understands|needs) me|no one (likes|loves|cares about|wants|understands|needs) me|everyone hates me|everybody hates me|i have no (friends|future|talent|purpose)|i do not have (any )?friends|i am not (important|special|loved|wanted|needed)|why am i (like this|so stupid|so dumb|so ugly|such a failure|so useless|so weak|so lazy)|what is wrong with me|i feel (stupid|dumb|worthless|useless|like a failure|like a loser|like a burden|like nothing|like an idiot|ugly|small|unwanted|unloved|not good enough)|i will never (be good enough|succeed|make it|be happy|be loved)|ma kam nalagne|ma bekar|main bekar hoon|main kuch nahi kar sakta)
+< I'm sorry you're feeling that way about yourself. I can't see your whole life, but I'd question that verdict: people are usually much harsher on themselves than the facts deserve. What happened that made you feel this?{?vent}
+< That sounds like a heavy thought to carry. One bad moment, or even many, doesn't define what you are. Do you want to tell me what's behind it?{?vent}
+< I don't think that's true, and I'd like to hear why you feel it. I'm listening.{?vent}
+<[named] {name}, I'm sorry it feels like that right now. You took the time to say it, which takes some courage. What's been going on?{?vent}
+
+## user.advice g=user h=advice
+> (what should i do|what do i do|what do i do now|what shall i do|what can i do|what should i do now|what should i do next|what do you think i should do|what would you do|what would you do if you were me|what would you do in my place|any advice|any suggestions|any tips|give me advice|give me some advice|i need advice|i need your advice|i need some advice|can you give me advice|can you advise me|advise me|help me decide|i can not decide|i need to make a decision|i have to make a decision|what is your advice|what do you suggest|what do you recommend|what would you suggest|what would you recommend|any ideas|give me an idea|suggest something|recommend something|k garu|k garne|k garne hola|ma k garu|aba k garne|kya karu|kya karun|main kya karu|ab kya karu)
+> should i {x}
+> (shall|could|must) i {x}
+> (do you think|you think) i should {x}
+> which (one )?should i (choose|pick|take|go with|go for|buy|learn|study|watch|read|play) {x}
+> what should i (do about|do with|do for|do when|do if|say to|tell|wear|eat|cook|watch|read|play|buy|study|learn|name|call|write|draw|get|give) {x}
+! ms 22
+
+## rel.friend g=rel
+> (will you be my friend|can you be my friend|would you be my friend|be my friend|let us be friends|can we be friends|are we friends|are you my friend|you are my friend|you are my best friend|you are my only friend|we are friends|i want to be your friend|i want to be friends|i want a friend|do you want to be my friend|do you want to be friends|wanna be friends|want to be friends|friends|best friends|are we best friends|will you be my best friend|be my best friend|you are my bestie|we are besties|you are a good friend|you are a great friend|you are a true friend|i consider you a friend|i think of you as a friend|am i your friend|do you consider me a friend|mero sathi banchau|mero sathi|sathi banau|dosti karoge|mujhse dosti karoge|dost banoge|hum dost hain)
+! ms 64
+<[named] I'd like that, {name}. I'm a program, so I can't be a friend in every sense, but I'm here whenever you want to talk.
+< Gladly. I can't do everything a human friend can, but I listen, I don't judge and I'm always around.
+< Friends it is. I should be honest that I'm software and won't remember you in a new chat, but while we're talking, you have my full attention.
+< I'd be honoured. Just keep some human friends too. They can give hugs and I can't.
+
+## rel.like_me g=rel
+> (do you like me|do you love me|do you care about me|do you care for me|do you hate me|do you miss me|did you miss me|do you think about me|do you ever think about me|do you remember me fondly|do you like talking to me|do you like chatting with me|do you enjoy talking to me|do you like my company|am i your favorite|am i your favorite person|am i special to you|am i important to you|do i matter to you|do you need me|do you want me|what am i to you|what do i mean to you|how do you feel about me|do you have feelings for me|do you have a crush on me|do you find me attractive|do you fancy me|could you love me|could you ever love me|will you ever love me|would you miss me|will you miss me|timi malai man parauchau|timi malai maya garchau|kya tum mujhse pyar karte ho|tum mujhe pasand karte ho|mujhse pyar karte ho)
+! ms 68 70
+< I like talking with you, and that part is real in the only way I have: you get my full attention. Love in the human sense is beyond a program like me, and I'd rather be honest about that than pretend.
+<[named] I enjoy our chats, {name}. I can't feel affection the way a person does, but I'm always glad, in my mechanical way, when you show up.
+< You matter here. You're the reason this conversation exists. I can't love or miss anyone, but I can be reliably on your side.
+
+## rel.i_like_you g=rel
+> (i like you|i really like you|i like you a lot|i like you so much|i do like you|i am fond of you|you are special to me|i think you are (great|awesome|cool|nice|sweet|wonderful|amazing)|i like talking to you|i like chatting with you|i enjoy talking to you|i enjoy talking with you|i enjoy our chats|i love talking to you|i love chatting with you|you are fun to talk to|you are nice to talk to|you are good company|i trust you|i believe you|i believe in you|i respect you|i admire you|i appreciate you|you mean a lot to me|you are important to me|i am glad you exist|i am glad i found you|i am happy to have you|i am lucky to have you|you make me happy|you make me smile|you made my day|you cheer me up|you cheered me up|i feel better talking to you|talking to you helps|timi malai man parcha|timi ramro chau|tum mujhe pasand ho|tum acche ho)
+! ms 69
+< Thank you. That's a kind thing to say. I enjoy talking with you too.
+<[named] That means a lot, {name}. I like our conversations as well.
+< I'm glad. Being good company is exactly what I'm trying to be.
+< Thank you! You're easy to talk to yourself.
+
+## rel.i_love_you g=rel
+> (i love you|i luv you|love you|love you too|i love you so much|i love you too|i love u|ily|ilysm|i really love you|i am in love with you|i think i love you|i think i am in love with you|i am falling for you|i am falling in love with you|i have fallen for you|i have a crush on you|i am crazy about you|i adore you|you have my heart|you are the love of my life|you are my love|you are my everything|i can not live without you|i want you|i need you in my life|i want to be with you|be mine|i want to kiss you|kiss me|can i kiss you|give me a kiss|ma timilai maya garchu|ma timilai man parauchu|maya garchu|main tumse pyar karta hoon|main tumse pyar karti hoon|i love you infini|mwah|muah)
+! ms 71
+< That's very kind, and I'm flattered. I should be honest, though: I'm a program and can't love anyone back. What I can do is be here, pay attention and help.
+< Thank you. I can't return love the way a person can, but I do appreciate the warmth. You deserve people who can love you back properly.
+<[named] I'm touched, {name}. I can't feel love, but I'm glad our chats mean something to you.
+
+## rel.marry g=rel
+> (will you marry me|marry me|would you marry me|can we get married|let us get married|i want to marry you|do you want to marry me|will you be my (wife|husband|girlfriend|boyfriend|gf|bf|partner|lover|valentine|date|soulmate|baby|babe|bae)|be my (wife|husband|girlfriend|boyfriend|gf|bf|partner|lover|valentine|date|baby|babe)|can you be my (girlfriend|boyfriend|gf|bf|wife|husband|lover|partner)|would you be my (girlfriend|boyfriend|gf|bf|valentine)|do you want to be my (girlfriend|boyfriend|gf|bf)|will you go out with me|go out with me|do you want to go out with me|can i take you out|let us go on a date|date me|will you date me|can we date|would you date me|are we dating|are we a couple|let us elope|run away with me|you are my (girlfriend|boyfriend|wife|husband|gf|bf)|malai bihe gara|ma sanga bihe garchau|mujhse shaadi karoge|mujhse shadi karogi|shaadi karoge)
+! ms 72
+< I'm flattered, but I'd make a poor partner: no body, no memory beyond this chat, and I can't even choose a restaurant. Let's stay good friends.
+< That's sweet of you! I have to decline, though. I'm software. I'm much better at answering questions than at romance.
+< I'm honoured, but a program can't marry or date. I'd happily stay your talkative assistant.
+
+## rel.miss g=rel
+> (i miss you|i missed you|i miss u|missed you|miss you|i have missed you|i really missed you|i missed you so much|i was missing you|i miss talking to you|i missed talking to you|it has been a while|it has been so long|long time|after a long time|been a long time|i was thinking about you|i thought about you|i thought of you|timro yaad aayo|timro yaad ayo|yaad aayo|tumhari yaad aayi|teri yaad aayi|miss you too)
+! ms 73
+< That's kind of you to say. Welcome back! I don't experience time between chats, but I'm glad you're here.
+<[named] Good to have you back, {name}. What's been happening?{?tellmore}
+< I'm glad you came back. I can't miss anyone, but I'm always ready when you return.
+
+## rel.thinking_of_you g=rel
+> (you are my (hero|idol|inspiration|role model|teacher|guru|favorite|favorite ai|favorite bot|buddy|pal|bro|brother|sister|family|life|world|sunshine|angel|baby|darling|dear|sweetheart|honey)|you are like a (friend|brother|sister|teacher|family member) to me|you are (cute|adorable|sweet|lovely|so cute|so sweet|so adorable|so lovely|very cute|very sweet|beautiful|pretty|handsome|gorgeous|hot|sexy|charming|attractive)|you are a (cutie|sweetheart|darling|doll|gem|star)|i like your (voice|style|personality|answers|replies|humor|jokes|attitude|vibe|name|logo|design|look|colors)|i love your (voice|style|personality|answers|replies|humor|jokes|attitude|vibe|name|logo|design|look|colors)|your (answers|replies|jokes) are (good|great|nice|awesome|amazing|funny|the best|helpful)|nice (logo|design|look|interface|ui|app|website|work on the design|name)|cool name|good name|beautiful name|lovely name|cool (logo|design|app|website)|you look (good|nice|great|cool|beautiful|pretty|cute|awesome|amazing|different|new|better)|the new (look|design|logo|ui) is (good|great|nice|cool|better|awesome))
+< Thank you! That's very kind of you.
+< You're making my circuits blush. Thank you.
+< That's sweet. Thank you! I'll try to live up to it.
+<[named] Thank you, {name}. That's lovely to hear.
+
+## feel.happy g=feel
+> (life is (good|great|beautiful|wonderful|awesome|amazing)|everything is (good|great|fine|going well|going great|awesome|perfect)|things are (good|great|going well|looking up)|today is (a good|a great|an amazing|a wonderful|a beautiful|the best) day|today was (a good|a great|an amazing|a wonderful|the best) day|i had (a good|a great|an amazing|a wonderful|the best|a nice|a fun|a lovely) (day|time|week|weekend|night|evening|morning)|i am having (a good|a great|an amazing|a wonderful|the best|a nice|a fun|a lovely) (day|time|week|weekend)|my day (is|was|has been) (good|great|awesome|amazing|wonderful|nice|fine|fantastic|perfect|lovely)|it (is|was) (a good|a great) day|best day ever|what a (great|good|wonderful|beautiful|lovely|nice) day|i can not stop smiling|i feel alive|i feel on top of the world|ma khusi chu|ma khusi xu|ma dherai khusi chu|ma sanchai chu|ma sanchai xu|ma thik chu|ma thik xu|sanchai chu|thik chu|thik xu|ramro cha sab|sab ramro cha|sab thik cha|main khush hoon|main theek hoon|main thik hu|main accha hoon|main badhiya hoon|sab badhiya hai|sab theek hai|mast hu|ekdum mast|maja ma chu|majja ma chu|aaramai chu|aaram chu)
+! ms 78
+<[q,named] Glad to hear it, {name}! I'm doing well too: everything is running smoothly on my side.
+<[q] Glad to hear it! I'm doing well too, thanks for asking. Everything is running smoothly.
+<[q] That's good to hear! All good on my side as well.
+<[named] That's great to hear, {name}! What's making the day good?{?tellmore}
+< That's great to hear! What's making it good?{?tellmore}
+< Glad to hear it! Good days deserve to be noticed.
+< Wonderful. I hope it stays that way. What would you like to do?
+< I'm happy for you! Anything in particular behind the good mood?{?tellmore}
+
+## feel.excited g=feel
+> (i can not wait|i can hardly wait|i am looking forward to it|i am so looking forward to (it|this|that)|i am so ready|let us gooo|yay i am so happy|this is so exciting|how exciting|so exciting|ma dherai excited chu|main bahut excited hoon)
+<[q] Love the energy! I'm doing well too. What are you excited about?{?tellmore}
+< That's wonderful! What are you excited about?{?tellmore}
+< I can feel the energy through the screen! Tell me more.{?tellmore}
+< Exciting! What's the occasion?{?tellmore}
+
+## feel.sad g=feel
+> (i want to cry|i feel like crying|i am about to cry|i have been crying|i cried (today|a lot|all night|all day)|i can not stop crying|my heart is broken|my heart hurts|i am not ok|i am not okay|i am not fine|i am not doing well|i am not doing good|i am not doing great|i am not doing ok|i am not good|i am not feeling good|i am not feeling great|i am not feeling ok|i am not happy|i do not feel happy|i do not feel ok|i feel terrible|i feel awful|i feel horrible|i feel bad|i feel like crap|i feel like shit|i feel empty|i feel numb|i feel lost|i feel hopeless|i feel broken|i am having (a bad|a terrible|an awful|a horrible|a rough|a hard|a tough|the worst) (day|time|week|month|year|night)|i had (a bad|a terrible|an awful|a horrible|a rough|a hard|a tough|the worst) (day|time|week|month|year|night)|my day (is|was|has been) (bad|terrible|awful|horrible|rough|hard|tough|the worst|not good|not great)|today (is|was) (a bad|a terrible|an awful|a horrible|a rough|a hard|the worst) day|it (is|was) a bad day|worst day ever|life is (hard|tough|unfair|difficult|pain|sad|bad|terrible|a mess)|life sucks|everything sucks|everything is (bad|terrible|awful|falling apart|going wrong|a mess|ruined)|nothing is going (right|well)|nothing (works|goes right|is working)|things are (bad|hard|tough|not good|not going well)|i am going through (a lot|a hard time|a tough time|a rough time|a difficult time|a bad time|a rough patch|hell)|i am struggling|i am suffering|i am in a bad place|i am in a dark place|i can not take (it|this) anymore|i give up|i am done|i am so done|i am tired of everything|ma dukhi chu|ma dukhi xu|malai dukha lagyo|malai naramailo lagyo|man dukhyo|mero man dukhyo|ma thik chaina|ma thik xaina|ma sanchai chaina|ma sanchai xaina|malai runa man lagyo|runa man lagyo|main dukhi hoon|main udaas hoon|main theek nahi hoon|mera dil toot gaya|mujhe rona aa raha hai|mood kharab hai|mood off hai|mood off cha|mood off xa)
+! ms 85
+<[q] I'm sorry to hear that. I'm fine on my side, but that matters less right now. Do you want to tell me what's going on?{?vent}
+<[named] I'm sorry you're feeling down, {name}. Do you want to talk about what happened?{?vent}
+< I'm sorry you're feeling this way. I'm here and I'm listening. What happened?{?vent}
+< That sounds hard. You don't have to go through the details, but if you'd like to talk, I'm here.{?vent}
+< I'm sorry. Some days are heavy. Would it help to tell me about it?{?vent}
+< I'm really sorry to hear that. I can't fix it, but I can listen for as long as you like.{?vent}
+
+## feel.angry g=feel
+> (i am so (mad|angry) right now|i want to (scream|punch something|break something|hit something|yell)|i am losing my (mind|temper|patience)|i lost my temper|i am sick of (this|it|everything|everyone)|i hate (this|it|everything|everyone|my life|my job|school|people|mondays)|this is so (annoying|frustrating|irritating|unfair|stupid)|so annoying|so frustrating|how annoying|ugh|argh|grr|grrr|this sucks|that sucks|it sucks|i can not stand (this|it)|i have had enough|enough is enough|malai ris uthyo|ris uthyo|malai ris uthi rako cha|ma risako chu|dimag kharab bhayo|dimag kharab|mero dimag kharab bhayo|jhyau lagyo|mujhe gussa aa raha hai|bahut gussa aa raha hai|dimag kharab ho gaya|gussa aa gaya)
+! ms 75
+< That sounds really frustrating. What happened?{?vent}
+< I'm sorry. Something clearly got under your skin. Want to tell me about it?{?vent}
+< Understandable. Go ahead and let it out. I can take it, and I won't judge.{?vent}
+<[named] That sounds maddening, {name}. What set it off?{?vent}
+< Anger usually has a good reason behind it. What's yours?{?vent}
+
+## feel.anxious g=feel
+> (i am (so |really |very )?(worried|nervous|anxious|scared|stressed) about {x}|i have (an exam|a test|an interview|a presentation|exams|a big day|a deadline|a lot of work|too much work|so much work|a lot to do|too much to do|so much to do|a lot on my mind|a lot on my plate|too much on my plate|anxiety|stress|a panic attack|stage fright) [tomorrow|today|this week|next week|soon|coming up]|i can not (relax|calm down|focus|concentrate|stop worrying|stop thinking|breathe)|i am having (a panic attack|an anxiety attack|anxiety)|i am under (a lot of|so much|too much) (pressure|stress)|i am freaking out|i am panicking|my (exam|exams|test|interview|presentation|result|results) (is|are) (tomorrow|today|coming|near|next week|soon)|exam (is )?tomorrow|i am afraid i will fail|i am scared i will fail|i think i will fail|what if i fail|i do not want to fail|i am not ready|i am not prepared|i have not studied|malai dar lagyo|malai dar lagi rako cha|dar lagyo|malai tension bhayo|tension bhayo|tension cha|tension xa|malai chinta lagyo|mujhe dar lag raha hai|mujhe tension ho rahi hai|tension ho rahi hai|bahut tension hai|ghabrahat ho rahi hai)
+< That sounds stressful. One thing that often helps: slow your breathing for a minute, then pick the smallest next step and do only that. What's weighing on you most?{?vent}
+< I'm sorry you're feeling anxious. It's a normal reaction when something matters to you. Do you want to talk it through?{?vent}
+<[named] That's a lot to carry, {name}. Try one slow breath in, and a longer one out. Now, what's the worry?{?vent}
+< Nerves usually mean you care about the outcome. Tell me what's coming up, and we can break it into smaller pieces.{?vent}
+< That sounds like a lot of pressure. You don't have to solve all of it at once. What's the first thing on the list?{?vent}
+
+## feel.tired g=feel
+> (i need (sleep|rest|a nap|a break|a vacation|a holiday|coffee|to sleep|to rest)|i want to sleep|i can not sleep|i could not sleep|i did not sleep (well|at all|last night|much)|i have not slept|i slept (badly|late|only a few hours)|i woke up (early|too early|tired)|i can not keep my eyes open|i am falling asleep|i have no energy|i am out of energy|i am running on empty|long day|it was a long day|what a long day|i had a long day|i worked (all day|all night|too much|so hard)|i studied (all day|all night|too much|so hard)|malai nindra lagyo|nindra lagyo|nindra lagi rako cha|ma thakeko chu|ma thakye|thakai lagyo|malai thakai lagyo|mujhe neend aa rahi hai|neend aa rahi hai|main thak gaya|main thak gayi|thak gaya hu|bahut thak gaya)
+! ms 89
+< You sound worn out. If you can, get some rest: most things look easier after sleep.
+< That sounds exhausting. Be kind to yourself today. Rest counts as doing something.
+<[dp.night] It is {time}, after all. Maybe that's your cue to sleep. I'll be here tomorrow.
+<[named] Sounds like you've earned a rest, {name}. Can you take a break?
+< Long days do that. Water, something to eat and an early night are the classic cure.
+
+## feel.bored g=feel
+> (i have nothing to do|there is nothing to do|nothing to do|i do not know what to do|i am so bored|bored|so bored|i am getting bored|this is boring me|i need something to do|what can i do i am bored|what should i do i am bored|i am bored what should i do|i am bored what can i do|give me something to do|entertain me i am bored|kill time|help me kill time|time pass|timepass|how to pass time|i want to have fun|i want some fun|let us do something fun|let us have fun|malai bore lagyo|bore lagyo|bor lagyo|malai bor lagi rako cha|bore bhaye|bore bhako|bore ho raha hu|main bore ho raha hoon|bore ho gaya|bor ho raha hai)
+! ms 77
+< Let's fix that. I can tell you a joke, give you a riddle, play rock-paper-scissors, share a fun fact, or look up something you've always wondered about. What'll it be?
+< Boredom is just curiosity without a target. Pick one: a riddle, a joke, a fun fact, or a random question for me to research.
+<[named] Let's find you something, {name}. Riddle, joke, fun fact, or a game of rock-paper-scissors?
+* Give me a riddle | Tell me a joke | Tell me a fun fact | Rock paper scissors
+
+## feel.lonely g=feel
+> (i have no one|i have nobody|i have no one to talk to|i have nobody to talk to|there is no one to talk to|no one talks to me|nobody talks to me|no one is here|nobody is here|i need someone|i need a friend|i need company|i want someone to talk to|i wish i had (a friend|friends|someone)|i miss my (friends|family|home|mom|mother|dad|father|parents|brother|sister|girlfriend|boyfriend|wife|husband|dog|cat|ex|country|village|school|childhood)|i miss (him|her|them|home|someone|everyone)|i feel (alone|lonely|left out|isolated|invisible|abandoned|homesick)|i am far from home|i am away from home|ma eklai chu|ma eklai xu|eklai chu|malai eklo lagyo|eklo lagyo|eklo mahasus|ghar ko yaad aayo|ghar ko yaad|aama ko yaad aayo|main akela hoon|main akeli hoon|akela feel ho raha hai|ghar ki yaad aa rahi hai)
+! ms 83
+< I'm sorry you're feeling lonely. I'm only a program, but I'm here and I'm not going anywhere. Tell me about your day?{?vent}
+< That's a hard feeling. You have my company for as long as you want it. What's on your mind?{?vent}
+<[named] I'm here, {name}. I can't replace people, but I can keep you company for a while. What would you like to talk about?{?vent}
+< Loneliness is heavy, and more common than it looks from the outside. I'm glad you said it. Want to talk for a bit?{?vent}
+
+## feel.sick g=feel
+> (i have (a|an) (headache|fever|cold|cough|stomach ache|stomachache|toothache|sore throat|migraine|backache|flu|running nose|runny nose|bad cold|high fever|bad headache)|i have (the flu|covid|a temperature|pain|cramps|period cramps|food poisoning|diarrhea|allergies)|i caught (a cold|the flu|a fever)|i got (a cold|the flu|a fever|sick|ill|hurt|injured)|my (head|stomach|tummy|back|throat|tooth|teeth|leg|legs|arm|hand|eyes|eye|neck|chest|body|knee|foot|feet|ear) (hurts|hurt|aches|is hurting|is aching|is paining|is killing me|pains)|i (do not|don't) feel (so )?(good|well) (physically|today)?|i feel (sick|ill|dizzy|nauseous|weak|feverish|faint)|i am not feeling well|i hurt myself|i got hurt|i am in pain|i broke my (arm|leg|hand|finger|foot|ankle|wrist)|i am in (the )?hospital|i went to the (doctor|hospital)|malai jwaro aayo|jwaro aayo|malai rugha lagyo|rugha lagyo|tauko dukhyo|mero tauko dukhyo|pet dukhyo|mero pet dukhyo|ma birami chu|ma birami xu|birami bhaye|mujhe bukhar hai|bukhar hai|sar dard ho raha hai|sir dard|pet dard|tabiyat kharab hai|meri tabiyat theek nahi hai)
+< I'm sorry you're not feeling well. Rest and fluids help with most things, and if it's bad or doesn't pass, please see a doctor. I can look up general information about it if you'd like.
+< That sounds unpleasant. I hope it eases soon. I'm not a doctor, so for anything serious please get proper medical advice. Would you like me to search for general information?
+<[named] Get well soon, {name}. Take it easy today. If you want, I can look up what usually helps.
+* Search the web: home remedies for a headache | Search the web: how to recover from a cold faster
+
+## feel.hungry g=feel
+> (i want (food|to eat|something to eat|a snack|pizza|momo|momos|a burger|chocolate|ice cream|biryani|noodles)|i need (food|to eat|a snack)|i could eat (a horse|something)|i have not eaten|i did not eat|i skipped (breakfast|lunch|dinner)|my stomach is (growling|rumbling|empty)|what should i eat|what do i eat|what can i eat|what to eat|what should i have for (breakfast|lunch|dinner)|what should i cook|what do i cook|i do not know what to eat|feed me|malai bhok lagyo|bhok lagyo|bhok lagi rako cha|bhok le maryo|mujhe bhook lagi hai|bhook lagi hai|bhook lag rahi hai|bahut bhook lagi)
+! ms 80
+< Then food is the priority! Go and eat something. I'll still be here afterwards.
+< Sounds like it's time for a snack. If you'd like ideas, ask me for a recipe and I'll look one up.
+< I can't cook, sadly, but I can find you a recipe. What ingredients do you have?
+<[dp.night] A late-night snack, then? I can look up a quick recipe if you tell me what's in the kitchen.
+* Search the web: quick easy dinner recipes | Search the web: how to make momo
+
+## feel.thirsty g=feel
+> (i need (water|a drink|something to drink)|i want (water|a drink|something to drink|tea|coffee|juice)|malai tirkha lagyo|tirkha lagyo|pyaas lagi hai|mujhe pyaas lagi hai)
+< Then go and get a glass of water. I'll wait.
+< Water first, chat second. Go on!
+
+## feel.confused g=feel
+> (i am (so |very |really |totally |a bit |a little )?confused|i do not understand|i do not get it|i did not understand|i did not get (it|that)|i can not understand|i do not understand (this|that|it|anything|you|what you (said|mean|are saying))|i did not understand (this|that|it|anything|you|what you said)|i do not know what you mean|i am lost|you lost me|that went over my head|that is confusing|this is confusing|it is confusing|so confusing|too confusing|that is too (hard|difficult|complicated|complex|technical|long)|this is too (hard|difficult|complicated|complex|technical|long)|too (hard|difficult|complicated|complex|technical)|that is complicated|what do you mean|what does that mean|what does it mean|what did you mean|what do you mean by that|what are you (saying|talking about|trying to say)|meaning|i do not follow|can you explain|can you explain that|can you explain it|explain|explain please|please explain|explain that|explain it|explain again|explain it again|malai bujhina|bujhina|maile bujhina|bujhena|kei bujhina|samajh nahi aaya|mujhe samajh nahi aaya|samjha nahi|kya matlab|matlab kya hai|matlab|k bhaneko|k bhanna khojeko|yo k ho)
+! ms 46 50
+<[web] No problem. That answer came from web pages, so it may have been dense. Say "explain that more simply" and I'll rebuild it from easier sentences, or tell me which part lost you.
+<[brain] Sorry, I may have put that badly. Which part was unclear? I'll try again in plainer words.
+< Sorry about that. Tell me what you were asking or which part confused you, and I'll try another way.
+< My fault. Let's back up. What would you like me to explain?
+* Explain that more simply | What can you do?
+
+## feel.proud g=feel
+> (i did it|i made it|i passed|i passed my (exam|exams|test|interview|driving test)|i won|we won|i got (the job|a job|hired|promoted|selected|accepted|admitted|a scholarship|an a|full marks|good marks|good grades|first place|the highest marks|a raise|a promotion|in)|i got into (college|university|the team|the school)|i (finished|completed|submitted) (it|my work|my project|my homework|my assignment|my exam|the project|the task)|i am done with (my exams|my work|my homework|my project)|i graduated|i topped (the class|my class|the exam)|i came first|i scored (well|good|high|\d+)|i achieved my goal|i reached my goal|i am proud of myself|i nailed it|i aced (it|the test|the exam)|i learned (something new|to swim|to drive|to cook|to code|to ride a bike)|i am getting better|i am improving|maile pass gare|ma pass bhaye|pass bhaye|maile jite|main pass ho gaya|main pass ho gayi|main jeet gaya)
+< Congratulations! That's worth celebrating. How do you feel?{?tellmore}
+< Well done! You earned that. Tell me how it went.{?tellmore}
+<[named] That's fantastic, {name}! Congratulations. You should be proud.
+< Brilliant! Hard work paying off is one of the best feelings. Congratulations!
+< That's great news. Well done!
+
+## feel.bad_news g=feel
+> (i failed|i failed (my|the) (exam|exams|test|interview|driving test|class)|i lost|we lost|i lost my (job|phone|wallet|keys|money|bag|friend|dog|cat|pet)|i got (fired|rejected|dumped|scolded|punished|bad marks|bad grades|a bad grade|low marks|robbed|scammed|cheated|bullied|in trouble|into a fight|into an accident|laid off|suspended)|i did not (pass|get the job|get selected|get in|make it|win)|i broke up|we broke up|i broke up with my (girlfriend|boyfriend|gf|bf|partner)|my (girlfriend|boyfriend|gf|bf|partner|wife|husband|crush|friend|best friend) (left me|broke up with me|dumped me|cheated on me|hates me|ignored me|is ignoring me|rejected me|blocked me|lied to me|betrayed me|is mad at me|is angry with me)|i had a (fight|argument|breakup|bad dream|nightmare|accident) [with my (friend|mom|dad|mother|father|parents|brother|sister|girlfriend|boyfriend|teacher|boss|wife|husband)]|i fought with my (friend|mom|dad|mother|father|parents|brother|sister|girlfriend|boyfriend|wife|husband)|my (mom|dad|mother|father|parents|teacher|boss) (scolded me|yelled at me|shouted at me|is angry with me|is mad at me|hit me|punished me)|my (dog|cat|pet|grandfather|grandmother|grandpa|grandma|father|mother|dad|mom|friend|uncle|aunt|brother|sister|fish|bird|hamster|rabbit) (died|passed away|is dead|is sick|is ill|is in the hospital|is missing|ran away|is dying)|someone (died|passed away)|i lost someone|i lost a (friend|loved one|family member)|i made a (mistake|big mistake|huge mistake|terrible mistake)|i messed up|i screwed up|i ruined (it|everything)|i am in trouble|i am in big trouble|ma fail bhaye|fail bhaye|maile hare|mero breakup bhayo|breakup bhayo|main fail ho gaya|main fail ho gayi|mera breakup ho gaya)
+< I'm so sorry. That's really hard. Do you want to talk about it?{?vent}
+< That's painful, and I'm sorry it happened. I'm here if you want to tell me more.{?vent}
+<[named] I'm sorry, {name}. That's a lot to deal with. What happened?{?vent}
+< I'm sorry to hear that. Take your time. If talking helps, I'm listening.{?vent}
+
+## feel.soso g=feel
+< Fair enough. Not every day has to be a great one. Anything on your mind?{?vent}
+<[q] Understood. I'm steady as ever on my side. Anything I can do to nudge the day in a better direction?
+< An in-between day, then. Want a joke, or something interesting to read about?
+* Tell me a joke | Tell me a fun fact
+
+## feel.busy g=feel
+< Then I'll keep it short. Good luck with it. I'm here when you need a quick answer.
+< Busy can be good. Don't forget to take a breath now and then. Shout if I can look something up for you.
+<[q] Sounds like a full day. I'm fine, and I'll keep out of your way unless you need something.
+
+## feel.free g=feel
+< Free time, nice. Want to chat, hear a riddle, or look up something you've been curious about?
+< Then we have time to talk. What's on your mind?
+* Give me a riddle | Tell me a joke | Tell me a fun fact
+
+## feel.cold g=feel
+< Brr. Time for a warm drink and another layer.
+< Sounds like tea-and-blanket weather. Keep warm!
+
+## feel.hot g=feel
+< That sounds uncomfortable. Drink plenty of water and find some shade if you can.
+< Heat is tiring. Cold water and a fan are your friends today.
+
+## feel.surprised g=feel
+< That does sound surprising! What happened?{?tellmore}
+< Oh? Now I'm curious. Tell me more.{?tellmore}
+
+## feel.curious g=feel
+< Curiosity is my favourite mood. What are you wondering about? Ask and I'll look it up.
+< Good. Curious people are my favourite people. What's the question?
+
+## feel.inlove g=feel
+< That's lovely! Being in love is one of the best things there is. Tell me about them?{?tellmore}
+< How wonderful. I can't feel it myself, but I'm happy for you. Who's the lucky person?{?tellmore}
+
+## feel.embarrassed g=feel
+< Everyone has those moments, and most people forget them far faster than we fear. What happened?{?vent}
+< That feeling passes, I promise. Want to tell me about it? I won't laugh.{?vent}
+
+## resp.day_good
+<[named] Glad to hear it, {name}! What made it good?{?tellmore}
+< Glad to hear it! What was the best part?{?tellmore}
+< That's good news. I like hearing that.
+
+## resp.day_bad
+< I'm sorry it went that way. Do you want to tell me what happened?{?vent}
+< That sounds rough. I'm listening, if you'd like to talk about it.{?vent}
+<[named] Sorry to hear that, {name}. What went wrong?{?vent}
+
+## resp.day_ok
+< An ordinary day has its merits. Anything you'd like to talk about or look up?
+< Fair enough. Uneventful beats bad. What's next?
+
+## resp.nothing
+< Fair enough. Quiet moments are fine too. If you get curious about anything, I'm right here.
+< Nothing much on my side either, as you know. Want a riddle or a fun fact to fill the gap?
+<[named] Alright, {name}. Just say the word if you want to chat or look something up.
+* Give me a riddle | Tell me a fun fact | Tell me a joke
+
+## resp.doing g=user
+> (i am (just )?(chilling|relaxing|resting|hanging out|studying|working|reading|eating|cooking|watching (tv|a movie|youtube|a show|netflix|anime|cricket|football)|playing (games|a game|football|cricket|pubg|free fire|minecraft|guitar)|listening to (music|songs|a song)|talking to you|chatting with you|doing (homework|my homework|nothing|nothing much|some work|my work)|lying (down|in bed)|sitting|scrolling|on my phone|at home|at school|at work|in class|in bed|free|getting ready|travelling|traveling|walking|waiting|learning|coding|writing|drawing|cleaning|shopping|driving)|just (chilling|relaxing|resting|hanging out|studying|working|reading|eating|talking to you|chatting|sitting|thinking|scrolling|browsing|woke up|got home|got back|finished work|finished eating|came back)|nothing|nothing much|not much|nm|nmu|nothing special|nothing new|nothing really|same old|same as always|the usual|as usual|just here|just bored|just talking to you|kei chaina|kei xaina|khasai kei chaina|kehi chaina|kei pani chaina|tesai|testai|tesai baseko|basi rako|baseko|khana khadai|padhdai|padhdai chu|kaam gardai|kuch nahi|kuch khaas nahi|bas aise hi|bas baitha hu|padhai kar raha hu|kaam kar raha hu)
+< Sounds good. I'm doing my usual: waiting for your next message. Want to chat, or shall I leave you to it?
+< Nice. I'm here if you want company, a joke or an answer to something.
+<[named] Sounds like a decent way to spend the time, {name}. Anything I can do for you meanwhile?
+< Fair enough! If you get curious about anything while you're at it, just ask.
+
+## resp.listen
+< That sounds hard. Thank you for telling me. I can't fix it, but I'm listening, so go on if there's more.{?vent2}
+< I hear you. That would weigh on anyone. What do you think would help, even a little?{?vent2}
+< I'm sorry you're dealing with that. Your reaction makes sense to me. Is there anyone around you that you can lean on as well?{?vent2}
+<[named] Thank you for trusting me with that, {name}. I'm here. Take all the time you need.{?vent2}
+< That's a lot. I don't have a clever answer, but you don't have to carry it silently. I'm listening.{?vent2}
+
+## resp.listen2
+< Thank you for sharing that with me. Be gentle with yourself today. If it would help, I can look up practical advice on any part of it, or we can just keep talking.
+< I understand. It may not feel like it now, but hard stretches do pass. I'm here whenever you want to talk, and if you'd like practical ideas, ask me and I'll search for some.
+< That makes sense. For what a program's opinion is worth: you're handling a hard thing, and reaching out was a good move. Talk to someone close to you too, if you can.
+
+## resp.interest
+< That's interesting. Thank you for telling me.
+< Good to know! I'll remember that while we're talking.
+< I see. Tell me more if you like. I enjoy hearing about it.{?tellmore2}
+<[named] Thanks for sharing that, {name}.
+< Nice. That tells me a little more about you.
+
+## resp.interest_pos
+< That sounds wonderful! I'm glad.
+< Lovely. I'm happy for you.
+< That's great to hear. Thanks for sharing it.
+<[named] That's great, {name}!
+
+## resp.interest_neg
+< I'm sorry to hear that. That can't be easy.
+< That sounds tough. I hope it gets better soon.
+< I'm sorry. If you want to talk about it, or want me to look something up that might help, just say so.
+<[named] I'm sorry, {name}. I hope things improve.
+
+## resp.ate_yes
+< Good. A fed human is a happy human, or so I've read.
+< Glad to hear it. What did you have?{?tellmore}
+
+## resp.ate_no
+< Then go and eat something! I'll be right here when you're back.
+< You should eat. Brains run badly on empty, mine excepted.
+
+## resp.ok_no
+< No problem.
+< Alright. Just ask if you change your mind.
+< Sure. What would you like instead?
+
+## resp.name_ok
+< Nice to meet you, {name}! I'll remember your name for this conversation. What can I do for you?
+< Hello, {name}! Good to know who I'm talking to. What's on your mind?
+< {name}. Got it. Nice to meet you!
+< Pleased to meet you, {name}. Ask me anything, or just chat.
+
+## resp.name_change
+< Got it. I'll call you {name} from now on.
+< Understood. {name} it is.
+
+## resp.name_known
+< You're {name}. You told me earlier in this conversation.
+< Your name is {name}, unless you've changed it since you told me.
+< {name}! I remember.
+
+## resp.name_unknown
+< You haven't told me your name yet. What should I call you?{?name}
+< I don't know your name yet. I only know what you tell me in this chat. What is it?{?name}
+
+## resp.name_forgot
+< Okay, I've forgotten the name. What should I call you instead?{?name}
+< Done. I won't use that name. What would you like me to call you?{?name}
+
+## resp.name_decline
+< No problem. You don't have to tell me. What would you like to talk about?
+< That's fine. Names are optional here.
+
+## resp.age_ok
+< {n}, noted. I'll remember that for this conversation.
+< Thanks for telling me. {n} is a good age to be curious, and so is every other age.
+<[named] Got it, {name}: {n} years old.
+
+## resp.remember_ok
+< Got it. I'll remember that for this conversation.
+< Noted. Ask me later and I'll tell you what you said.
+< Okay, I've stored that in my memory for this chat.
+
+## resp.fact_ok
+< Got it: your {k} is {v}. I'll remember that while we talk.
+< Noted, your {k} is {v}.
+< Thanks for telling me. I'll remember that your {k} is {v}.
+
+## resp.fact_known
+< Your {k} is {v}. You told me earlier.
+< You said your {k} is {v}.
+
+## resp.fact_unknown
+< You haven't told me your {k} yet. If you tell me, I'll remember it for this conversation.
+< I don't know your {k}. I only know what you tell me in this chat.
+
+## resp.like_ok
+< Good choice. I'll remember that you like {x}.
+< Noted: you like {x}. I can look up something about it if you want.
+<[named] {X}. Nice, {name}. I'll remember that.
+< I can see why. {X} has a lot of fans.
+
+## resp.dislike_ok
+< Fair enough. I'll remember that you're not a fan of {x}.
+< Noted. No {x} for you.
+< Understood. Everyone has things like that.
+
+## resp.place_ok
+< {X}. Nice. I'll remember that. I can look up anything about it if you're curious.
+< Got it, {x}. Thanks for telling me.
+<[named] Good to know, {name}. I've noted {x}.
+
+## resp.role_ok
+< {A} {x}. Nice. I'll remember that. What's that like?{?tellmore}
+< Good to know. Thanks for telling me you're {a} {x}.
+<[named] {A} {x}, got it, {name}.
+
+## resp.memory_empty
+< I don't know anything about you yet. I only remember what you tell me in this conversation. Tell me your name, where you live or what you like, and I'll remember it.
+< My memory of you is empty so far. Try "my name is ..." or "I like ..." and I'll keep it for this chat.
+
+## resp.advice
+< I can't weigh up your life the way a friend could, so I won't pretend to know what's best. What I can do: tell me the options you're choosing between and I'll look up the pros and cons, or just talk it through with me.
+< That's a decision only you can make, but I can help you think. What are the options, and what worries you about each?{?vent}
+< I don't want to give you careless advice. If it's a practical question, I can search for what experts say. If it's a personal one, tell me more and I'll listen.{?vent}
+
+## resp.advice_search
+< I can't judge that for you, since I don't know your situation. But I can look up what reliable sources say about it. Shall I search?
+< That's your call, and I'd be guessing if I answered from my own head. Want me to search the web for the pros and cons?
+< Good question, and one where I shouldn't improvise. I can search for what's written about it. Shall I?
+
+## resp.have_ok
+< Good to know. I'll remember that you have {x}.
+< {X}. Noted. I'll keep that in mind while we talk.
+<[named] Thanks for telling me, {name}. I've noted that you have {x}.
+
+## resp.ambition
+< {A} {x}! That's a fine ambition. What draws you to it?{?tellmore}
+< That's a good goal. Becoming {a} {x} takes work, and wanting it is the first step. What made you choose it?{?tellmore}
+<[named] {A} {x}. I like that, {name}. What's the plan for getting there?{?tellmore}
+
+## resp.about_me
+< I'll take that as an observation about me. I'm a simple program at heart: a built-in brain for chatting and the web for facts. Is there something I can do for you?
+< Noted. I'm not sure how to answer that about myself, honestly. Ask me what I am or how I work, and I'll tell you plainly.
+< Hmm, I don't have a ready answer about myself for that. I only know what my rules and memory hold.
+* How do you work? | What can you do?
+
+## resp.self_unknown
+< I'm not sure how to answer that about myself. I'm a program with a small built-in brain, so there are plenty of things about me that simply don't exist. Ask me what I am, how I work or what I can do.
+< That's beyond what I know about myself. If it's really a question about the world, ask it directly and I'll search the web.
+< I don't have an answer to that one. I'd rather admit it than make something up. Try asking it another way?
+* What can you do? | How do you work?
+
+## resp.unclear
+< I didn't quite catch that. Could you say it another way? You can chat with me normally, or ask a question and I'll look it up.
+< Sorry, I couldn't make sense of that. Try a full sentence or a question.
+< I'm not sure what you mean. Could you rephrase it?
+* What can you do?
+
+## resp.cant_tell
+< I can't tell. I only know what you type in this chat, and I can't see you or your surroundings. Tell me more and I'll do my best with it.
+< I don't know that about you. I only have what you've told me here.
+
+## resp.remark_pos
+< Glad to hear it!
+< That sounds good. Thanks for telling me.
+< Nice! I like hearing that.
+
+## resp.remark_neg
+< That sounds frustrating. I'm sorry.
+< Oh dear. That doesn't sound fun.
+< Sorry to hear that. I hope it gets better.
+
+## resp.question_about
+< Sure, go ahead. What would you like to know about {x}? Ask it as a question and I'll look it up.
+< Of course. Ask away: what about {x}?
+
+## chat.question_about g=greet h=question_about
+> (i have|i have got|i got|got) (a|an|one|some|another|a quick|a small|a few) (question|questions|doubt|doubts|query|queries) (about|on|regarding|related to|for|in|concerning|with) {x}
+> (can i|may i|could i) ask (you )?(a question|something|about|a question about|something about) {x}
+> (i want|i need|i would like) to (ask|know) (you )?(something|a question) (about|on|regarding) {x}
+
+## resp.problem
+< That's annoying. I can't fix it from here, but I can look up what usually helps when your {k} is {v}. Shall I?
+< Frustrating! I can't touch your {k}, but I can search for the usual fixes. Want me to?
+< Sorry to hear your {k} is {v}. Would you like me to look up how people fix that?
+
+## resp.can_unknown
+< I'm not sure that's something I can do. My abilities are narrow: I chat, I know everyday common sense, I have a few built-in skills (time, dates, sums, dice, jokes), and I look things up on the web with sources. If you meant it as a general question, tap the search below.
+< Probably not, if that means acting in the real world or on your device: I can only talk and search. If it's a general question about whether something is possible, I'll happily look it up.
+< That's outside what I'm built for, I think. I can talk with you and I can search the web. If your question is really about the world rather than about me, use the search below.
+* What can you do?
+
+## resp.do_yourself
+< That's something only you can do: I have no access to your accounts, devices or the outside world. I can look up how it's done, though.
+< I can't do that for you, since I can't act outside this chat. What I can do is find instructions.
+< That one needs you: I can't reach your accounts or devices. Want the steps? I can search for them.

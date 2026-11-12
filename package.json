@@ -1,7 +1,7 @@
 {
   "name": "infini-ai",
-  "version": "1.2.0",
-  "description": "INFINI AI — an Internet-Native Intelligence: a retrieval-native chatbot with no pretrained language model. Zero runtime dependencies.",
+  "version": "2.0.0",
+  "description": "INFINI AI — a chatbot with no language model: a built-in rule-based brain for conversation, memory and common sense, and live web retrieval with citations for knowledge. Zero runtime dependencies.",
   "type": "module",
   "license": "MIT",
   "private": true,
@@ -12,7 +12,7 @@
     "start": "node server/server.js",
     "dev": "node --watch server/server.js",
     "ask": "node cli.js",
-    "test": "node --test test/unit.test.js",
+    "test": "node --test test/unit.test.js test/brain.test.js",
     "test:ui": "node test/ui-smoke.mjs",
     "bench": "node bench/intelligence.js",
     "bench:resources": "node bench/resources.js",

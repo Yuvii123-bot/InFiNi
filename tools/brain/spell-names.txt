@@ -1,0 +1,12 @@
+# Names and terms the spelling repair must leave alone even though they look like a slip of a common word.
+# The build adds every WordNet word and every rarer word of the frequency list that would collide; this list is for
+# what those sources do not know: products, companies, technologies, foods and places. One or more words per line.
+canva flickr tumblr grindr scribd fiverr imgur lyft quora reddit figma ollama solana paneer qubit qubits linux perl redis kotlin nginx
+docker kubernetes pytorch numpy pandas svelte vercel tavily supabase firebase github gitlab bitbucket openai chatgpt gemini claude mistral
+grok llama copilot midjourney deepseek perplexity huggingface langchain binance coinbase bitcoin ethereum dogecoin tether cardano
+tiktok whatsapp snapchat instagram telegram discord twitch spotify netflix youtube pinterest linkedin shopify zomato swiggy flipkart
+paytm esewa khalti daraz pathao foodmandu ncell fonepay nvidia huawei xiaomi realme lenovo oneplus samsung toshiba
+biryani samosa chapati thukpa dhido gundruk chatamari yomari lassi chiya masala tandoori paratha pakora jalebi laddu
+pokhara lumbini chitwan bhaktapur lalitpur patan thamel butwal dharan hetauda tansen gorkha manang mustang dolpo karnali gandaki
+bagmati koshi terai dashain tihar holi teej losar newar newari tharu magar limbu gurung tamang sherpa chhetri bahun madhesi
+pubg valorant fortnite roblox minecraft genshin pokemon nintendo

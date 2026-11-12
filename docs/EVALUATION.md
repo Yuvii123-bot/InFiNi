@@ -1,5 +1,86 @@
 # INFINI AI — Evaluation
 
+## Update — version 2.0.0 (2026-11-12): the built-in brain
+
+Version 2.0.0 adds a rule-based brain in front of the web pipeline (conversation, memory within a chat, everyday common
+sense, small skills, spelling repair). Description: `docs/BRAIN.md`. Full account of the release: `docs/REPORT.md`.
+All figures below were measured on 12 November 2026 on the final code, in the build sandbox (2 CPUs, 2 GB RAM, Node 20).
+
+**Automated checks**
+
+| Check | Result |
+|---|---|
+| Unit tests (`npm test`) | 45 of 45: 25 engine tests, 20 brain tests |
+| Interface smoke test, real client against a local server with live retrieval (`npm run test:ui`) | 33 of 33 |
+| Security audit (`npm run audit:security`) | 20 of 20 |
+| Chromium at 360, 390, 820 and 1280 px, light and dark | no horizontal overflow, no console errors |
+
+**Does the brain keep to its job?** The risk of putting a chat layer in front of a search engine is that it starts
+answering things it should look up. Three checks:
+
+| Check | Result |
+|---|---|
+| 1,200 out-of-scope utterances from CLINC150 (knowledge questions, device commands; not written by this project) | 1,079 go to the web. 121 are answered by the brain: 70 honest refusals ("I can't do that on your device or accounts"), 16 "near me" questions that ask for or use the user's place, 10 "I'm not sure I can do that", and 25 others (offers to search for advice, common-sense answers, "I can't write that", one small-talk remark). |
+| The web benchmark's 39 questions | 38 go to the web unchanged. "Is Pluto a planet?" is answered from the hand-written fact base ("No. Pluto is not a planet; it is a dwarf planet."), labelled as not checked on the web. |
+| Spelling repair on all 23,700 CLINC150 utterances | 51 changed, all read by hand: 37 corrections, 14 shorthand expansions, none harmful. A first, looser rule changed 139 and damaged names ("venmo" → "venom", "sportage" → "shortage"); it was narrowed and those cases became tests. |
+
+**Web benchmark on 2.0.0 (same 36 items, Tavily enabled, one run)**
+
+| Run | Expected fact in the opening | Hallucination avoidance | Citation validity | Median latency | Answered by the brain |
+|---|---|---|---|---|---|
+| 1.2.0 as released | 36 / 36 (100%) | 100% | 98% | 1.4 s | not applicable |
+| 2.0.0 as released | 36 / 36 (100%) | 100% | 98% | 2.7 s | 1 of 36 |
+
+The number of search operations per item is the same as in 1.2.0 (154 in total against 158; the difference is the Pluto
+item), so the pipeline does the same work. Every item took longer in this run. The same happened in 1.2.0: its first run
+of the day also had a 2.7 s median and immediate re-runs had 1.4 s, which points to the search service answering repeated
+queries faster rather than to the code. The brain adds under a millisecond to a web question. The keyless resource
+benchmark below, run minutes earlier on the same code, shows no slowdown either. The brain-answered item has no searches
+or citations by design, so it is left out of the retrieval columns and reported separately (`bench/intelligence.js`).
+
+As before, this benchmark is a regression set, not an accuracy estimate.
+
+**Resources (`npm run bench:resources`, keyless providers)**
+
+| Measure | 1.x | 2.0.0 |
+|---|---|---|
+| Engine cold start | 50 ms | 52 ms |
+| Server memory idle | 50 MB | 53 MB (the brain's data is loaded on first use) |
+| First chat reply in a fresh process | not applicable | 155 ms (loads the conversation data); first common-sense reply 74 ms (loads the fact base) |
+| Later chat replies | not applicable | 0.4 ms each on average (520 replies) |
+| Memory with all brain data loaded | not applicable | 120 MB RSS, of which 31 MB JavaScript heap |
+| Server memory after 6 web questions | 109 MB | 134 MB |
+| Code and data | engine 384 kB in 25 files | engine 660 kB in 35 files, plus 4,037 kB of brain data in 8 files |
+| Deployment bundle (gzip) | 238 kB | about 1.3 MB |
+| Client | 41 kB JS + 20 kB CSS | 52 kB JS + 31 kB CSS |
+
+**Problems found by testing in this round, and fixed.** Each was reproduced first.
+
+* A catch-all "chatty" reply for anything unmatched answered 194 of the 1,200 out-of-scope utterances. Replaced by an
+  explicit triage; remarks are now given only to short first-person statements.
+* A general "you" was read as the assistant ("how do you peel a mango"). Now "you" means people in general unless the
+  wording is clearly about the assistant.
+* A question the brain had asked swallowed the next message even when it had its own meaning ("thanks" stored as a place,
+  "my name is yuv" taken as small talk; during a riddle, "who invented the telephone" was judged as a wrong guess).
+* "again" and "another" always produced a joke; "ram ram" (a greeting) was collapsed to "ram" (a name); a rude word
+  inside a question ("tell me some fake news") was taken as an insult.
+* The colour-mixing and spelling skills fired on unrelated sentences.
+* A saved answer reused in another chat replaced that chat's memory, and redoing an older reply rewound it.
+* "what si a quantum conputer" was searched literally, with "si" read as Slovenia: "I could not verify this". Now it is
+  understood as "What is a quantum computer?" and answered with high confidence.
+* "(Note: This article describes …" appeared as the first key point of that answer. Editorial asides about a page are no
+  longer quoted as statements about the subject.
+* Questions about the assistant answered a neighbouring question: "are you open source", "do I have to pay" and "is this
+  free" gave the version number; "do you have friends" gave hobbies; "who is your best friend" gave "no boss". Each now
+  has its own answer.
+
+**What these checks do not show.** The brain's tests were written by the author of the code on phrasings the author
+chose, plus one public dataset used for the opposite case. Nobody outside the project has used the brain yet, so there
+is no measure of how often a real user's chat message is misunderstood, or of how natural the replies feel. Not checked:
+a physical phone, Safari on iOS, Android install of this version, screen readers, and any language other than English.
+
+---
+
 ## Update — version 1.2.0 (2026-11-12)
 
 Tavily is now the first web-search provider on the live site. Full account of this release: `docs/REPORT.md`.

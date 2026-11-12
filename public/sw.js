@@ -1,6 +1,6 @@
 // INFINI AI service worker: caches the app shell so the interface opens instantly and offline.
-// Answers are never cached here — they always come from live retrieval through /api/.
-const CACHE = 'infini-shell-v2';
+// Replies are never cached here — they always come from the server through /api/.
+const CACHE = 'infini-shell-v3';
 const SHELL = ['/', '/index.html', '/app.css', '/app.js', '/manifest.webmanifest', '/icons/icon.svg', '/icons/mark.svg', '/icons/icon-192.png'];
 self.addEventListener('install', (e) => { e.waitUntil(caches.open(CACHE).then((c) => c.addAll(SHELL)).then(() => self.skipWaiting())); });
 self.addEventListener('activate', (e) => { e.waitUntil(caches.keys().then((keys) => Promise.all(keys.filter((k) => k !== CACHE).map((k) => caches.delete(k)))).then(() => self.clients.claim())); });
