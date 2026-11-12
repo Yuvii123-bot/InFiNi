@@ -121,6 +121,8 @@ function mergeResults(r1, r2, t1, t2, question) {
     consulted: [...(r1.consulted || []), ...(r2.consulted || [])].slice(0, 30), unavailable: [...(r1.unavailable || []), ...(r2.unavailable || [])],
     research: { ...R2, plan: R2.plan ? { ...R2.plan, subquestions: [...((R1.plan || {}).subquestions || []), ...R2.plan.subquestions] } : R1.plan, searches: [...R1.searches, ...R2.searches], fetches: [...R1.fetches, ...R2.fetches], passages: [...R1.passages, ...remap(R2.passages)], timings: sum(R1.timings, R2.timings), counts: sum(R1.counts, R2.counts) },
     timeSensitive: r1.timeSensitive || r2.timeSensitive, hops: 2,
+    // run and classification describe the second step (where the search went deep); its citation numbers follow the merged list
+    ...(r2.classification ? { classification: { ...r2.classification, items: (r2.classification.items || []).map((it) => (it.c ? { ...it, c: map.get(it.c) || it.c } : it)) } } : {}),
   };
 }
 
@@ -129,8 +131,19 @@ export function createEngine(userCfg) {
   const http = createHttpClient(cfg.http);
   const totals = { asks: 0, answered: 0, insufficient: 0, errors: 0, brain: 0, startedAt: Date.now() };
   let lastDraftError = '';          // development aid: why the last interim draft could not be built (drafts are optional; the answer never depends on them)
-  const brain = createBrain({ version: VERSION, creator: cfg.creator });
+  const brain = createBrain({ version: VERSION, creator: cfg.creator, maxPages: cfg.research.maxPages });
   const resting = () => WEB_CHAIN.filter((id) => providerCooling(id)).length;
+  // A research run is heavy (hundreds of requests, up to a few hundred MB of memory): only a few run side by side, and
+  // only so many are started per hour, counted for this server instance. A request beyond that is answered at depth "deep".
+  const researchLoad = { running: 0, starts: [] };
+  const researchGate = () => {
+    const t = Date.now();
+    while (researchLoad.starts.length && t - researchLoad.starts[0] > 3600_000) researchLoad.starts.shift();
+    if (researchLoad.running >= cfg.research.maxConcurrent) return `${researchLoad.running} research ${researchLoad.running === 1 ? 'run is' : 'runs are'} already in progress on this server (the limit is ${cfg.research.maxConcurrent} at a time)`;
+    if (researchLoad.starts.length >= cfg.research.perHour) return `this server has started ${researchLoad.starts.length} research runs in the last hour (the limit is ${cfg.research.perHour} per hour); the next one can start in about ${Math.max(1, Math.ceil((3600_000 - (t - researchLoad.starts[0])) / 60000))} min`;
+    researchLoad.running++; researchLoad.starts.push(t);
+    return '';
+  };
 
   async function ask(req, { signal = null, onEvent = null, inspect = null } = {}) {
     const t0 = Date.now();
@@ -162,6 +175,16 @@ export function createEngine(userCfg) {
     // It answers by itself or passes the message on (sometimes reworded) to the web pipeline below.
     let brainState = context.brain;
     let reworded = null;
+    // "Do deep research on X", "find everything you can about X": the instruction says how to answer and is taken off first,
+    // so that the brain and the question analysis see the topic alone (and its spelling can be repaired like any other question's).
+    let directive = null;
+    if (!req._hop) {
+      directive = researchDirective(question);
+      if (directive && directive.question.length >= 3) {
+        reworded = { from: question.slice(0, 300), to: directive.question, reason: directive.reason };
+        question = directive.question;
+      } else directive = null;
+    }
     if (!req._hop) {
       const pre = analyze(question, context, { now });
       const lastKind = brainState && brainState.last ? brainState.last.k : '';
@@ -181,7 +204,11 @@ export function createEngine(userCfg) {
         }
         if (b) {
           brainState = b.state; preface = b.preface || '';
-          if (b.question && b.question !== question) { reworded = { from: question.slice(0, 300), to: b.question, reason: b.why === 'spelling' ? 'spelling corrected by the built-in brain' : 'understood by the built-in brain' }; question = b.question; }
+          if (b.question && b.question !== question) {
+            const why = b.why === 'spelling' ? 'spelling corrected by the built-in brain' : 'understood by the built-in brain';
+            reworded = reworded ? { ...reworded, to: b.question, reason: `${reworded.reason}; ${why}` } : { from: question.slice(0, 300), to: b.question, reason: why };
+            question = b.question;
+          }
         }
       } else if (brainState) brainState = { ...brainState, expect: null };
       context.brain = brainState;
@@ -192,14 +219,6 @@ export function createEngine(userCfg) {
     // without direct evidence, and a full research run when the message asks for one ("do deep research on …").
     // "fast", "balanced", "deep" and "research" are taken as given.
     const asked = DEPTHS.includes(settings.depth) ? settings.depth : 'auto';
-    let directive = null;
-    if (!req._hop) {
-      directive = researchDirective(question);
-      if (directive && directive.question.length >= 3) {
-        reworded = reworded ? { ...reworded, to: directive.question } : { from: question.slice(0, 300), to: directive.question, reason: directive.reason };
-        question = directive.question;
-      } else directive = null;
-    }
 
     // ---------------- Understanding ----------------
     let style = {};
@@ -664,6 +683,8 @@ export function createEngine(userCfg) {
 
     // ---------------- Research loop (depths "deep" and "research"; automatic widening) ----------------
     let research = null;                  // summary of the loop, once it has run
+    let limited = '';                     // why a requested research run was answered at depth "deep" instead
+    let holdsResearch = false;
     let draftFailed = false;
     let aspects = [];                     // sub-topics found in the material (they become report sections and a way to sort the results)
     const skipUrl = (u) => SKIP_HOST.test(domainOf(u)) || SKIP_EXT.test(u);
@@ -674,6 +695,11 @@ export function createEngine(userCfg) {
         mode = 'widen';
         emit({ type: 'note', stage: 'comparing', text: 'The first round found the topic but no passage that answers the question directly — widening the search.' });
       }
+      if (mode === 'research') {
+        limited = researchGate();
+        if (limited) { mode = 'deep'; emit({ type: 'note', stage: 'comparing', text: `A full research run was not started: ${limited}. Answering at depth “deep” instead.` }); }
+        else holdsResearch = true;
+      }
       if (mode) {
         const budget = { ...RESEARCH_BUDGET[mode] };
         if (mode === 'research') Object.assign(budget, { maxPages: cfg.research.maxPages, maxMs: cfg.research.maxSeconds * 1000, concurrency: cfg.research.concurrency });
@@ -682,15 +708,25 @@ export function createEngine(userCfg) {
         wide = true;
         emit({ type: 'research', status: 'start', mode, budget: { pages: budget.maxPages, seconds: Math.round(budget.maxMs / 1000) } });
         const r0 = Date.now();
+        // An interim answer after each round — and one straight away from the first, quick round, so that something useful is on screen while the reading goes on.
+        const emitDraft = (round) => {
+          if (!onEvent || mode === 'widen') return;
+          try { const d = assemble(false); delete d._detail; if (d.confidence && d.confidence.level !== 'insufficient') emit({ type: 'draft', round, result: d }); }
+          catch (e) {      // a draft is optional: the final answer does not depend on it
+            if (!draftFailed) { draftFailed = true; totals.draftErrors = (totals.draftErrors || 0) + 1; lastDraftError = `${String((e && e.message) || e).slice(0, 200)} ${String((e && e.stack) || '').split('\n')[1] || ''}`.trim(); if (process.env.INFINI_DEBUG) console.error('draft failed:', lastDraftError); }
+          }
+        };
+        emitDraft(0);
+        try {
         research = await runResearch({
           cfg, http, off, signal, aborted, emit, now, t0, analysis, mode, budget, docs, addDoc, fetchLog, searchLog, logSearch, entityDocs, senses, learned, candidateLists, pctx, skipUrl, readLead, weakPart,
           recompare: async (round) => { await compare(round); return ranks; },
           draft: async (round, found) => {
             aspects = (found || []).map((a) => ({ label: a.label, stems: a.stems, source: a.source, heading: !!a.heading }));
-            if (!onEvent || mode === 'widen') return;
-            try { const d = assemble(false); delete d._detail; if (d.confidence && d.confidence.level !== 'insufficient') emit({ type: 'draft', round, result: d }); } catch (e) { if (!draftFailed) { draftFailed = true; totals.draftErrors = (totals.draftErrors || 0) + 1; lastDraftError = `${String((e && e.message) || e).slice(0, 200)} ${String((e && e.stack) || '').split('\n')[1] || ''}`.trim(); if (process.env.INFINI_DEBUG) console.error('draft failed:', lastDraftError); } /* a draft is optional: the final answer does not depend on it */ }
+            emitDraft(round);
           },
         });
+        } finally { if (holdsResearch) { holdsResearch = false; researchLoad.running = Math.max(0, researchLoad.running - 1); } }
         timings.searching = (timings.searching || 0) + (research.searchMs || 0);
         timings.reading = (timings.reading || 0) + (research.readMs || 0);
         timings.research = Date.now() - r0;
@@ -721,6 +757,7 @@ export function createEngine(userCfg) {
         blocks.push(...r.blocks);
       });
       if (analysis.intent === 'url' && !analysis.parts.length) { const r = summarizeDoc(docs[0], 0, { cite, partIndex: 0 }); results.push(r); blocks.push(...r.blocks); }
+      if (limited && final) blocks.push({ type: 'note', tone: 'warn', text: `A full research run was not started: ${limited}. This answer was built at depth “deep” instead (up to ${RESEARCH_BUDGET.deep.maxPages} pages). Ask again a little later for the full run.` });
       const answered = results.filter((r) => !r.stats.insufficient);
       if (multi && answered.filter((r) => r.stats.directness >= 0.6).length >= 2) {
         blocks.push({ type: 'heading', text: 'In short', level: 2 });
@@ -848,7 +885,7 @@ export function createEngine(userCfg) {
       const result = {
         ...base, kind: analysis.intent === 'url' ? 'url' : 'retrieval', question: question.slice(0, 600),
         interpretation: { resolved: analysis.resolved || '', rewrites: analysis.rewrites, followUp: analysis.followUp, metaOf: analysis.metaOf || null, parts: analysis.parts.map((p) => ({ text: p.text, qtype: p.qtype, answerType: p.answerType, focus: p.focus, keywords: p.keywords })) },
-        answer: { blocks: preface ? [P(preface), ...blocks] : blocks }, sources, confidence, timeSensitive, style, depth: { asked, used: mode || depth }, run, classification,
+        answer: { blocks: preface ? [P(preface), ...blocks] : blocks }, sources, confidence, timeSensitive, style, depth: { asked, used: mode || depth, ...(limited ? { limited } : {}) }, run, classification,
         consulted: docs.filter((d) => !citedKeys.has(d.key) && !d.structured && !d.offTopic).slice(0, 30).map((d) => ({ url: d.url, title: d.title, domain: d.domain, evidenceLevel: d.evidenceLevel, published: d.published || '' })),
         unavailable: fetchLog.filter((f) => !f.ok).slice(0, final ? 60 : 0).map((f) => ({ url: f.url, domain: f.domain, error: f.error })),
         research: {
@@ -883,7 +920,7 @@ export function createEngine(userCfg) {
     ask, preview, config: cfg,
     providers: (offList = []) => listProviders(cfg, new Set(offList)),
     brain,
-    status: () => ({ version: VERSION, uptimeS: Math.round((Date.now() - totals.startedAt) / 1000), totals: { ...totals }, brain: brain.stats(), http: http.stats(), wikimediaBudget: http.remaining('wikimedia-api'), contactConfigured: !!cfg.contact }),
+    status: () => ({ version: VERSION, uptimeS: Math.round((Date.now() - totals.startedAt) / 1000), totals: { ...totals }, research: { enabled: !!cfg.research.enabled, running: researchLoad.running, startedLastHour: researchLoad.starts.filter((t) => Date.now() - t < 3600_000).length, maxConcurrent: cfg.research.maxConcurrent, perHour: cfg.research.perHour, maxPages: cfg.research.maxPages, maxSeconds: cfg.research.maxSeconds }, brain: brain.stats(), http: http.stats(), wikimediaBudget: http.remaining('wikimedia-api'), contactConfigured: !!cfg.contact }),
     clearCaches: () => { http.clearCache(); resetCooling(); },
     close: () => http.close(),
   };

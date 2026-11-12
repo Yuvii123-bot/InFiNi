@@ -21,7 +21,7 @@ export const RESEARCH_BUDGET = {
   // widen: used by "auto" when the first round left a part of the question without direct evidence
   widen: { maxPages: 36, maxMs: 30000, concurrency: 14, perDomain: 3, rounds: 2, queries: 4, aspects: 0, refArticles: 1, related: 0, abstracts: 30, fullTexts: 2, oaPages: 3, linkDepth: 1, batchPages: 30, batchMs: 11000, sections: 0, perSection: 0, keep: 8 },
   deep: { maxPages: 70, maxMs: 45000, concurrency: 18, perDomain: 4, rounds: 3, queries: 6, aspects: 5, refArticles: 1, related: 0, abstracts: 60, fullTexts: 12, oaPages: 8, linkDepth: 1, batchPages: 40, batchMs: 13000, sections: 3, perSection: 2, keep: 8 },
-  research: { maxPages: 1500, maxMs: 170000, concurrency: 40, perDomain: 12, rounds: 12, queries: 10, aspects: 8, refArticles: 3, related: 2, abstracts: 800, fullTexts: 240, oaPages: 300, linkDepth: 2, batchPages: 170, batchMs: 20000, sections: 6, perSection: 3, keep: 7 },
+  research: { maxPages: 1500, maxMs: 170000, concurrency: 40, perDomain: 12, rounds: 12, queries: 10, aspects: 8, refArticles: 3, related: 2, abstracts: 800, fullTexts: 240, oaPages: 300, linkDepth: 2, batchPages: 170, batchMs: 20000, firstBatchMs: 8000, sections: 6, perSection: 3, keep: 7 },
 };
 // How many times one question may call each search service during the loop (on top of the first round).
 const CALLS = {
@@ -184,7 +184,8 @@ export async function runResearch(x) {
       const busy = new Map();
       const notBefore = new Map();            // host → time before which it must not be asked again (its robots.txt Crawl-delay)
       const hostBusy = (host) => {
-        if (x.http.hostDown(host)) return true;
+        // a site that keeps failing is left alone; its leads stay in the queue as unread (Europe PMC articles are fetched from the EBI API host)
+        if (x.http.hostDown(host) || (host.endsWith('europepmc.org') && x.http.hostDown('www.ebi.ac.uk'))) return true;
         const n = busy.get(host) || 0;
         if (API_HOST.test(host)) return n >= (host.endsWith('europepmc.org') ? 3 : 5);
         const delay = x.http.crawlDelay ? x.http.crawlDelay(host) : 0;
@@ -370,7 +371,8 @@ export async function runResearch(x) {
     const r0 = Date.now(), pagesBefore = okPages();
     x.emit({ type: 'stage', stage: 'reading', status: 'start', round: round + 1 });
     const reserve = 2500 + lastCompareMs * 2.2;
-    const batch = () => crawl({ maxNew: Math.round(B.batchPages * 1.9), untilMs: Math.min(deadline - reserve, Date.now() + B.batchMs) });
+    // the first batch is short, so that the first fuller draft comes early; later batches read longer
+    const batch = () => crawl({ maxNew: Math.round(B.batchPages * 1.9), untilMs: Math.min(deadline - reserve, Date.now() + (round === 1 && B.firstBatchMs ? B.firstBatchMs : B.batchMs)) });
     let why = frontier.size ? await batch() : 'no leads left';
     if (!searchesDone) {
       await allSearches;                                         // bounded by the searches' own timeouts

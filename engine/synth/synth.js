@@ -148,7 +148,6 @@ function composeExtractive(env, { leadFilter = null, bullets = null, heading = '
     const keyed = wide && ranked.salience ? (s) => s.sal >= 0.1 || s.pi === lead.pi || !!s.gov : () => true;       // after a research run: a point must share some of the vocabulary the sources use when they answer
     const ok = (s) => !env.used.has(`${s.pi}:${s.si}`) && s.type !== 'table' && keyed(s) && simSets(s.stems, lead.stems) < 0.6 && (s.directCov >= lead.directCov * 0.6 || s.pi === lead.pi || (wide && !!s.gov && s.directCov >= 0.3)) && !(wide && s.otherEntity) && (s.predCov >= 0.5 || s.pi === lead.pi || part.answerType === 'definition' || part.explain) && (!bulletFilter || bulletFilter(s)) && !aboutOther(s);
     let picks = mmr(cands, nB + 4, { maxPerDoc: wide ? 1 : Math.max(2, Math.ceil(nB / 2)), filter: ok });
-    if (process.env.INFINI_DEBUG_BULLETS) { console.error('nB', nB, 'cands', cands.length, 'ok', cands.filter(ok).length, 'picks', picks.length); for (const s of cands.slice(0, 30)) console.error(`  ${s.score.toFixed(2)} gov=${!!s.gov} cue=${s.cueHit} d=${s.directCov.toFixed(2)} p=${s.predCov.toFixed(2)} sal=${(s.sal || 0).toFixed(2)} used=${env.used.has(`${s.pi}:${s.si}`)} simLead=${simSets(s.stems, lead.stems).toFixed(2)} bf=${!bulletFilter || bulletFilter(s)} ent=${!!docs[s.di].entity} kind=${docs[s.di].kind} ok=${ok(s)} | ${s.text.slice(0, 70)}`); }
     // after a research run each source gets one statement — unless that leaves the list short while one thorough source has more to say
     if (wide && picks.length < nB) { const more = mmr(cands, nB + 4, { maxPerDoc: 3, filter: ok }); picks = [...picks, ...more.filter((s) => !picks.includes(s))].slice(0, nB + 4).sort((a, b) => b.score - a.score); }
     const items = [];
@@ -334,7 +333,7 @@ function composeYesNo(env) {
     if (all.length >= 5) {
       const by = { supports: all.filter((v) => v.stance === 'supports'), contradicts: all.filter((v) => v.stance === 'contradicts'), qualified: all.filter((v) => v.stance === 'qualified') };
       const N = all.length, yes = by.supports.length, no = by.contradicts.length, mid = by.qualified.length;
-      const counts = `${yes} lean yes, ${no} lean no and ${mid} qualify it or call the evidence unsettled`;
+      const counts = `${yes} ${yes === 1 ? 'leans' : 'lean'} yes, ${no} ${no === 1 ? 'leans' : 'lean'} no and ${mid} ${mid === 1 ? 'qualifies it or calls' : 'qualify it or call'} the evidence unsettled`;
       let verdict, tone = 'info';
       if (yes >= 0.6 * N) verdict = `Most of the sources that address this directly lean yes: of ${N} independent sources, ${counts}.`;
       else if (no >= 0.6 * N) verdict = `Most of the sources that address this directly lean no: of ${N} independent sources, ${counts}.`;

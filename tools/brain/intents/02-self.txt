@@ -170,6 +170,28 @@
 < Two kinds of things. I can simply talk with you: small talk, common sense, jokes, riddles, the time, quick maths. And I can find things out: ask me any factual question and I'll search the web, read the pages and give you a cited answer.
 * What is quantum computing? | Tell me a joke | What time is it? | Is ice cold?
 
+## bot.research g=self
+> (can|could|do|will|would) you (do|run|conduct|perform|make|carry out) [a|some|any] [deep|deeper|in depth|detailed|thorough|real|proper|serious|full|extensive|comprehensive|actual|web|online|internet] research [for me|for us|too|as well|on things|on topics|on a topic|on something|on anything|on any topic]
+> (can|could|do|will|would) you (research|investigate) (things|stuff|topics|a topic|any topic|something|anything|subjects|a subject) [for me|for us|in depth|in detail|deeply|thoroughly]
+> (can|could|do|will|would) you (research|do research|investigate) [for me|for us|in depth|deeply|thoroughly|too|as well]
+> are you (able to do|capable of|capable of doing|good at) [deep|in depth|detailed|thorough] research
+> do you (have|support|offer) [a|any] (deep research|research mode|deep research mode|deep search|research feature|deep research feature|deep search mode)
+> (is there|have you got) [a|any] (deep research|research mode|deep research mode|deep search) [mode|feature|option]
+< Yes. Write "do deep research on" followed by a topic, or choose Research under Depth. I then ask many search services at once (the web, Wikipedia and indexes of scientific papers), read up to {maxPages} pages, follow their links and reference lists, and go on while new searches still bring new material. Everything I find is sorted by kind of source, year, reliability and sub-topic, and I write a report in the sources' own words, with every statement cited. It takes a minute or two, and I count only what I really read.
+< I can. Choose Research under Depth, or just write "do deep research on …". Instead of a handful of pages I then work through hundreds: web pages, encyclopedia articles and abstracts of scientific papers, up to {maxPages} pages in one run. You see the count grow and get a first draft early. At the end comes a report with sections, a breakdown of the sources and a citation on every statement. There is no language model behind it, so the report quotes the sources instead of rewording them.
+* Do deep research on the health effects of microplastics | What does the research say about intermittent fasting? | How do you work?
+
+## bot.research_how g=self
+> how (deep|far|wide|much|thoroughly|widely) (can|do|will) you (search|research|go|dig|look|read)
+> how many (pages|sources|sites|websites|web pages|articles|results|papers) (can|do|will) you (read|search|check|use|scan|look at|go through|consult|open) [at once|per question|for one question|for a question|in one go]
+> how (do|can|would|should) i (start|use|do|run|get|trigger|turn on|enable|switch on|ask for|request) [a|the|your] (deep research|research mode|deep research mode|research|deep search|research run)
+> how does [your|the] (deep research|research mode|deep research mode|deep search) work
+> what is [your|the] (deep research|research mode|deep research mode|deep search) [mode|feature|option]
+> (deep research|research mode|deep research mode|deep search mode|deep research please)
+< A research run goes much further than a normal answer. For a normal question I read about six pages in a few seconds. In a research run I ask many search services at once (the web, Wikipedia and indexes of scientific papers), read up to {maxPages} pages, follow their links and reference lists, and go on while new searches still bring new material. To start one, write "do deep research on" followed by a topic, or choose Research under Depth. It takes a minute or two.
+< Normally I read about six pages for a question. In a research run I work through hundreds, up to {maxPages}: web pages, encyclopedia articles and abstracts of scientific papers. Everything is sorted by kind of source, year, reliability and sub-topic, and the report cites every statement. Start one with "do deep research on …" or by choosing Research under Depth.
+* Do deep research on the health effects of microplastics | What does the research say about intermittent fasting? | How do you work?
+
 ## bot.limits g=self
 > (what can you not do|what can not you do|what can you not do yet|what are your (limits|limitations|weaknesses|flaws|shortcomings|restrictions|downsides)|what is your (weakness|limitation|biggest weakness|biggest flaw)|what are you (bad at|not good at|unable to do|not able to do)|what do you not know|is there anything you can not do|are there things you can not do|do you have (limits|limitations|weaknesses|flaws)|are you perfect|are you limited|can you do everything|can you do anything|do you know everything about everything|are you all knowing|are you omniscient|what are your disadvantages|where do you fail|when do you fail|what is hard for you|what is difficult for you|what do you struggle with)
 < Plenty. I can't write essays, stories or code from scratch, I can't see images or hear audio, and I can't do things on your device like set alarms or send messages. My small talk comes from prepared replies, so it has limits and can repeat. And for facts I depend on pages I can reach: if the best page blocks me, or my rules misread your question, the answer suffers. When that happens I try to say so instead of bluffing.

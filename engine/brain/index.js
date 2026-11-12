@@ -145,7 +145,7 @@ const LEAD = new Set('now so then also and but well please ok hey hi hello alrig
 const DEVICE_KIN = /^(?:my |the )?(?:mom|mum|mother|dad|father|papa|mama|brother|sister|wife|husband|friend|boss|girlfriend|boyfriend|uncle|aunt|grandma|grandpa|son|daughter|teacher|doctor|police|ambulance|office|home|him|her|them|me|someone|\d+)\b/;
 
 export function createBrain(opts = {}) {
-  const persona = { version: opts.version || '2.0.0', creator: opts.creator || 'an independent developer', born: '2026-11' };
+  const persona = { version: opts.version || '2.0.0', creator: opts.creator || 'an independent developer', born: '2026-11', maxPages: Number(opts.maxPages) || 1500 };
 
   /** Pick one reply of an intent that fits the situation; returns {text, expect} or null when none fits. */
   function chooseReply(c, intent, vars = {}) {
@@ -161,7 +161,7 @@ export function createBrain(opts = {}) {
     const S = storeStats();
     const all = {
       name: st.name.split(' ')[0], topic: last && last.k === 'web' ? last.t : '', conf: last ? last.lvl : '', confpct: last && last.pct ? String(last.pct) : '', nsrc: last && last.n ? String(last.n) : '',
-      time: c.env.clock, creator: persona.creator, Creator: cap(persona.creator), version: persona.version,
+      time: c.env.clock, creator: persona.creator, Creator: cap(persona.creator), version: persona.version, maxPages: persona.maxPages.toLocaleString('en-US'),
       nPatterns: S.patterns.toLocaleString('en-US'), nFacts: S.facts.toLocaleString('en-US'), nIntents: String(S.intents), nReplies: String(S.replies), ...vars,
     };
     const usable = [];
