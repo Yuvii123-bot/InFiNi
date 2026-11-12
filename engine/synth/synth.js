@@ -120,7 +120,11 @@ function composeExtractive(env, { leadFilter = null, bullets = null, heading = '
   const opening = openFirst ? leadPool.find((s) => docs[s.di].entity && s.order === 0 && s.si === 0 && leadFilter(s)) : null;   // the sentence that introduces the subject on its own page
   const strict = leadFilter ? opening || leadPool.find((s) => docs[s.di].entity && leadFilter(s)) || leadPool.find(leadFilter) : null;
   if (requireLead && !strict) return insufficient(env, requireLead);
-  let lead = strict || cands.find((s) => (!s.dangling || s.si > 0) && s.predCov >= 0.5) || cands.find((s) => !s.dangling || s.si > 0) || cands[0];
+  // after many pages have been read there is a choice: the opening sentence then names the topic itself ("Microplastics can …"),
+  // not only the property asked about ("… these adverse health effects will continue …")
+  const topicStems = wide ? [...new Set(stemsOf(part.focus || ''))] : [];
+  const namesTopic = (s) => !topicStems.length || topicStems.every((f) => s.stems.has(f));
+  let lead = strict || (wide && cands.find((s) => namesTopic(s) && !s.dangling && s.predCov >= 0.5)) || cands.find((s) => (!s.dangling || s.si > 0) && s.predCov >= 0.5) || cands.find((s) => !s.dangling || s.si > 0) || cands[0];
   const blocks = [], leadSpans = [];
   const pre = (s) => (attribute ? `${docs[s.di].site || docs[s.di].domain}${docs[s.di].published ? ` (${String(docs[s.di].published).slice(0, 10)})` : ''}: ` : '');
   const first = env.quote(lead, { allowDangling: true, prefix: pre(lead) });
@@ -132,6 +136,7 @@ function composeExtractive(env, { leadFilter = null, bullets = null, heading = '
     const nxt = ranked.sentences.find((s) => s.pi === lead.pi && s.si === lead.si + k);
     const continues = opening && lead === opening && CUES.function.test(nxt ? nxt.text : '');   // "… is the primary processor. Its circuitry executes …"
     if (!nxt || (nxt.score < topScore * 0.3 && !continues) || leadSpans.reduce((a, x) => a + x.text.length, 0) + nxt.text.length > 620) break;
+    if (wide && (nxt.proc || !plain(nxt))) break;                       // "… this research explores how …" continues the paragraph but says nothing about the world
     const sp = env.quote(nxt, { allowDangling: true });
     if (sp) leadSpans.push(sp);
   }
@@ -145,7 +150,9 @@ function composeExtractive(env, { leadFilter = null, bullets = null, heading = '
       const m = /^((?:[A-Z][\w&.’'-]*\s+){1,3})(?:is|are|was|were|offers?|provides?|lets|helps?|enables?|gives?|makes?|delivers?)\b/.exec(s.text);
       return !!m && !stemsOf(m[1]).some((w) => focusStems.has(w));
     };
-    const keyed = wide && ranked.salience ? (s) => s.sal >= 0.1 || s.pi === lead.pi || !!s.gov : () => true;       // after a research run: a point must share some of the vocabulary the sources use when they answer
+    // after a research run: a point must share some of the vocabulary the sources use when they answer; before that vocabulary
+    // is known (the first draft), it must name the topic itself
+    const keyed = wide && ranked.salience ? (s) => s.sal >= 0.1 || s.pi === lead.pi || !!s.gov : wide ? (s) => namesTopic(s) || s.pi === lead.pi : () => true;
     const ok = (s) => !env.used.has(`${s.pi}:${s.si}`) && s.type !== 'table' && keyed(s) && simSets(s.stems, lead.stems) < 0.6 && (s.directCov >= lead.directCov * 0.6 || s.pi === lead.pi || (wide && !!s.gov && s.directCov >= 0.3)) && !(wide && s.otherEntity) && (s.predCov >= 0.5 || s.pi === lead.pi || part.answerType === 'definition' || part.explain) && (!bulletFilter || bulletFilter(s)) && !aboutOther(s);
     let picks = mmr(cands, nB + 4, { maxPerDoc: wide ? 1 : Math.max(2, Math.ceil(nB / 2)), filter: ok });
     // after a research run each source gets one statement — unless that leaves the list short while one thorough source has more to say
