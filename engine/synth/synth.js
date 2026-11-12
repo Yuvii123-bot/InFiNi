@@ -153,7 +153,10 @@ function composeExtractive(env, { leadFilter = null, bullets = null, heading = '
     // after a research run: a point must share some of the vocabulary the sources use when they answer; before that vocabulary
     // is known (the first draft), it must name the topic itself
     const keyed = wide && ranked.salience ? (s) => s.sal >= 0.1 || s.pi === lead.pi || !!s.gov : wide ? (s) => namesTopic(s) || s.pi === lead.pi : () => true;
-    const ok = (s) => !env.used.has(`${s.pi}:${s.si}`) && s.type !== 'table' && keyed(s) && simSets(s.stems, lead.stems) < 0.6 && (s.directCov >= lead.directCov * 0.6 || s.pi === lead.pi || (wide && !!s.gov && s.directCov >= 0.3)) && !(wide && s.otherEntity) && (s.predCov >= 0.5 || s.pi === lead.pi || part.answerType === 'definition' || part.explain) && (!bulletFilter || bulletFilter(s)) && !aboutOther(s);
+    // "Endocrine-disrupting chemicals (EDCs) are hormonally active compounds …": after a research run, a sentence that defines
+    // some other thing and never names the topic is background from a neighbouring field, not a point about the topic
+    const definesOther = (s) => wide && topicStems.length > 0 && !namesTopic(s) && /^[A-Z][\w’'-]*(?:\s+[\w’'-]+){0,4}?(?:\s+\([A-Za-z]{2,8}\))?\s+(?:is|are|refers? to|means)\s+(?:an?\s|the\s|[a-z]+ly\s|one of\s)/.test(s.text);
+    const ok = (s) => !env.used.has(`${s.pi}:${s.si}`) && s.type !== 'table' && keyed(s) && !definesOther(s) && simSets(s.stems, lead.stems) < 0.6 && (s.directCov >= lead.directCov * 0.6 || s.pi === lead.pi || (wide && !!s.gov && s.directCov >= 0.3)) && !(wide && s.otherEntity) && (s.predCov >= 0.5 || s.pi === lead.pi || part.answerType === 'definition' || part.explain) && (!bulletFilter || bulletFilter(s)) && !aboutOther(s);
     let picks = mmr(cands, nB + 4, { maxPerDoc: wide ? 1 : Math.max(2, Math.ceil(nB / 2)), filter: ok });
     // after a research run each source gets one statement — unless that leaves the list short while one thorough source has more to say
     if (wide && picks.length < nB) { const more = mmr(cands, nB + 4, { maxPerDoc: 3, filter: ok }); picks = [...picks, ...more.filter((s) => !picks.includes(s))].slice(0, nB + 4).sort((a, b) => b.score - a.score); }
