@@ -1,6 +1,6 @@
 // INFINI AI — configuration (environment-driven; every value has a safe default; no key is required).
 
-export const VERSION = '2.0.0';
+export const VERSION = '3.0.0';
 
 const WIKIMEDIA_HOST = /(^|\.)(wikipedia|wikidata|wikimedia|mediawiki|wiktionary|wikinews|wikibooks|wikiquote|wikivoyage|wikiversity|wikisource)\.org$/;
 const WIKIMEDIA_API_PATH = /^\/(w\/api\.php|w\/rest\.php|api\/rest_v1|core\/v1)/;
@@ -33,8 +33,19 @@ export function loadConfig(env = (typeof process !== 'undefined' ? process.env :
     trustProxy: env.TRUST_PROXY === '1',
     allowEmbed: env.ALLOW_EMBED === '1',
     maxConcurrentAsks: num(env.MAX_CONCURRENT_ASKS, 4, 1, 64),
+    // Research mode: one question may read up to this many pages for up to this many seconds. On serverless hosts the
+    // time must stay below the platform's function limit (Vercel hobby: 300 s) with room to build the final answer.
+    research: {
+      enabled: env.RESEARCH_MODE !== '0',
+      maxPages: num(env.RESEARCH_MAX_PAGES, 1500, 50, 5000),
+      maxSeconds: num(env.RESEARCH_MAX_SECONDS, 170, 30, 270),
+      concurrency: num(env.CRAWL_CONCURRENCY, 40, 4, 96),
+      maxConcurrent: num(env.MAX_CONCURRENT_RESEARCH, 2, 1, 16),
+      perHour: num(env.RESEARCH_PER_HOUR, 12, 1, 1000),
+    },
     http: {
       userAgent,
+      global: Math.max(12, Math.round(num(env.CRAWL_CONCURRENCY, 40, 4, 96) * 1.5) + 12),      // room for a research run and ordinary questions side by side
       userAgentFor: (u) => (WIKIMEDIA_HOST.test(u.hostname) ? contactUA : genericUA),
       timeoutMs: num(env.FETCH_TIMEOUT_MS, 7000, 1000, 30000),
       maxBytes: num(env.FETCH_MAX_BYTES, 1_500_000, 50_000, 10_000_000),
@@ -49,6 +60,9 @@ export function loadConfig(env = (typeof process !== 'undefined' ? process.env :
         { id: 'gdelt', label: 'GDELT', perMin: 6, test: (u) => u.hostname === 'api.gdeltproject.org' },
         { id: 'arxiv', label: 'arXiv API', perMin: 15, test: (u) => u.hostname === 'export.arxiv.org' },
         { id: 'firecrawl', label: 'Firecrawl', perMin: 8, test: (u) => u.hostname === 'api.firecrawl.dev' },
+        { id: 'openalex', label: 'OpenAlex API', perMin: 60, test: (u) => u.hostname === 'api.openalex.org' },
+        { id: 'europepmc', label: 'Europe PMC API', perMin: 120, test: (u) => u.hostname === 'www.ebi.ac.uk' },
+        { id: 'mwmbl', label: 'Mwmbl', perMin: 30, test: (u) => u.hostname === 'api.mwmbl.org' },
       ],
     },
   };

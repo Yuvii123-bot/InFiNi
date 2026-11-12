@@ -16,13 +16,22 @@ import { entityFacts, compareEntities, getEntity, chooseSenses } from './provide
 import { extractPage } from './extract/readable.js';
 import { classifySource, originGroups, scoreConfidence, buildGraph } from './evidence/evidence.js';
 import { answerPart, summarizeDoc, topicMatcher } from './synth/synth.js';
+import { composeReport, applyConsensus } from './synth/report.js';
 import { relatedQuestions } from './synth/related.js';
-import { queryModel, rankEvidence, feedbackTerms, stemsOf, lexicalOverlap } from './rank/rank.js';
+import { queryModel, rankEvidence, feedbackTerms, stemsOf, lexicalOverlap, docStems } from './rank/rank.js';
+import { europepmc } from './providers/scholar.js';
+import { runResearch, RESEARCH_BUDGET } from './research/run.js';
+import { digestDoc } from './research/digest.js';
+import { applySalience } from './research/salience.js';
+import { aspectMatcher } from './research/aspects.js';
+import { researchDirective } from './research/directive.js';
+import { buildClassification, stanceOf } from './classify/classify.js';
 import { canonicalUrl, domainOf, truncate, uniq, capitalize, squash, splitSentences, hash, escapeRegex } from './util/text.js';
 import { formatDate } from './util/dates.js';
 
 export { VERSION, loadConfig };
 export const STAGES = ['understanding', 'planning', 'searching', 'reading', 'comparing', 'constructing'];
+export const DEPTHS = ['auto', 'fast', 'balanced', 'deep', 'research'];
 
 const SKIP_HOST = /(^|\.)(youtube\.com|youtu\.be|x\.com|twitter\.com|facebook\.com|instagram\.com|tiktok\.com|pinterest\.com|linkedin\.com|vimeo\.com|spotify\.com|play\.google\.com|apps\.apple\.com)$/;
 const SKIP_EXT = /\.(pdf|docx?|pptx?|xlsx?|zip|gz|png|jpe?g|gif|webp|svg|mp4|mp3|avi|mov|exe|dmg|apk)(\?|#|$)/i;
@@ -119,10 +128,11 @@ export function createEngine(userCfg) {
   const cfg = userCfg || loadConfig();
   const http = createHttpClient(cfg.http);
   const totals = { asks: 0, answered: 0, insufficient: 0, errors: 0, brain: 0, startedAt: Date.now() };
+  let lastDraftError = '';          // development aid: why the last interim draft could not be built (drafts are optional; the answer never depends on them)
   const brain = createBrain({ version: VERSION, creator: cfg.creator });
   const resting = () => WEB_CHAIN.filter((id) => providerCooling(id)).length;
 
-  async function ask(req, { signal = null, onEvent = null } = {}) {
+  async function ask(req, { signal = null, onEvent = null, inspect = null } = {}) {
     const t0 = Date.now();
     const now = Date.now();
     totals.asks++;
@@ -177,6 +187,20 @@ export function createEngine(userCfg) {
       context.brain = brainState;
     }
 
+    // ---------------- how deep to go ----------------
+    // "auto" (the default) sizes the search itself: a quick round first, widened when that leaves a part of the question
+    // without direct evidence, and a full research run when the message asks for one ("do deep research on …").
+    // "fast", "balanced", "deep" and "research" are taken as given.
+    const asked = DEPTHS.includes(settings.depth) ? settings.depth : 'auto';
+    let directive = null;
+    if (!req._hop) {
+      directive = researchDirective(question);
+      if (directive && directive.question.length >= 3) {
+        reworded = reworded ? { ...reworded, to: directive.question } : { from: question.slice(0, 300), to: directive.question, reason: directive.reason };
+        question = directive.question;
+      } else directive = null;
+    }
+
     // ---------------- Understanding ----------------
     let style = {};
     let analysisRef = null, planRef = null;
@@ -186,7 +210,7 @@ export function createEngine(userCfg) {
         const kind = a.meta;
         style = kind === 'simplify' ? { simple: true } : kind === 'elaborate' ? { detail: true } : kind === 'shorten' ? { brief: true } : {};
         a = { ...analyze(context.lastQuestion, {}, { now }), metaOf: kind, followUp: true, rewrites: [{ from: question, to: context.lastQuestion, reason: { simplify: 'simpler explanation of the previous question', elaborate: 'more detail on the previous question', shorten: 'shorter answer to the previous question', verify: 'previous question re-checked with a deeper search' }[kind] }] };
-        if (kind === 'verify' || kind === 'elaborate') settings.depth = 'deep';
+        if (kind === 'verify' || kind === 'elaborate') settings._seedDeep = true;
         if (kind === 'verify') req.regenerate = true;
       }
       analysisRef = a;
@@ -216,8 +240,8 @@ export function createEngine(userCfg) {
       const hop = detectHop(analysis);
       if (hop) {
         emit({ type: 'note', stage: 'understanding', text: `Multi-step question: first “${hop.first}”, then the rest using that answer.` });
-        const inner = { signal, onEvent: (ev) => { if (ev.type !== 'answer') emit(ev); } };
-        const r1 = await ask({ ...req, question: hop.first, _hop: true }, inner);
+        const inner = { signal, onEvent: (ev) => { if (ev.type !== 'answer' && ev.type !== 'draft') emit(ev); } };
+        const r1 = await ask({ ...req, question: hop.first, _hop: true, settings: { ...settings, depth: 'balanced' } }, inner);
         const ent = (r1.answerEntities || [])[0];
         if (!ent) {
           r1.answer.blocks.push({ type: 'note', tone: 'warn', text: `This was the first step of a two-step question. I could not pin down a single answer to it, so I did not attempt the second step (“${hop.describe}”).` });
@@ -230,8 +254,17 @@ export function createEngine(userCfg) {
     }
 
     // ---------------- shared retrieval state ----------------
-    const depth = ['fast', 'balanced', 'deep'].includes(settings.depth) ? settings.depth : 'balanced';
-    const docs = [], docByKey = new Map(), searchLog = [], fetchLog = [], relations = [];
+    const researchOn = !!(cfg.research && cfg.research.enabled);
+    const auto = asked === 'auto';
+    let depth = 'balanced';               // budget of the first round: fast | balanced | deep
+    let mode = '';                        // research loop after the first round: '' | 'widen' | 'deep' | 'research'
+    if (asked === 'fast' || asked === 'balanced') depth = asked;
+    else if (asked === 'deep') { depth = 'deep'; mode = 'deep'; }
+    else if (asked === 'research') { depth = 'deep'; mode = researchOn ? 'research' : 'deep'; }
+    else if (directive) { depth = 'deep'; mode = directive.depth === 'research' && researchOn ? 'research' : 'deep'; }
+    if (settings._seedDeep) { depth = 'deep'; if (asked !== 'deep' && asked !== 'research') mode = ''; }      // "tell me more" / "are you sure?": a deeper first round, no long run
+    if (analysis.intent === 'url' || (analysis.parts.length && analysis.parts.every((p) => p.answerType === 'news'))) mode = '';
+    const docs = [], docByKey = new Map(), workIndex = new Map(), searchLog = [], fetchLog = [], relations = [];
     const entityDocs = new Map(), qids = new Map(), disambig = new Map(), partFacts = [], partCompare = [], candidateLists = [];
     const senses = [];                    // [{item, label, description, url, alternatives}] — meanings chosen for ambiguous names
     const wikiUrl = (title) => `https://en.wikipedia.org/wiki/${encodeURIComponent(title.replace(/ /g, '_')).replace(/%2F/g, '/').replace(/%3A/g, ':').replace(/%2C/g, ',').replace(/%28/g, '(').replace(/%29/g, ')')}`;
@@ -250,7 +283,17 @@ export function createEngine(userCfg) {
       const key = d.key || canonicalUrl(d.url);
       const cls = classifySource(d.url, { author: d.author, published: d.published, quality: d.extraction, via: d.via, kind: d.kind, partial: d.partial, structured: d.structured, se: d.meta && 'accepted' in d.meta ? d.meta : null }, learned.domains);
       const doc = { ...d, ...cls, key, retrievedAt: new Date().toISOString(), blocks: d.blocks || [] };
+      if (d.work) doc.origin = `work:${d.work}`;          // every scholarly work is a source of its own, wherever it is hosted
+      if (d.partial && d.kind === 'academic') doc.quality = Math.max(0.1, doc.quality - 0.06);      // an abstract is the authors' summary, not the study
       let i = docByKey.get(key);
+      // one scholarly work = one document: its abstract (from an index) and its full text (from the publisher or a repository) are merged
+      if (i == null && d.work && workIndex.has(d.work)) {
+        i = workIndex.get(d.work);
+        docByKey.set(key, i);
+        if (docs[i].partial && !doc.partial) docs[i] = { ...docs[i], ...doc, abstractAt: docs[i].url, published: doc.published || docs[i].published, scholar: doc.scholar || docs[i].scholar, title: doc.title || docs[i].title };
+        return i;
+      }
+      if (d.work && i == null) workIndex.set(d.work, docs.length);
       if (i == null) { i = docs.length; docs.push(doc); docByKey.set(key, i); }
       else if ((docs[i].partial && !doc.partial) || (docs[i].partial && doc.blocks.length > docs[i].blocks.length)) docs[i] = { ...docs[i], ...doc, title: docs[i].news ? docs[i].title : doc.title || docs[i].title, published: doc.published || docs[i].published };
       return i;
@@ -294,6 +337,51 @@ export function createEngine(userCfg) {
       });
       const pending = urls.length - done;
       if (pending > 0) emit({ type: 'note', stage: 'reading', text: `Stopped waiting for ${pending} slow page${pending > 1 ? 's' : ''} — enough evidence had arrived.` });
+    }
+
+    /**
+     * Read one lead during a research run. The page is fetched through the same guarded path as any other page
+     * (public addresses only, robots.txt, size and time limits), reduced to the blocks that bear on the question,
+     * and added to the evidence. Resolves with {ok, rel, di, links}; never throws.
+     */
+    let bulkEvents = 0;
+    async function readLead(lead, model, { keep = 8, timeoutMs = 6000 } = {}) {
+      const t = Date.now();
+      const ev = { type: 'fetch', url: lead.url, domain: lead.domain || domainOf(lead.url), ok: false, ms: 0, bytes: 0, blocks: 0, title: '', error: '', via: 'page', fromCache: false };
+      const out = { ok: false, rel: 0, di: -1, links: null };
+      try {
+        if (aborted()) throw Object.assign(new Error('stopped'), { code: 'aborted' });
+        let d;
+        if (wikipedia.handles(lead.url) && isEnabled('wikipedia', cfg, off)) {
+          const page = await wikipedia.fetch(lead.url, { ...pctx, timeoutMs: Math.max(timeoutMs, 5000) });
+          if (page.disambiguation) throw Object.assign(new Error('A list of meanings, not an article'), { code: 'no_content' });
+          d = { url: page.url || lead.url, title: page.title, site: page.site, modified: page.modified, blocks: page.blocks, partial: false, via: page.via, lang: page.lang, simple: page.lang === 'simple', pageType: 'reference', evidenceLevel: page.via === 'api' ? 'api' : 'page', kind: 'encyclopedia', provider: 'wikipedia' };
+          Object.assign(ev, { bytes: page.bytes || 0, via: page.via === 'api' ? 'Wikipedia API' : 'page', fromCache: !!page.fromCache });
+        } else if (europepmc.handles(lead.url) && isEnabled('europepmc', cfg, off)) {
+          const page = await europepmc.fetch(lead.url, { ...pctx, timeoutMs: Math.max(timeoutMs, 8000) });
+          const m = lead.meta || {};
+          d = { url: lead.url, title: page.title || lead.title, site: m.venue || 'Europe PMC', published: lead.date || '', blocks: page.blocks, partial: false, via: 'api', pageType: 'scholarly', evidenceLevel: 'api', kind: 'academic', provider: 'europepmc', scholar: lead.meta || null, work: m.work };
+          Object.assign(ev, { bytes: page.bytes || 0, via: 'Europe PMC API', fromCache: !!page.fromCache });
+        } else {
+          const res = await http.getText(lead.url, { robots: true, signal, timeoutMs, maxBytes: 900_000, cache: false });
+          const page = extractPage(res.text, res.url, { lastModified: res.headers['last-modified'], now });
+          if (/\b(noai|noimageai|nosnippet|none)\b/.test(`${res.headers['x-robots-tag'] || ''} ${page.robots || ''}`.toLowerCase())) throw Object.assign(new Error('The page opts out of excerpts (robots directive) — not quoted'), { code: 'robots_meta' });
+          if (page.quality.chars < 220) throw Object.assign(new Error(page.quality.jsRequired ? 'The page needs JavaScript to show its content — not readable without a browser' : 'No readable text could be extracted'), { code: 'no_content' });
+          d = { url: res.url, title: page.title || lead.title || '', site: page.site, author: page.author, published: page.published || '', modified: page.modified, blocks: page.blocks, extraction: page.quality, lang: page.lang, pageType: page.pageType, ogType: page.ogType, ldTypes: page.ldTypes, evidenceLevel: 'page', kind: 'web', partial: false, scholar: lead.kind === 'academic' ? lead.meta || null : null, work: lead.kind === 'academic' && lead.meta ? lead.meta.work : undefined };
+          out.links = page.links;
+          Object.assign(ev, { bytes: res.bytes, truncated: res.truncated || undefined });
+        }
+        const dg = digestDoc(d, model, { keep });
+        d.fullOutline = d.provider === 'wikipedia' ? d.blocks.filter((b) => b.type === 'heading' && b.level <= 3).slice(0, 80).map((b) => ({ text: b.text, level: b.level, heading: b.heading })) : undefined;
+        Object.assign(d, { blocks: dg.blocks, rel: dg.rel, offTopic: dg.offTopic, outline: dg.outline, stats: dg.stats, digest: true, aspects: lead.aspects || [], foundVia: lead.via || 'search' });
+        out.di = addDoc(d);
+        out.ok = true; out.rel = dg.rel;
+        Object.assign(ev, { ok: true, blocks: dg.blocks.length, title: d.title, rel: Number(dg.rel.toFixed(2)) });
+      } catch (e) { ev.error = e.code === 'aborted' ? 'stopped' : /EPROTO|SSL|TLS|CERT/i.test(e.message || '') ? 'Secure connection failed (TLS error)' : truncate(String(e.message || 'failed').split('\n')[0], 160); ev.code = e.code || 'error'; }
+      ev.ms = Date.now() - t;
+      fetchLog.push(ev);
+      if (bulkEvents++ < 30) emit(ev);                     // the first pages are listed one by one; after that the progress counter speaks for them
+      return out;
     }
 
     // ---------------- direct URL questions ----------------
@@ -526,17 +614,20 @@ export function createEngine(userCfg) {
       return { qm, ranked: rankEvidence(docs, qm, { now, fresh: part.temporal.freshness }), feedback: fb };
     });
     let ranks = [];
+    let wide = false;                     // true once a research loop is running: agreement between sources is counted and shown
     const weakPart = (i) => { const p = analysis.parts[i]; if (p.answerType === 'news' || partFacts[i] || partCompare[i]) return false; const ss = ranks[i].ranked.sentences; const top = ss[0]; return !top || (top.directCov < 0.34 && top.cov < 0.5) || top.cov < 0.34 || !ss.slice(0, 12).some((x) => x.predCov >= 0.5 && x.score >= top.score * 0.4); };
     const compare = async (round) => stage('comparing', async () => {
       const groups = originGroups(docs);
       docs.forEach((d, i) => { d.group = groups[i]; });
       ranks = rankAll();
+      if (wide) for (const r of ranks) { if (r.qm.answerType !== 'news') applySalience(r.ranked, docs, r.qm); applyConsensus(r.ranked, docs); }
       return { documents: docs.length, independentOrigins: new Set(groups).size, copies: docs.filter((d) => d.copyOf).length, passages: ranks[0] ? ranks[0].ranked.passages.length : 0, sentences: ranks.reduce((a, r) => a + r.ranked.sentences.length, 0), weakParts: analysis.parts.map((_, i) => weakPart(i)).filter(Boolean).length };
     }, round);
     await compare(1);
 
     // iterative retrieval: when a part has no direct evidence, reformulate once and read a few more pages
-    if (analysis.intent !== 'url' && plan.budget.iterate > 0 && Date.now() - t0 < plan.budget.timeMs * 0.7 && analysis.parts.some((_, i) => weakPart(i))) {
+    // (not when a research loop follows: it searches wider than this round would)
+    if (analysis.intent !== 'url' && !mode && plan.budget.iterate > 0 && Date.now() - t0 < plan.budget.timeMs * 0.7 && analysis.parts.some((_, i) => weakPart(i))) {
       const tasks = [];
       analysis.parts.forEach((part, i) => {
         if (!weakPart(i)) return;
@@ -559,7 +650,7 @@ export function createEngine(userCfg) {
       }));
     }
 
-    // ---------------- Constructing ----------------
+    // ---------------- Citations and failure labels (used by drafts during a research run and by the final answer) ----------------
     let nextSid = 0;
     const cite = (di) => { if (!docs[di].sid) docs[di].sid = ++nextSid; return docs[di].sid; };
     const citeStructured = (entity, fact) => {
@@ -567,12 +658,63 @@ export function createEngine(userCfg) {
       if (fact) (docs[di].statements = docs[di].statements || []).push(`${fact.property}: ${fact.values.map((v) => v.text + (v.asOf ? ` (as of ${v.asOf})` : '')).join(', ')}`);
       return cite(di);
     };
-    const results = [];
-    const built = await stage('constructing', async () => {
+    const FAILURE = [[/^http_(401|403)$|^refused$/, 'refused automated access'], [/^http_(404|410)$/, 'page no longer exists'], [/^robots$/, 'disallowed by the site’s robots.txt'], [/^robots_meta$/, 'page opts out of excerpts'], [/^no_content$/, 'no readable text (often needs JavaScript)'], [/timeout/, 'too slow'], [/^http_429$|rate_limited|rate_budget/, 'rate limited'], [/^dns/, 'address not found'], [/^content_type$/, 'a file, not a web page'], [/^circuit_open$/, 'site kept failing'], [/private_address|bad_port|blocked|bad_scheme|bad_host/, 'address not allowed'], [/^http_5\d\d$/, 'server error'], [/^aborted$/, 'stopped']];
+    const failureKind = (f) => { for (const [re, label] of FAILURE) if (re.test(String(f.code || ''))) return label; return 'other errors'; };
+
+
+    // ---------------- Research loop (depths "deep" and "research"; automatic widening) ----------------
+    let research = null;                  // summary of the loop, once it has run
+    let draftFailed = false;
+    let aspects = [];                     // sub-topics found in the material (they become report sections and a way to sort the results)
+    const skipUrl = (u) => SKIP_HOST.test(domainOf(u)) || SKIP_EXT.test(u);
+    if (analysis.intent !== 'url' && !aborted()) {
+      // automatic: the quick round found the topic but nothing that answers the question directly → read more before giving up
+      const related = (i) => { const top = ranks[i] && ranks[i].ranked.sentences[0]; return !!top && top.cov >= 0.3; };
+      if (!mode && auto && researchOn && Date.now() - t0 < 22000 && analysis.parts.some((_, i) => weakPart(i) && related(i))) {
+        mode = 'widen';
+        emit({ type: 'note', stage: 'comparing', text: 'The first round found the topic but no passage that answers the question directly — widening the search.' });
+      }
+      if (mode) {
+        const budget = { ...RESEARCH_BUDGET[mode] };
+        if (mode === 'research') Object.assign(budget, { maxPages: cfg.research.maxPages, maxMs: cfg.research.maxSeconds * 1000, concurrency: cfg.research.concurrency });
+        else budget.concurrency = Math.min(budget.concurrency, cfg.research.concurrency);
+        if (mode === 'widen') budget.maxMs += Date.now() - t0;                 // widening gets its own time on top of the first round
+        wide = true;
+        emit({ type: 'research', status: 'start', mode, budget: { pages: budget.maxPages, seconds: Math.round(budget.maxMs / 1000) } });
+        const r0 = Date.now();
+        research = await runResearch({
+          cfg, http, off, signal, aborted, emit, now, t0, analysis, mode, budget, docs, addDoc, fetchLog, searchLog, logSearch, entityDocs, senses, learned, candidateLists, pctx, skipUrl, readLead, weakPart,
+          recompare: async (round) => { await compare(round); return ranks; },
+          draft: async (round, found) => {
+            aspects = (found || []).map((a) => ({ label: a.label, stems: a.stems, source: a.source, heading: !!a.heading }));
+            if (!onEvent || mode === 'widen') return;
+            try { const d = assemble(false); delete d._detail; if (d.confidence && d.confidence.level !== 'insufficient') emit({ type: 'draft', round, result: d }); } catch (e) { if (!draftFailed) { draftFailed = true; totals.draftErrors = (totals.draftErrors || 0) + 1; lastDraftError = `${String((e && e.message) || e).slice(0, 200)} ${String((e && e.stack) || '').split('\n')[1] || ''}`.trim(); if (process.env.INFINI_DEBUG) console.error('draft failed:', lastDraftError); } /* a draft is optional: the final answer does not depend on it */ }
+          },
+        });
+        timings.searching = (timings.searching || 0) + (research.searchMs || 0);
+        timings.reading = (timings.reading || 0) + (research.readMs || 0);
+        timings.research = Date.now() - r0;
+        aspects = (research.aspects || []).map((a) => ({ label: a.label, stems: a.stems, source: a.source, heading: !!a.heading }));
+        emit({ type: 'research', status: 'done', mode, rounds: research.rounds, pages: research.pages, abstracts: research.abstracts, stopped: research.stopped, ms: timings.research });
+        if (aborted()) throw Object.assign(new Error('Stopped'), { code: 'aborted' });
+      }
+    }
+    // ---------------- Constructing ----------------
+    /**
+     * Build the complete result from the evidence in hand. For an ordinary answer it runs once; during a research run it
+     * also runs after every round to produce the draft shown while reading continues. Citations are assigned afresh each time.
+     */
+    function assemble(final) {
+      nextSid = 0;
+      for (const d of docs) { d.sid = 0; if (d.structured) d.statements = []; }
+      relations.length = 0;
+      const results = [];
       const blocks = [];
       const multi = analysis.parts.length > 1;
+      const loopBudget = wide && mode ? RESEARCH_BUDGET[mode] : null;
+      const baseBudget = plan ? plan.budget : { sentences: 5 };
       analysis.parts.forEach((part, i) => {
-        const actx = { now, style, budget: plan ? plan.budget : { sentences: 5 }, cite, citeStructured, relations, partIndex: i, facts: partFacts[i], comparison: partCompare[i], entityDocs, programming: plan ? plan.programming : false, qm: ranks[i].qm, ranked: ranks[i].ranked };
+        const actx = { now, style, budget: loopBudget && mode !== 'widen' ? { ...baseBudget, sentences: baseBudget.sentences + (mode === 'research' ? 2 : 0) } : baseBudget, cite, citeStructured, relations, partIndex: i, facts: partFacts[i], comparison: partCompare[i], entityDocs, programming: plan ? plan.programming : false, qm: ranks[i].qm, ranked: ranks[i].ranked, wide };
         const r = analysis.intent === 'url' && analysis.urlTask === 'summarize' ? summarizeDoc(docs[0], 0, actx) : answerPart(part, docs, actx);
         results.push(r);
         if (multi) blocks.push({ type: 'heading', text: capitalize((part.original || part.text).replace(/[?.!]+$/, '')) + '?', level: 2 });
@@ -584,98 +726,149 @@ export function createEngine(userCfg) {
         blocks.push({ type: 'heading', text: 'In short', level: 2 });
         blocks.push({ type: 'list', ordered: false, items: results.map((r, i) => ({ spans: r.stats.insufficient ? [{ text: `Part ${i + 1}: not verified from the sources found.`, cites: [] }] : [{ ...(r.blocks.find((b) => b.type === 'paragraph') || { spans: [{ text: r.lead, cites: [] }] }).spans.find((s) => s.cites && s.cites.length) || { text: truncate(r.lead, 260), cites: [] } }] })) });
       }
+      // the sources of the direct answer: confidence is judged on these, not on the supplementary report sections
+      const coreKeys = new Set(docs.filter((d) => d.sid).map((d) => d.key));
+      // research report: sections by sub-topic, figures, dated statements, differences (first part of the question)
+      let report = null;
+      if (loopBudget && loopBudget.sections && results[0] && !results[0].stats.insufficient && results[0].env) {
+        report = composeReport(analysis.parts[0], results[0].env, { aspects, budget: loopBudget, mode, docs });
+        if (report.blocks.length) { blocks.push(...report.blocks); results[0].claims = results[0].env.claims; }
+      }
       const amb = senses.filter((x) => x.alternatives.length).slice(0, 3);
       if (amb.length) blocks.push({ type: 'note', tone: 'info', text: `${amb.map((sn) => `I read “${sn.item}” as ${sn.label}${sn.description && sn.description.length < 70 ? ` (${sn.description})` : ''}`).join('; ')}. Other meanings exist — for example ${amb.flatMap((sn) => sn.alternatives.slice(0, 2)).slice(0, 3).map((a) => a.label + (a.description && a.description.length < 60 ? ` (${a.description})` : '')).join('; ')}. Add a word to your question to choose a different one.` });
-      return { blocks, parts: results.length, answered: answered.length, claims: results.reduce((a, r) => a + r.claims.length, 0), detail: null };
-    });
 
-    // ---------------- sources, confidence, graph, context ----------------
-    const cited = docs.filter((d) => d.sid).sort((a, b) => a.sid - b.sid);
-    const allClaims = results.flatMap((r) => r.claims);
-    const sources = cited.map((d) => ({
-      id: d.sid, url: d.url, title: d.title || d.domain, domain: d.domain, site: d.site || d.domain, author: d.author || '', category: d.category, sourceType: d.sourceType, quality: Number(d.quality.toFixed(2)),
-      published: d.published || '', modified: d.modified || '', retrievedAt: d.retrievedAt, evidenceLevel: d.evidenceLevel, partial: !!d.partial, origin: d.origin, copyOf: d.copyOf || '', notes: d.notes, provider: d.provider || 'web',
-      passages: d.structured ? (d.statements || []).slice(0, 6).map((t) => ({ text: t, heading: 'Structured statement' })) : uniq(allClaims.filter((c) => c.source === d.sid || (c.alsoSupportedBy || []).includes(d.sid)).map((c) => ({ text: c.source === d.sid ? c.passage : '', heading: c.heading || '', claim: c.text })).filter((p) => p.text), (p) => p.text).slice(0, 4),
-    }));
-    const stats = results.map((r) => r.stats);
-    const partsAnswered = stats.filter((s) => !s.insufficient).length;
-    const timeSensitive = analysis.parts.some((p) => p.temporal.timeSensitive);
-    const freshDays = analysis.parts.some((p) => p.temporal.freshness === 'day') ? 3 : analysis.parts.some((p) => p.temporal.freshness === 'week') ? 10 : 400;
-    const freshOk = stats.some((s) => s.freshOk) || cited.some((d) => { const t = Date.parse(d.published || d.modified || ''); return Number.isFinite(t) && now - t <= freshDays * 86400000; });
-    const confidence = scoreConfidence({
-      insufficient: partsAnswered === 0, cited: cited.map((d) => ({ quality: d.quality, origin: d.copyOf ? `copy:${d.group}` : d.origin, partial: d.partial && !d.verified, evidenceLevel: d.evidenceLevel })),
-      keyClaims: stats.reduce((a, s) => a + (s.keyClaims || 0), 0), corroborated: stats.reduce((a, s) => a + (s.corroborated || 0), 0),
-      directness: partsAnswered ? stats.filter((s) => !s.insufficient).reduce((a, s) => a + s.directness, 0) / partsAnswered : 0,
-      partsAnswered, partsTotal: Math.max(1, stats.length), extraction: cited.length ? cited.reduce((a, d) => a + (d.evidenceLevel === 'page' ? (d.extraction && d.extraction.fallback ? 0.55 : d.extraction && d.extraction.chars < 1500 ? 0.8 : 1) : d.evidenceLevel === 'feed' ? 0.6 : 1), 0) / cited.length : 0,
-      timeSensitive, freshOk, conflicts: stats.reduce((a, s) => a + (s.conflicts || 0), 0), structuredAgreement: stats.some((s) => s.structuredAgreement),
-    });
-    if (partsAnswered === 0) totals.insufficient++; else totals.answered++;
-
-    // conversation context for follow-ups (kept by the client, sent back with the next question)
-    const newEntities = [];
-    const pushEntity = (e) => { if (e && e.name && !newEntities.some((x) => x.name.toLowerCase() === e.name.toLowerCase())) newEntities.push(e); };
-    const evidenceText = (name) => { const last = name.split(' ').pop().toLowerCase(); return (ranks[0] ? ranks[0].ranked.sentences : []).filter((s) => s.text.toLowerCase().includes(last)).slice(0, 25).map((s) => s.text).join(' '); };
-    results.forEach((r) => { if (r.answerEntity) pushEntity({ name: r.answerEntity.name, kind: r.answerEntity.kind === 'person' || r.answerEntity.kind === 'place' ? r.answerEntity.kind : 'unknown', gender: r.answerEntity.kind === 'person' ? inferGender(evidenceText(r.answerEntity.name)) : '', plural: false }); });
-    analysis.parts.forEach((p, i) => {
-      for (const nm of p.compare && p.compare.items.length ? p.compare.items : [p.focus].filter(Boolean)) {
-        const di = entityDocs.get(nm.toLowerCase());
-        const d = di != null ? docs[di] : null;
-        const lead = d ? d.blocks.filter((b) => b.type === 'p').slice(0, 3).map((b) => b.text).join(' ') : '';
-        const info = partFacts[i] && partFacts[i].entity && nm === p.focus ? partFacts[i].entity : null;
-        const kind = info ? (info.isHuman ? 'person' : /country|city|state|capital|town|village|island|river|mountain|continent|region|province/.test(info.types.join(' ')) ? 'place' : 'thing') : d ? inferKind(lead) : 'unknown';
-        pushEntity({ name: d && !p.compare ? d.title : nm, kind, gender: info ? info.gender : kind === 'person' ? inferGender(lead) : '', plural: !d && /[^s]s$/.test(nm) });
-      }
-    });
-    const lastPart = analysis.parts[analysis.parts.length - 1] || null;
-    const predicates = [...analysis.parts.filter((p) => p.verb && p.object).map((p) => ({ verb: p.verb.lemma, object: p.object, subject: p.subject })).reverse(), ...(context.predicates || [])].slice(0, 5);
-    const cmpItems = analysis.parts.map((p) => p.compare && p.compare.items.length >= 2 ? p.compare.items : null).filter(Boolean).pop() || null;
-    const brainAfter = noteWeb(brainState, { level: confidence ? confidence.level : '', score: confidence ? confidence.score : 0, sources: sources.length, topic: analysis.intent === 'url' ? '' : (analysis.parts[analysis.parts.length - 1] || {}).focus || '' });
-    const newContext = analysis.intent === 'url' ? { ...context, turn: (context.turn || 0) + 1, brain: brainAfter } : {
-      entities: [...newEntities, ...(context.entities || []).filter((e) => !newEntities.some((x) => x.name.toLowerCase() === e.name.toLowerCase()))].slice(0, 8),
-      topic: lastPart ? lastPart.focus || context.topic || '' : context.topic || '', predicates, compare: cmpItems || context.compare || null,
-      lastQuestion: analysis.metaOf ? context.lastQuestion : analysis.resolved || question, lastFocus: lastPart ? lastPart.focus : '', lastKeywords: lastPart ? lastPart.keywords.filter((k) => !(lastPart.focus || '').toLowerCase().includes(k.toLowerCase())).join(' ') : '',
-      lastAnswerType: lastPart ? lastPart.answerType : '', lastSources: sources.slice(0, 10).map((s) => ({ title: s.title, url: s.url, domain: s.domain })), turn: (context.turn || 0) + 1, brain: brainAfter,
-    };
-
-    const graph = buildGraph({
-      question: analysis.resolved || question, parts: analysis.parts.length ? analysis.parts.map((p) => ({ text: p.text })) : [{ text: question }],
-      entities: newEntities.slice(0, 6), claims: allClaims.map((c) => ({ text: c.text, passage: c.passage, heading: c.heading, source: c.source, alsoSupportedBy: c.alsoSupportedBy, nature: c.nature, temporal: c.temporal, part: c.part || 0 })),
-      sources, conflicts: results.flatMap((r) => r.conflicts || []), relations,
-    });
-    // what the client may remember (statistics only — clearable, never used as an answer)
-    const learn = { providers: {}, domains: {}, vocab: [] };
-    for (const s of searchLog) { const p = (learn.providers[s.provider] = learn.providers[s.provider] || { ok: 0, failed: 0 }); if (s.ok && s.results) p.ok++; else p.failed++; }
-    for (const f of fetchLog) { const d = (learn.domains[f.domain] = learn.domains[f.domain] || { fetched: 0, failed: 0, cited: 0 }); if (f.ok) d.fetched++; else d.failed++; }
-    for (const s of sources) { const d = (learn.domains[s.domain] = learn.domains[s.domain] || { fetched: 0, failed: 0, cited: 0 }); d.cited++; }
-    if (partsAnswered) analysis.parts.forEach((p, i) => { if (results[i] && !results[i].stats.insufficient && ranks[i]) { const fb = (ranks[i].feedback || []).slice(0, 4).map((f) => f.word); const key = p.terms.filter((t) => t.weight >= 1).map((t) => t.stem)[0]; if (key && fb.length) learn.vocab.push({ term: key, related: fb }); } });
-
-    const citedKeys = new Set(cited.map((d) => d.key));
-    const httpStats = http.stats();
-    // follow-up suggestions: fixed templates, offered only for sections that exist in the pages just read
-    let related = [];
-    if (partsAnswered && lastPart && analysis.intent !== 'url' && !timeSensitive && !lastPart.compare) {
-      const topicEnt = newEntities.find((e) => lastPart.focus && e.name.toLowerCase() === lastPart.focus.toLowerCase()) || newEntities.find((e) => e.kind !== 'person' || !results.some((r) => r.answerEntity && r.answerEntity.name === e.name));
-      related = relatedQuestions({
-        question: analysis.resolved || question, focus: lastPart.focus || '', kind: topicEnt && lastPart.focus && topicEnt.name.toLowerCase() === lastPart.focus.toLowerCase() ? topicEnt.kind : '',
-        answerType: lastPart.answerType, plural: /[^s]s$/.test(lastPart.focus || ''), answer: results.map((r) => r.answerEntity).filter(Boolean)[0] || null,
-        docs: docs.filter((d) => !d.news && !d.structured).map((d) => ({ entity: !!d.entity, cited: citedKeys.has(d.key), sid: d.sid || null, title: d.title, blocks: d.blocks })),
+      // ---------------- sources, confidence, classification ----------------
+      const cited = docs.filter((d) => d.sid).sort((a, b) => a.sid - b.sid);
+      const allClaims = results.flatMap((r) => r.claims);
+      const sources = cited.map((d) => ({
+        id: d.sid, url: d.url, title: d.title || d.domain, domain: d.domain, site: d.site || d.domain, author: d.author || '', category: d.category, sourceType: d.sourceType, quality: Number(d.quality.toFixed(2)),
+        published: d.published || '', modified: d.modified || '', retrievedAt: d.retrievedAt, evidenceLevel: d.evidenceLevel, partial: !!d.partial, origin: d.origin, copyOf: d.copyOf || '', notes: d.notes, provider: d.provider || 'web',
+        passages: d.structured ? (d.statements || []).slice(0, 6).map((t) => ({ text: t, heading: 'Structured statement' })) : uniq(allClaims.filter((c) => c.source === d.sid || (c.alsoSupportedBy || []).includes(d.sid)).map((c) => ({ text: c.source === d.sid ? c.passage : '', heading: c.heading || '', claim: c.text })).filter((p) => p.text), (p) => p.text).slice(0, final ? 4 : 2),
+      }));
+      const stats = results.map((r) => r.stats);
+      const partsAnswered = stats.filter((s) => !s.insufficient).length;
+      const timeSensitive = analysis.parts.some((p) => p.temporal.timeSensitive);
+      const freshDays = analysis.parts.some((p) => p.temporal.freshness === 'day') ? 3 : analysis.parts.some((p) => p.temporal.freshness === 'week') ? 10 : 400;
+      const freshOk = stats.some((s) => s.freshOk) || cited.some((d) => { const t = Date.parse(d.published || d.modified || ''); return Number.isFinite(t) && now - t <= freshDays * 86400000; });
+      const core = wide ? cited.filter((d) => coreKeys.has(d.key)) : cited;
+      const confidence = scoreConfidence({
+        insufficient: partsAnswered === 0, cited: core.map((d) => ({ quality: d.quality, origin: d.copyOf ? `copy:${d.group}` : d.origin, partial: d.partial && !d.verified, evidenceLevel: d.evidenceLevel })),
+        keyClaims: stats.reduce((a, s) => a + (s.keyClaims || 0), 0), corroborated: stats.reduce((a, s) => a + (s.corroborated || 0), 0),
+        directness: partsAnswered ? stats.filter((s) => !s.insufficient).reduce((a, s) => a + s.directness, 0) / partsAnswered : 0,
+        partsAnswered, partsTotal: Math.max(1, stats.length), extraction: core.length ? core.reduce((a, d) => a + (d.evidenceLevel === 'page' ? (d.extraction && d.extraction.fallback ? 0.55 : d.extraction && d.extraction.chars < 1500 ? 0.8 : 1) : d.evidenceLevel === 'feed' ? 0.6 : 1), 0) / core.length : 0,
+        timeSensitive, freshOk, conflicts: stats.reduce((a, s) => a + (s.conflicts || 0), 0), structuredAgreement: stats.some((s) => s.structuredAgreement),
       });
+      if (final) { if (partsAnswered === 0) totals.insufficient++; else totals.answered++; }
+
+      // classification of everything that was brought in: leaning (yes/no questions), sub-topics, kinds, ages, tiers
+      const yesno = analysis.parts.length === 1 && analysis.parts[0].answerType === 'yesno' && partsAnswered > 0;
+      if (yesno && ranks[0]) {
+        const seen = new Set();
+        for (const d of docs) d.stance = '';
+        for (const s of ranks[0].ranked.sentences) {
+          if (seen.size >= 800) break;
+          if (seen.has(s.di) || s.directCov < 0.5 || s.predCov < 0.5 || /\?\s*$/.test(s.text)) continue;
+          seen.add(s.di);
+          docs[s.di].stance = stanceOf(s.text, !!analysis.parts[0].negated);
+        }
+      }
+      const themes = aspects.filter((a) => a.stems && a.stems.length);
+      const themeMatch = themes.map((a) => aspectMatcher(a));
+      if (themes.length) for (const d of docs) {
+        d.themes = [];
+        if (d.offTopic || d.structured || !d.blocks.length) continue;
+        const st = docStems(d);
+        themeMatch.forEach((match, k) => { if (match(st)) d.themes.push(k); });
+      }
+      const failures = {};
+      let failed = 0, okPages = 0, bytes = 0, cacheHits = 0;
+      for (const f of fetchLog) { if (f.ok) okPages++; else { failed++; const k = failureKind(f); failures[k] = (failures[k] || 0) + 1; } bytes += f.bytes || 0; if (f.fromCache) cacheHits++; }
+      const searchResults = searchLog.reduce((a, s) => a + s.results, 0);
+      const screened = research && research.frontier ? Math.max(searchResults, research.frontier.screened + research.abstractsScreened) : searchResults;
+      const classification = analysis.intent === 'url' ? null : buildClassification(docs.filter((d) => !d.structured || d.sid), { now, themes, yesno, screened, failed, failures, maxItems: final ? 400 : 40 });
+      if (classification && research && final && research.unread) classification.unread = research.unread.slice(0, 40);
+      const run = wide && research ? {
+        mode, rounds: research.rounds, pages: okPages, relevant: classification ? classification.totals.relevant : 0, abstracts: research.abstracts, sites: classification ? classification.totals.sites : 0, screened, seconds: Math.round((Date.now() - t0) / 1000), stopped: research.stopped,
+        queries: research.queries.slice(0, 60), subtopics: (report ? report.sections : []).map((x) => x.label), found: aspects.map((a) => ({ label: a.label, from: a.source })), linksFollowed: research.linksFollowed, references: research.references, budget: { pages: (research.frontier && RESEARCH_BUDGET[mode] ? (mode === 'research' ? cfg.research.maxPages : RESEARCH_BUDGET[mode].maxPages) : 0), seconds: mode === 'research' ? cfg.research.maxSeconds : Math.round(RESEARCH_BUDGET[mode].maxMs / 1000) },
+        report: report ? { sections: report.sections.length, figures: report.figures, timeline: report.timeline, differences: report.differences, uncertain: report.gaps } : null,
+      } : wide ? { mode, rounds: 0, pages: okPages, relevant: classification ? classification.totals.relevant : 0, abstracts: 0, sites: classification ? classification.totals.sites : 0, screened, seconds: Math.round((Date.now() - t0) / 1000), stopped: '', queries: [], subtopics: [], found: [], budget: null, report: null } : null;
+
+      // conversation context for follow-ups (kept by the client, sent back with the next question)
+      const newEntities = [];
+      const pushEntity = (e) => { if (e && e.name && !newEntities.some((x) => x.name.toLowerCase() === e.name.toLowerCase())) newEntities.push(e); };
+      const evidenceText = (name) => { const last = name.split(' ').pop().toLowerCase(); return (ranks[0] ? ranks[0].ranked.sentences : []).filter((s) => s.text.toLowerCase().includes(last)).slice(0, 25).map((s) => s.text).join(' '); };
+      results.forEach((r) => { if (r.answerEntity) pushEntity({ name: r.answerEntity.name, kind: r.answerEntity.kind === 'person' || r.answerEntity.kind === 'place' ? r.answerEntity.kind : 'unknown', gender: r.answerEntity.kind === 'person' ? inferGender(evidenceText(r.answerEntity.name)) : '', plural: false }); });
+      analysis.parts.forEach((p, i) => {
+        for (const nm of p.compare && p.compare.items.length ? p.compare.items : [p.focus].filter(Boolean)) {
+          const di = entityDocs.get(nm.toLowerCase());
+          const d = di != null ? docs[di] : null;
+          const lead = d ? d.blocks.filter((b) => b.type === 'p').slice(0, 3).map((b) => b.text).join(' ') : '';
+          const info = partFacts[i] && partFacts[i].entity && nm === p.focus ? partFacts[i].entity : null;
+          const kind = info ? (info.isHuman ? 'person' : /country|city|state|capital|town|village|island|river|mountain|continent|region|province/.test(info.types.join(' ')) ? 'place' : 'thing') : d ? inferKind(lead) : 'unknown';
+          pushEntity({ name: d && !p.compare ? d.title : nm, kind, gender: info ? info.gender : kind === 'person' ? inferGender(lead) : '', plural: !d && /[^s]s$/.test(nm) });
+        }
+      });
+      const lastPart = analysis.parts[analysis.parts.length - 1] || null;
+      const predicates = [...analysis.parts.filter((p) => p.verb && p.object).map((p) => ({ verb: p.verb.lemma, object: p.object, subject: p.subject })).reverse(), ...(context.predicates || [])].slice(0, 5);
+      const cmpItems = analysis.parts.map((p) => p.compare && p.compare.items.length >= 2 ? p.compare.items : null).filter(Boolean).pop() || null;
+      const brainAfter = noteWeb(brainState, { level: confidence ? confidence.level : '', score: confidence ? confidence.score : 0, sources: sources.length, topic: analysis.intent === 'url' ? '' : (analysis.parts[analysis.parts.length - 1] || {}).focus || '' });
+      const newContext = analysis.intent === 'url' ? { ...context, turn: (context.turn || 0) + 1, brain: brainAfter } : {
+        entities: [...newEntities, ...(context.entities || []).filter((e) => !newEntities.some((x) => x.name.toLowerCase() === e.name.toLowerCase()))].slice(0, 8),
+        topic: lastPart ? lastPart.focus || context.topic || '' : context.topic || '', predicates, compare: cmpItems || context.compare || null,
+        lastQuestion: analysis.metaOf ? context.lastQuestion : analysis.resolved || question, lastFocus: lastPart ? lastPart.focus : '', lastKeywords: lastPart ? lastPart.keywords.filter((k) => !(lastPart.focus || '').toLowerCase().includes(k.toLowerCase())).join(' ') : '',
+        lastAnswerType: lastPart ? lastPart.answerType : '', lastSources: sources.slice(0, 10).map((s) => ({ title: s.title, url: s.url, domain: s.domain })), turn: (context.turn || 0) + 1, brain: brainAfter,
+      };
+
+      const citedKeys = new Set(cited.map((d) => d.key));
+      let graph = null, related = [];
+      const learn = { providers: {}, domains: {}, vocab: [] };
+      if (final) {
+        graph = buildGraph({
+          question: analysis.resolved || question, parts: analysis.parts.length ? analysis.parts.map((p) => ({ text: p.text })) : [{ text: question }],
+          entities: newEntities.slice(0, 6), claims: allClaims.slice(0, 80).map((c) => ({ text: c.text, passage: c.passage, heading: c.heading, source: c.source, alsoSupportedBy: c.alsoSupportedBy, nature: c.nature, temporal: c.temporal, part: c.part || 0 })),
+          sources: sources.slice(0, 80), conflicts: results.flatMap((r) => r.conflicts || []), relations,
+        });
+        // what the client may remember (statistics only — clearable, never used as an answer)
+        for (const s of searchLog) { const p = (learn.providers[s.provider] = learn.providers[s.provider] || { ok: 0, failed: 0 }); if (s.ok && s.results) p.ok++; else p.failed++; }
+        const dom = (name) => (learn.domains[name] = learn.domains[name] || { fetched: 0, failed: 0, cited: 0 });
+        for (const f of fetchLog.slice(0, 400)) { if (Object.keys(learn.domains).length >= 120 && !learn.domains[f.domain]) continue; const d = dom(f.domain); if (f.ok) d.fetched++; else d.failed++; }
+        for (const s of sources) { if (Object.keys(learn.domains).length >= 150 && !learn.domains[s.domain]) continue; dom(s.domain).cited++; }
+        if (partsAnswered) analysis.parts.forEach((p, i) => { if (results[i] && !results[i].stats.insufficient && ranks[i]) { const fb = (ranks[i].feedback || []).slice(0, 4).map((f) => f.word); const key = p.terms.filter((t) => t.weight >= 1).map((t) => t.stem)[0]; if (key && fb.length) learn.vocab.push({ term: key, related: fb }); } });
+        // follow-up suggestions: fixed templates, offered only for sections that exist in the pages just read
+        if (partsAnswered && lastPart && analysis.intent !== 'url' && !timeSensitive && !lastPart.compare) {
+          const topicEnt = newEntities.find((e) => lastPart.focus && e.name.toLowerCase() === lastPart.focus.toLowerCase()) || newEntities.find((e) => e.kind !== 'person' || !results.some((r) => r.answerEntity && r.answerEntity.name === e.name));
+          related = relatedQuestions({
+            question: analysis.resolved || question, focus: lastPart.focus || '', kind: topicEnt && lastPart.focus && topicEnt.name.toLowerCase() === lastPart.focus.toLowerCase() ? topicEnt.kind : '',
+            answerType: lastPart.answerType, plural: /[^s]s$/.test(lastPart.focus || ''), answer: results.map((r) => r.answerEntity).filter(Boolean)[0] || null,
+            docs: docs.filter((d) => !d.news && !d.structured && !d.offTopic && (!d.digest || d.entity || citedKeys.has(d.key))).slice(0, 80).map((d) => ({ entity: !!d.entity, cited: citedKeys.has(d.key), sid: d.sid || null, title: d.title, blocks: d.blocks })),
+          });
+        }
+      }
+      const httpStats = http.stats();
+      const result = {
+        ...base, kind: analysis.intent === 'url' ? 'url' : 'retrieval', question: question.slice(0, 600),
+        interpretation: { resolved: analysis.resolved || '', rewrites: analysis.rewrites, followUp: analysis.followUp, metaOf: analysis.metaOf || null, parts: analysis.parts.map((p) => ({ text: p.text, qtype: p.qtype, answerType: p.answerType, focus: p.focus, keywords: p.keywords })) },
+        answer: { blocks: preface ? [P(preface), ...blocks] : blocks }, sources, confidence, timeSensitive, style, depth: { asked, used: mode || depth }, run, classification,
+        consulted: docs.filter((d) => !citedKeys.has(d.key) && !d.structured && !d.offTopic).slice(0, 30).map((d) => ({ url: d.url, title: d.title, domain: d.domain, evidenceLevel: d.evidenceLevel, published: d.published || '' })),
+        unavailable: fetchLog.filter((f) => !f.ok).slice(0, final ? 60 : 0).map((f) => ({ url: f.url, domain: f.domain, error: f.error })),
+        research: {
+          plan: plan ? { depth: mode || plan.depth, subquestions: plan.subquestions, tasks: plan.tasks.map((t) => ({ id: t.id, kind: t.kind, label: t.label })), notes: plan.notes, synthesis: plan.synthesis } : null,
+          searches: final ? searchLog.slice(0, 220) : [], fetches: final ? fetchLog.slice(0, 260).map(({ type, ...f }) => f) : [], timings: { ...timings }, graph,
+          counts: { searches: searchLog.length, searchResults, pagesFetched: okPages, pagesFailed: failed, documents: docs.length, passages: ranks[0] ? ranks[0].ranked.passages.length : 0, claims: allClaims.length, bytes, cacheHits, abstracts: research ? research.abstracts : 0, screened },
+          passages: allClaims.slice(0, final ? 40 : 0).map((c) => ({ text: c.text, source: c.source, heading: c.heading, nature: c.nature, temporal: c.temporal, alsoSupportedBy: c.alsoSupportedBy })),
+          http: { requests: httpStats.requests, cacheEntries: httpStats.cacheEntries },
+        },
+        context: newContext, learn, related, answerEntities: results.map((r) => r.answerEntity).filter(Boolean),
+      };
+      if (!final) { result.draft = true; result.elapsedMs = Date.now() - t0; result.answer.text = blocksToText(result.answer.blocks); }
+      result._detail = { parts: results.length, answered: answered.length, claims: allClaims.length };
+      return result;
     }
-    return finish({
-      ...base, kind: analysis.intent === 'url' ? 'url' : 'retrieval', question: question.slice(0, 600),
-      interpretation: { resolved: analysis.resolved || '', rewrites: analysis.rewrites, followUp: analysis.followUp, metaOf: analysis.metaOf || null, parts: analysis.parts.map((p) => ({ text: p.text, qtype: p.qtype, answerType: p.answerType, focus: p.focus, keywords: p.keywords })) },
-      answer: { blocks: preface ? [P(preface), ...built.blocks] : built.blocks }, sources, confidence, timeSensitive, style,
-      consulted: docs.filter((d) => !citedKeys.has(d.key) && !d.structured).slice(0, 30).map((d) => ({ url: d.url, title: d.title, domain: d.domain, evidenceLevel: d.evidenceLevel, published: d.published || '' })),
-      unavailable: fetchLog.filter((f) => !f.ok).map((f) => ({ url: f.url, domain: f.domain, error: f.error })),
-      research: {
-        plan: plan ? { depth: plan.depth, subquestions: plan.subquestions, tasks: plan.tasks.map((t) => ({ id: t.id, kind: t.kind, label: t.label })), notes: plan.notes, synthesis: plan.synthesis } : null,
-        searches: searchLog, fetches: fetchLog.map(({ type, ...f }) => f), timings, graph,
-        counts: { searches: searchLog.length, searchResults: searchLog.reduce((a, s) => a + s.results, 0), pagesFetched: fetchLog.filter((f) => f.ok).length, pagesFailed: fetchLog.filter((f) => !f.ok).length, documents: docs.length, passages: ranks[0] ? ranks[0].ranked.passages.length : 0, claims: allClaims.length, bytes: fetchLog.reduce((a, f) => a + (f.bytes || 0), 0), cacheHits: fetchLog.filter((f) => f.fromCache).length },
-        passages: allClaims.slice(0, 20).map((c) => ({ text: c.text, source: c.source, heading: c.heading, nature: c.nature, temporal: c.temporal, alsoSupportedBy: c.alsoSupportedBy })),
-        http: { requests: httpStats.requests, cacheEntries: httpStats.cacheEntries },
-      },
-      context: newContext, learn, related, answerEntities: results.map((r) => r.answerEntity).filter(Boolean),
-    });
+
+    let finalResult = null;
+    if (inspect) inspect({ docs, ranks, analysis, aspects, research });          // development hook (never set by the server)
+    await stage('constructing', async () => { finalResult = assemble(true); const detail = finalResult._detail; delete finalResult._detail; return detail; });
+    return finish(finalResult);
   }
 
   /** Text preview of a source page (same guarded fetch path; returns extracted text only, never raw HTML). */

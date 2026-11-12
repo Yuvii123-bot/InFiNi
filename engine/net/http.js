@@ -55,11 +55,15 @@ export function parseRobots(text, token = 'infiniai') {
     } else {
       lastUA = false;
       if (cur && (key === 'allow' || key === 'disallow')) cur.rules.push({ allow: key === 'allow', path: val.slice(0, 300) });
+      else if (cur && key === 'crawl-delay') { const d = Number(val); if (Number.isFinite(d) && d > 0) cur.delay = Math.min(d, 3600); }
     }
   }
   const specific = groups.filter((g) => g.agents.some((a) => a !== '*' && a.length > 2 && token.includes(a)));
   const chosen = specific.length ? specific : groups.filter((g) => g.agents.includes('*'));
-  return chosen.flatMap((g) => g.rules);
+  const rules = chosen.flatMap((g) => g.rules);
+  // Crawl-delay is not part of RFC 9309, but many sites state one: seconds to leave between two requests (honoured when several pages of a site are read)
+  rules.crawlDelay = chosen.reduce((a, g) => Math.max(a, g.delay || 0), 0);
+  return rules;
 }
 export function robotsPathAllowed(rules, path) {
   let best = null;
@@ -103,6 +107,7 @@ export function createHttpClient(cfg = {}) {
     cacheBytes: 24 * 1024 * 1024, cacheTtlMs: 15 * 60 * 1000,
     perHost: 3, global: 12, respectRobots: true, allowPorts: [80, 443],
     lookup: null,                       // test hook: async (hostname) => [{address, family}]
+    transport: null,                    // test hook: async (URL, request, send) => {status, headers, body: Buffer, truncated} — send() performs the real request
     trustedOrigins: [],                 // operator-configured origins (never user input) exempt from the public-address rule
     rateClasses: [],                    // [{id, label, perMin, test(URL)}] — client-side politeness budgets
     ...cfg,
@@ -113,7 +118,10 @@ export function createHttpClient(cfg = {}) {
   const hostSems = new Map();
   const globalSem = new Semaphore(conf.global);
   const failures = new Map();           // host -> {n, ts}
-  const agents = { 'http:': new http.Agent({ keepAlive: true, maxSockets: 6, keepAliveMsecs: 5000 }), 'https:': new https.Agent({ keepAlive: true, maxSockets: 6, keepAliveMsecs: 5000 }) };
+  // Idle keep-alive sockets are closed after a few seconds and capped in number: a research run touches hundreds of hosts,
+  // and serverless platforms allow only about a thousand open descriptors per instance.
+  const agentOpts = { keepAlive: true, maxSockets: 6, keepAliveMsecs: 5000, maxFreeSockets: 3, timeout: 6000, scheduling: 'lifo', maxTotalSockets: Math.max(64, conf.global * 3) };
+  const agents = { 'http:': new http.Agent(agentOpts), 'https:': new https.Agent(agentOpts) };
   const stats = { requests: 0, bytes: 0, blocked: 0, errors: 0, robotsDenied: 0 };
   const windows = new Map();            // rate class id -> timestamps of recent requests
   const backoff = new Map();            // rate class id or host -> epoch ms until which the server asked us to wait
@@ -232,15 +240,19 @@ export function createHttpClient(cfg = {}) {
     if (!s) { if (hostSems.size > 3000) hostSems.clear(); s = new Semaphore(limit || conf.perHost); hostSems.set(host, s); }
     return s;
   }
-  function circuitOpen(host) {
-    const f = failures.get(host);
+  // Circuit breaker: three failures in a row (no answer at all) and the host is left alone for two minutes.
+  // Any answer resets the count. A request may name its own circuit (opts.circuit) so that one slow endpoint
+  // of a host — a search that times out — does not block its other endpoints, e.g. full-text delivery.
+  function circuitOpen(key) {
+    const f = failures.get(key);
     return !!f && f.n >= 3 && Date.now() - f.ts < 120_000;
   }
-  function noteFailure(host) {
-    const f = failures.get(host);
-    if (!f || Date.now() - f.ts > 120_000) failures.set(host, { n: 1, ts: Date.now() }); else { f.n++; f.ts = Date.now(); }
+  function noteFailure(key) {
+    const f = failures.get(key);
+    if (!f || Date.now() - f.ts > 120_000) failures.set(key, { n: 1, ts: Date.now() }); else { f.n++; f.ts = Date.now(); }
     if (failures.size > 2000) failures.clear();
   }
+  function noteAnswer(key) { if (failures.has(key) && !circuitOpen(key)) failures.delete(key); }
 
   async function robotsAllowed(u, signal) {
     if (!conf.respectRobots) return true;
@@ -284,7 +296,8 @@ export function createHttpClient(cfg = {}) {
     const redirects = [];
     for (let hop = 0; hop <= conf.maxRedirects; hop++) {
       const host = u.hostname;
-      if (circuitOpen(host)) throw new HttpError(`${host} skipped after repeated failures`, 'circuit_open');
+      const ckey = o.circuit ? `${host}#${o.circuit}` : host;
+      if (circuitOpen(ckey)) throw new HttpError(`${host} skipped after repeated failures`, 'circuit_open');
       if (o.robots && !(await robotsAllowed(u, o.signal))) { stats.robotsDenied++; throw new BlockedError('Disallowed by the site\'s robots.txt', 'robots'); }
       const addr = await resolveHost(host, trusted);
       const rkey = admit(u);
@@ -294,15 +307,17 @@ export function createHttpClient(cfg = {}) {
       try {
         const remaining = Math.max(500, o.timeoutMs - (Date.now() - started));
         stats.requests++;
-        res = await rawGet(u, {
+        const request = {
           ...addr, timeoutMs: remaining, maxBytes: o.maxBytes, signal: o.signal,
           method: isPost ? 'POST' : 'GET', body: postBody,
           headers: requestHeaders({ url: u, firstOrigin, userAgent: conf.userAgentFor ? conf.userAgentFor(u) : conf.userAgent, accept: ACCEPT[o.accept].header, lang: o.lang, extra: o.headers, postLength: isPost ? postBody.length : null }),
-        });
+        };
+        res = conf.transport ? await conf.transport(u, request, () => rawGet(u, request)) : await rawGet(u, request);
       } catch (e) {
-        if (e.code !== 'aborted') { stats.errors++; noteFailure(host); }
+        if (e.code !== 'aborted') { stats.errors++; noteFailure(ckey); }
         throw e;
       } finally { globalSem.release(); sem.release(); }
+      noteAnswer(ckey);
       if (res.status >= 300 && res.status < 400 && res.headers.location) {
         if (isPost) throw new HttpError('The search API answered with a redirect, which is not followed for POST requests', 'bad_redirect');
         let next;
@@ -363,6 +378,10 @@ export function createHttpClient(cfg = {}) {
 
   return {
     get, getText, getJSON, postJSON, robotsAllowed, remaining, config: conf,
+    /** Seconds the site asks crawlers to leave between requests (0 when it states none, or its robots.txt has not been read yet). */
+    crawlDelay(host) { const e = robotsCache.get(`https://${host}`) || robotsCache.get(`http://${host}`); return e && e.rules && e.rules.crawlDelay ? e.rules.crawlDelay : 0; },
+    /** True while a host is being skipped after repeated failures (the crawler does not queue more pages from it). */
+    hostDown: (host) => circuitOpen(host),
     clearCache() { cache.clear(); robotsCache.clear(); dnsCache.clear(); failures.clear(); },
     stats() { return { ...stats, cacheEntries: cache.map.size, cacheBytes: cache.bytes, cacheHits: cache.hits, cacheMisses: cache.misses }; },
     close() { agents['http:'].destroy(); agents['https:'].destroy(); },

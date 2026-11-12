@@ -110,7 +110,7 @@ export const SYNONYM_GROUPS = [
   'important significance significant importance matter', 'effect impact influence consequence', 'happen occur take place event', 'first earliest original pioneer',
   'famous known notable renowned', 'country nation state', 'city town capital', 'people population inhabitants residents', 'money currency funds',
   'job occupation profession career work', 'learn study understand', 'teach explain educate', 'leader president head ruler', 'rule govern control',
-  'war conflict battle', 'win victory won defeat', 'end finish conclude', 'grow increase rise expand', 'fall decrease decline drop reduce',
+  'war conflict battle', 'win victory won defeat', 'end finish conclude', 'grow increase rise expand', 'fall decrease decline drop reduce', 'fall collapse downfall demise', 'collapse fail failure', 'rise emerge emergence ascent', 'succeed success successful', 'fail failure failed unsuccessful',
   'hot heat warm temperature', 'cold cool freeze', 'old ancient age', 'new recent latest modern', 'write author wrote written', 'movie film', 'car automobile vehicle',
   'doctor physician', 'illness disease sickness condition', 'symptom sign', 'treat treatment cure therapy remedy', 'computer computing machine', 'program software code application',
   'website site web page', 'agent agents agentic autonomous', 'ai artificial intelligence', 'step stage phase', 'method approach technique way', 'explain explanation describe',

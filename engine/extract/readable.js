@@ -45,6 +45,8 @@ function measure(el, inLink) {
   el._t = t; el._l = l;
 }
 
+const INLINE_TAGS = new Set(['a', 'span', 'abbr', 'em', 'strong', 'b', 'i', 'u', 'mark', 'small', 'cite', 'q', 'dfn', 'code', 'time', 'data', 'var', 'kbd', 'samp', 'ins', 'font', 'bdi', 'bdo']);
+const TEXT_PARENTS = new Set(['p', 'li', 'td', 'th', 'dd', 'dt', 'blockquote', 'figcaption', 'caption', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'a', 'span', 'em', 'strong', 'b', 'i', 'u', 'mark', 'small', 'cite', 'q', 'dfn']);
 /** Second pass: drop boilerplate containers identified by class/id naming, link density, or role. */
 function markBoilerplate(root, total) {
   walk(root, (el) => {
@@ -52,7 +54,10 @@ function markBoilerplate(root, total) {
     if (el.tag === 'body' || el.tag === 'html' || el.tag === 'main' || el.tag === 'article') return;
     const share = el._t / Math.max(1, total);
     const idc = (el.attrs.class || '') + ' ' + (el.attrs.id || '');
-    if (idc.length > 1 && share < 0.45 && BOILER_RE.test(idc)) { el._skip = true; return false; }
+    // A short inline element inside running text (a glossary link, a term with a pop-up explanation) is part of its
+    // sentence whatever its class is called: dropping it would leave "… harmful to humans and ." behind.
+    const inText = INLINE_TAGS.has(el.tag) && el._t <= 90 && el.parent && TEXT_PARENTS.has(el.parent.tag) && el.parent._t - el._t >= 40;
+    if (idc.length > 1 && share < 0.45 && !inText && BOILER_RE.test(idc)) { el._skip = true; return false; }
     if (el.tag === 'header' && (el._l / Math.max(1, el._t) > 0.3 || share < 0.02)) { el._skip = true; return false; }
     if ((el.tag === 'div' || el.tag === 'ul' || el.tag === 'ol' || el.tag === 'section' || el.tag === 'table' || el.tag === 'p') && el._t > 60 && el._l / el._t > 0.72 && share < 0.4) { el._skip = true; return false; }
   });
@@ -87,6 +92,9 @@ function mainContainer(start) {
 const REF_RE = /^\s*\[?\s*(\d{1,3}|[a-z]|citation needed|note \d+|edit|update|when\?|who\?|clarification needed)\s*\]?\s*$/i;
 const BLOCKISH = new Set(['p', 'div', 'section', 'article', 'li', 'tr', 'td', 'th', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'blockquote', 'dd', 'dt', 'header', 'figure', 'main']);
 
+// Links found inside the main text while a page is being extracted (set by extractPage, which runs synchronously).
+let LINKS = null;
+
 function inline(el, out) {
   for (const ch of el.children) {
     if (ch.text !== undefined) { out.s += ch.text; continue; }
@@ -101,7 +109,10 @@ function inline(el, out) {
     }
     const before = out.s.length;
     inline(ch, out);
-    if (tag === 'a') out.link += out.s.length - before;
+    if (tag === 'a') {
+      out.link += out.s.length - before;
+      if (LINKS && ch.attrs.href && LINKS.length < 400 && out.s.length - before >= 3) LINKS.push({ href: ch.attrs.href, text: out.s.slice(before, before + 160) });
+    }
     if (BLOCKISH.has(tag)) out.s += '\n';
   }
 }
@@ -254,7 +265,22 @@ function tableData(table) {
 function collectBlocks(container, blocks, state) {
   const headings = state.headings;
   let buf = { s: '', link: 0 };
-  const push = (b) => { if (blocks.length < 1500) { b.heading = headings.filter(Boolean).join(' › '); blocks.push(b); } };
+  const push = (b) => {
+    if (blocks.length >= 1500) return;
+    b.heading = headings.filter(Boolean).join(' › ');
+    blocks.push(b);
+    // links met since the last block belong to this one: remember the words around each (what the link is cited for)
+    if (LINKS) {
+      const text = b.type === 'p' ? b.text : b.type === 'list' ? b.items.map((i) => i.text).join(' \n ') : '';
+      for (let i = state.linkMark || 0; i < LINKS.length; i++) {
+        const l = LINKS[i];
+        if (!text) continue;
+        const at = text.indexOf(l.text.slice(0, 40).trim());
+        if (at >= 0) l.ctx = text.slice(Math.max(0, at - 170), at + 190);
+      }
+      state.linkMark = LINKS.length;
+    }
+  };
   const flush = () => {
     if (!buf.s) return;
     const linkShare = buf.link / Math.max(1, buf.s.length);
@@ -426,12 +452,15 @@ export function extractPage(html, baseUrl, { lastModified, now = Date.now() } = 
   measure(start, false);                                   // re-measure without boilerplate
   const { node: container, lead } = mainContainer(start);
   const blocks = [];
+  LINKS = [];
   if (lead) {                                              // opening paragraphs that sit beside the main body
     const opening = [];
     collectBlocks(lead, opening, { headings: [] });
     blocks.push(...opening.filter((b) => b.type === 'p' && b.text.length >= 60).slice(0, 3));
   }
   collectBlocks(container, blocks, { headings: [] });
+  const rawLinks = LINKS;
+  LINKS = null;
 
   // ---- structured data → metadata and extra blocks ----
   const ld = { headline: '', published: '', modified: '', author: '', publisher: '', body: '', description: '', types: [] };
@@ -564,6 +593,9 @@ export function extractPage(html, baseUrl, { lastModified, now = Date.now() } = 
     robots: String(meta.robots || '').toLowerCase().slice(0, 120),
     canonical: abs(canonical),
     feeds: feeds.map((f) => ({ ...f, url: abs(f.url) })).filter((f) => f.url),
+    // links inside the main text (navigation, footers and link lists were dropped before): leads for further reading
+    links: (() => { const seen = new Set(), out = []; for (const l of rawLinks) { const u = abs(l.href).replace(/#.*$/, ''); const text = squash(l.text); if (!u || seen.has(u) || text.length < 3) continue; seen.add(u); out.push(l.ctx ? { url: u, text, ctx: squash(l.ctx) } : { url: u, text }); if (out.length >= 250) break; } return out; })(),
+    ogType, ldTypes: [...types].slice(0, 12),
     blocks: clean,
     quality: {
       chars, blocks: clean.length, fallback,

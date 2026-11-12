@@ -45,7 +45,7 @@ export const tavily = {
   note: 'Needs TAVILY_API_KEY — a free key without a payment method (about 1,000 searches a month). Only result links are requested, never a generated answer.',
   available: (cfg) => !!(cfg.keys && cfg.keys.tavily),
   async search(query, ctx) {
-    const body = { query, search_depth: 'basic', max_results: Math.min(ctx.limit || 8, 10), include_answer: false, include_raw_content: false, include_images: false };
+    const body = { query, search_depth: 'basic', max_results: Math.min(ctx.limit || 8, 20), include_answer: false, include_raw_content: false, include_images: false };
     if (ctx.fresh) { body.time_range = ctx.fresh; if (ctx.fresh === 'day' || ctx.fresh === 'week') body.topic = 'news'; }
     let res;
     try { res = await ctx.http.postJSON('https://api.tavily.com/search', body, request(ctx, { headers: { Authorization: `Bearer ${keyOf(ctx, 'tavily')}` } })); }

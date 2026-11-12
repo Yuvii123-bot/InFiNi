@@ -3,7 +3,7 @@
 // conversation context → per-part classification, chunking and weighted query terms.
 // Everything here is deterministic rules over closed-class words and morphology; no model, no training data.
 
-import { squash, tokenizeFull, stem, STOPWORDS, splitSentences, uniq, capitalize } from '../util/text.js';
+import { squash, tokenizeFull, tokenize, stem, STOPWORDS, splitSentences, uniq, capitalize } from '../util/text.js';
 import { DET, PREP, PRON, WH, AUX, BE, MODAL, CONJ, ADV, NEG, VERBS, IRREGULAR, lemma, gerund, pastTense, SYNONYM_GROUPS } from './lexicon.js';
 import { calc } from '../math/calc.js';
 
@@ -327,7 +327,17 @@ function analyzePart(text, { now = Date.now(), hint = null } = {}) {
   // weighted terms
   const terms = new Map();
   const constraints = [];
-  const add = (word, weight, kind) => { const w = word.toLowerCase().replace(/'s$|'$/, ''); if (w.length < 2 && !/\d/.test(w)) return; const s = stem(w); const cur = terms.get(s); if (!cur || cur.weight < weight) terms.set(s, { stem: s, word: w, weight, kind }); };
+  // A hyphenated or dotted word ("solid-state", "covid-19", "node.js") is matched against text that is split at those marks,
+  // so it enters the model as its parts — otherwise it could never be found in any passage.
+  const add = (word, weight, kind) => {
+    const w = word.toLowerCase().replace(/'s$|'$/, '');
+    const parts = /[-.'’/]/.test(w) ? tokenize(w) : [w];
+    for (const p of parts) {
+      if ((p.length < 2 && !/\d/.test(p)) || (parts.length > 1 && STOPWORDS.has(p))) continue;
+      const s = stem(p); const cur = terms.get(s);
+      if (!cur || cur.weight < weight) terms.set(s, { stem: s, word: p, weight, kind });
+    }
+  };
   const timeWords = /^(today|tonight|yesterday|now|currently|latest|recent|recently|news|headlines|week|month|year)$/;
   const focusStems = new Set(tokenizeFull(focus).map((t) => stem(t.l)));
   const attrStems = new Set(tokenizeFull(attribute).map((t) => stem(t.l)));

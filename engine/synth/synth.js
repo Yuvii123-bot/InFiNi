@@ -7,6 +7,7 @@ import { queryModel, rankEvidence, mmr, corroborators, cleanSentence, CUES, stem
 import { claimNature, detectConflicts } from '../evidence/evidence.js';
 import { findDates, formatDate } from '../util/dates.js';
 import { readingEase, truncate, capitalize, stem, tokenize, uniq, clamp } from '../util/text.js';
+import { stanceOf } from '../classify/classify.js';
 
 const figures = (t) => { const years = new Set(), nums = new Set(); for (const m of String(t).matchAll(/(?<![\w.])(\d{1,3}(?:,\d{3})+|\d+(?:\.\d+)?)/g)) { const raw = m[1].replace(/,/g, ''); (/^(1[0-9]{3}|20[0-9]{2})$/.test(raw) ? years : nums).add(Number(raw)); } return { years, nums }; };
 /** Two similar sentences agree unless both state figures of the same kind and none coincide. */
@@ -16,6 +17,8 @@ export function figuresAgree(a, b) {
   return !(clash(A.years, B.years) || (A.years.size === 0 && B.years.size === 0 && clash(A.nums, B.nums)));
 }
 const span = (text, cites = [], extra = {}) => ({ text, cites: uniq(cites).slice(0, 4), ...extra });
+/** A statement supported by more sources than fit beside it: the first few are shown, the rest are listed on request. */
+const wideSpan = (text, cites, extra) => { const all = uniq(cites); return { text, cites: all.slice(0, 3), ...(all.length > 3 ? { more: all.slice(3, 15) } : {}), ...(all.length > 1 ? { support: all.length } : {}), ...extra }; };
 const para = (spans) => ({ type: 'paragraph', spans });
 const note = (text, tone = 'info') => ({ type: 'note', tone, text });
 const NOT_VERIFIED = 'I could not verify this from the sources I found.';
@@ -48,7 +51,8 @@ function makeEnv(part, docs, ctx) {
   const style = { ...(part.style || {}), ...(ctx.style || {}) };
   const qm = ctx.qm || queryModel(part, ctx.extraTerms || []);
   const ranked = ctx.ranked || rankEvidence(docs, qm, { now: ctx.now, fresh: part.temporal.freshness });
-  if (style.simple) {
+  if (style.simple && !ranked.simplified) {            // applied once, however often an answer is rebuilt from the same ranking
+    ranked.simplified = true;
     for (const s of ranked.sentences) { const ease = clamp((readingEase(s.text) - 25) / 50); s.score *= (0.5 + 0.5 * ease) * (docs[s.di].simple ? 1.35 : 1); }
     ranked.sentences.sort((a, b) => b.score - a.score);
   }
@@ -68,17 +72,23 @@ function makeEnv(part, docs, ctx) {
       }
       used.add(key);
       const doc = docs[s.di];
-      const similar = corroborators(s, ranked).filter((c) => docs[c.sentence.di].origin !== doc.origin);
+      // after many pages have been read, a statement may be echoed by many independent sources: all of them are found, the best few are cited beside it
+      const wide = !!ctx.wide;
+      const groupOf = (d) => (wide && d.group != null ? `g${d.group}` : d.origin);
+      const seenOrigins = new Set([groupOf(doc)]);
+      const similar = corroborators(s, ranked, { limit: wide ? 40 : 4 }).filter((c) => { const o = groupOf(docs[c.sentence.di]); if (wide) { if (seenOrigins.has(o)) return false; seenOrigins.add(o); return true; } return docs[c.sentence.di].origin !== doc.origin; });
       const corr = similar.filter((c) => figuresAgree(text, c.sentence.text));
       for (const c of similar) if (!figuresAgree(text, c.sentence.text) && !env.disputes.some((d) => d.b === c.sentence)) env.disputes.push({ a: s, b: c.sentence });
-      const cites = [env.cite(s.di), ...corr.slice(0, 2).map((c) => env.cite(c.sentence.di))];
+      if (wide) corr.sort((a, b) => (docs[b.sentence.di].quality || 0) - (docs[a.sentence.di].quality || 0));
+      const cites = [env.cite(s.di), ...corr.slice(0, wide ? 9 : 2).map((c) => env.cite(c.sentence.di))];
       if (corr.length) env.corroborated++;
       const shown = style.simple ? simplifySentence(text) : text;
       if (record) {
         const nat = claimNature(s, doc, ctx.now);
         claims.push({ text: shown, original: text, di: s.di, source: cites[0], alsoSupportedBy: cites.slice(1), heading: s.heading, passage: truncate(ranked.passages[s.pi].text, 600), nature: nat.nature, temporal: nat.temporal, stems: s.stems, origin: doc.origin, score: s.score, part: ctx.partIndex });
       }
-      return span(prefix + shown, cites, { edited: shown !== text || undefined, nature: s.opinion ? 'opinion' : s.hedged ? 'hedged' : undefined });
+      const extra = { edited: shown !== text || undefined, nature: s.opinion ? 'opinion' : s.hedged ? 'hedged' : undefined };
+      return wide ? wideSpan(prefix + shown, cites, { ...extra, ...(1 + corr.length > uniq(cites).length ? { support: 1 + corr.length } : {}) }) : span(prefix + shown, cites, extra);
     },
   };
   return env;
@@ -99,9 +109,14 @@ function composeExtractive(env, { leadFilter = null, bullets = null, heading = '
   const { ranked, style, docs, part } = env;
   if (isWeak(env)) return insufficient(env, 'The pages I retrieved mention the topic but none of them addresses this question directly.');
   const topScore = env.top.score;
-  const cands = ranked.sentences.filter((s) => s.score >= topScore * minRel && s.cov >= 0.3 && !/[?:]\s*$/.test(s.text));       // a sentence ending in a colon introduces something that would not be shown
+  // after a research run, statements that something is not yet known get a place of their own in the report, and sentences about how a paper was written are left out
+  const wide = !!env.ctx.wide;
+  const plain = (s) => !wide || !(s.gapOnly || s.proc);
+  if (wide) minRel = Math.min(minRel, part.answerType === 'reason' ? 0.3 : 0.4);
+  let cands = ranked.sentences.filter((s) => s.score >= topScore * minRel && s.cov >= 0.3 && !/[?:]\s*$/.test(s.text) && plain(s));       // a sentence ending in a colon introduces something that would not be shown
+  if (!cands.length) cands = ranked.sentences.filter((s) => s.score >= topScore * minRel && s.cov >= 0.3 && !/[?:]\s*$/.test(s.text));
   // the page about the thing asked about gets the first chance to supply the opening sentence
-  const leadPool = leadFilter ? ranked.sentences.filter((s) => s.score >= topScore * 0.35 && !/\?$/.test(s.text)).slice(0, 60) : [];
+  const leadPool = leadFilter ? ranked.sentences.filter((s) => s.score >= topScore * 0.35 && !/\?$/.test(s.text) && plain(s)).slice(0, 60) : [];
   const opening = openFirst ? leadPool.find((s) => docs[s.di].entity && s.order === 0 && s.si === 0 && leadFilter(s)) : null;   // the sentence that introduces the subject on its own page
   const strict = leadFilter ? opening || leadPool.find((s) => docs[s.di].entity && leadFilter(s)) || leadPool.find(leadFilter) : null;
   if (requireLead && !strict) return insufficient(env, requireLead);
@@ -130,7 +145,12 @@ function composeExtractive(env, { leadFilter = null, bullets = null, heading = '
       const m = /^((?:[A-Z][\w&.’'-]*\s+){1,3})(?:is|are|was|were|offers?|provides?|lets|helps?|enables?|gives?|makes?|delivers?)\b/.exec(s.text);
       return !!m && !stemsOf(m[1]).some((w) => focusStems.has(w));
     };
-    const picks = mmr(cands, nB + 4, { maxPerDoc: Math.max(2, Math.ceil(nB / 2)), filter: (s) => !env.used.has(`${s.pi}:${s.si}`) && s.type !== 'table' && simSets(s.stems, lead.stems) < 0.6 && (s.directCov >= lead.directCov * 0.6 || s.pi === lead.pi) && (s.predCov >= 0.5 || s.pi === lead.pi || part.answerType === 'definition' || part.explain) && (!bulletFilter || bulletFilter(s)) && !aboutOther(s) });
+    const keyed = wide && ranked.salience ? (s) => s.sal >= 0.1 || s.pi === lead.pi || !!s.gov : () => true;       // after a research run: a point must share some of the vocabulary the sources use when they answer
+    const ok = (s) => !env.used.has(`${s.pi}:${s.si}`) && s.type !== 'table' && keyed(s) && simSets(s.stems, lead.stems) < 0.6 && (s.directCov >= lead.directCov * 0.6 || s.pi === lead.pi || (wide && !!s.gov && s.directCov >= 0.3)) && !(wide && s.otherEntity) && (s.predCov >= 0.5 || s.pi === lead.pi || part.answerType === 'definition' || part.explain) && (!bulletFilter || bulletFilter(s)) && !aboutOther(s);
+    let picks = mmr(cands, nB + 4, { maxPerDoc: wide ? 1 : Math.max(2, Math.ceil(nB / 2)), filter: ok });
+    if (process.env.INFINI_DEBUG_BULLETS) { console.error('nB', nB, 'cands', cands.length, 'ok', cands.filter(ok).length, 'picks', picks.length); for (const s of cands.slice(0, 30)) console.error(`  ${s.score.toFixed(2)} gov=${!!s.gov} cue=${s.cueHit} d=${s.directCov.toFixed(2)} p=${s.predCov.toFixed(2)} sal=${(s.sal || 0).toFixed(2)} used=${env.used.has(`${s.pi}:${s.si}`)} simLead=${simSets(s.stems, lead.stems).toFixed(2)} bf=${!bulletFilter || bulletFilter(s)} ent=${!!docs[s.di].entity} kind=${docs[s.di].kind} ok=${ok(s)} | ${s.text.slice(0, 70)}`); }
+    // after a research run each source gets one statement — unless that leaves the list short while one thorough source has more to say
+    if (wide && picks.length < nB) { const more = mmr(cands, nB + 4, { maxPerDoc: 3, filter: ok }); picks = [...picks, ...more.filter((s) => !picks.includes(s))].slice(0, nB + 4).sort((a, b) => b.score - a.score); }
     const items = [];
     for (const s of picks) { if (items.length >= nB) break; const sp = env.quote(s, { prefix: pre(s) }); if (sp) items.push({ spans: [sp] }); }
     if (items.length) { blocks.push({ type: 'heading', text: heading }); blocks.push({ type: 'list', ordered: false, items }); }
@@ -264,7 +284,7 @@ function composeFactoid(env) {
       return { blocks, claims: env.claims, stats: { directness: 0.7, keyClaims: 2, corroborated: 0, conflicts: 1 }, lead: `Sources disagree: ${best.value} or ${rival0.value}` };
     }
   }
-  if (!direct) { const r = composeExtractive(env, { bullets: Math.min(3, ctx.budget.sentences) }); r.candidates = cands.slice(0, 3).map((c) => c.value); return r; }
+  if (!direct) { const r = composeExtractive(env, { bullets: ctx.wide && part.answerType === 'attribute' ? ctx.budget.sentences : Math.min(3, ctx.budget.sentences) }); r.candidates = cands.slice(0, 3).map((c) => c.value); return r; }
 
   const evid = [];
   const want = direct.structured ? direct.values.map(lower) : [lower(direct.value)];
@@ -295,8 +315,44 @@ function composeYesNo(env) {
   const { ranked, part } = env;
   if (isWeak(env)) return insufficient(env, 'None of the retrieved pages states this directly, so I will not guess yes or no.');
   const topScore = env.top.score;
-  const direct = ranked.sentences.filter((s) => s.directCov >= 0.55 && s.predCov >= 0.6 && s.score >= topScore * 0.45 && !/\?$/.test(s.text)).slice(0, 8);
+  const wide = !!env.ctx.wide;
+  const direct = ranked.sentences.filter((s) => s.directCov >= 0.55 && s.predCov >= 0.6 && s.score >= topScore * 0.45 && !/\?$/.test(s.text) && !(wide && s.proc)).slice(0, 8);
   if (!direct.length) return insufficient(env, 'None of the retrieved passages speaks to this directly, so I will not guess yes or no.');
+  // After a research run many independent sources speak to the question. Each gets one vote — its most direct sentence —
+  // and the answer reports the count instead of leaning on the few best-ranked passages.
+  if (wide) {
+    const docs = env.docs;
+    const originOf = (di) => (docs[di].group != null ? `g${docs[di].group}` : docs[di].origin);
+    const votes = new Map();
+    for (const s of ranked.sentences) {
+      if (s.score < topScore * 0.3 || votes.size >= 80) break;
+      if (s.directCov < 0.55 || s.predCov < 0.6 || s.proc || s.type !== 'p' || /\?\s*$/.test(s.text) || s.text.length > 420) continue;
+      const o = originOf(s.di);
+      if (!votes.has(o)) votes.set(o, { s, stance: stanceOf(s.text, !!part.negated) });
+    }
+    const all = [...votes.values()];
+    if (all.length >= 5) {
+      const by = { supports: all.filter((v) => v.stance === 'supports'), contradicts: all.filter((v) => v.stance === 'contradicts'), qualified: all.filter((v) => v.stance === 'qualified') };
+      const N = all.length, yes = by.supports.length, no = by.contradicts.length, mid = by.qualified.length;
+      const counts = `${yes} lean yes, ${no} lean no and ${mid} qualify it or call the evidence unsettled`;
+      let verdict, tone = 'info';
+      if (yes >= 0.6 * N) verdict = `Most of the sources that address this directly lean yes: of ${N} independent sources, ${counts}.`;
+      else if (no >= 0.6 * N) verdict = `Most of the sources that address this directly lean no: of ${N} independent sources, ${counts}.`;
+      else { verdict = `The sources that address this directly do not agree: of ${N} independent sources, ${counts}.`; tone = 'warn'; }
+      const want = Math.max(3, Math.min(6, env.ctx.budget.sentences));
+      const order = ['supports', 'contradicts', 'qualified'].sort((a, b) => by[b].length - by[a].length);
+      const picks = [];
+      // the larger a group, the more of its statements are shown — but every group that exists is heard at least once
+      for (let round = 0; picks.length < want && round < want; round++) for (const k of order) { const v = by[k][round]; if (v && picks.length < want && (round === 0 || by[k].length >= 0.25 * N) && !picks.some((x) => simSets(x.s.stems, v.s.stems) >= 0.6)) picks.push(v); }
+      const label = { supports: 'Leans yes', contradicts: 'Leans no', qualified: 'Qualified' };
+      const items = [];
+      for (const v of picks.sort((a, b) => order.indexOf(a.stance) - order.indexOf(b.stance))) { const sp = env.quote(v.s, { allowDangling: true }); if (sp) items.push({ spans: [span(`${label[v.stance]} — `, [], { strong: true }), sp] }); }
+      if (items.length >= 2) {
+        const blocks = [para([span(verdict, [], { strong: true })]), { type: 'list', ordered: false, items }, note('How each source leans is read by rule from the wording of its most direct sentence (negations, and words such as “limited evidence” or “disputed”). It is a count of statements, not a judgement of who is right — read the passages.', tone)];
+        return { blocks, claims: env.claims, stats: { directness: clamp(0.35 + 0.65 * direct[0].directCov), keyClaims: env.claims.length, corroborated: Math.max(env.corroborated, Math.min(items.length, Math.max(yes, no, mid)) - 1), conflicts: yes && no && Math.min(yes, no) >= 0.25 * N ? 1 : 0 }, lead: verdict, tally: { sources: N, yes, no, qualified: mid } };
+      }
+    }
+  }
   let picks = mmr(direct, Math.min(4, env.ctx.budget.sentences), { maxPerDoc: 2 });
   // "Is X a Y?" — the sentence with which X's own page defines it is the most direct evidence there is, so it comes first
   const subject = env.ctx.entityDocs ? env.ctx.entityDocs.get((part.focus || '').toLowerCase()) : undefined;
@@ -552,7 +608,13 @@ export function answerPart(part, docs, ctx) {
       requireLead: futureYears.length ? `I cannot predict the future, and none of the pages I retrieved makes a statement about ${futureYears.join(' or ')}.` : 'I cannot predict the future, and none of the pages I retrieved makes a current forward-looking statement about this.' }); if (!res.stats.insufficient) res.blocks.unshift(note('I cannot predict the future. What follows is what the sources I retrieved say or project — treat it as their view, with their dates.', 'warn')); }
   else if (t === 'recommendation') { res = composeExtractive(env, { attribute: true, heading: 'Other advice in the sources', leadFilter: (s) => CUES.recommendation.test(s.text) }); if (!res.stats.insufficient) res.blocks.unshift(note('Recommendations depend on your situation. These are the views of the cited sources, not a verified fact.', 'info')); }
   else if (t === 'definition') res = composeExtractive(env, { leadFilter: (s) => s.defHit && (!s.dangling), heading: 'Key points' });
-  else if (t === 'reason') res = composeExtractive(env, { leadFilter: (s) => s.cueHit && s.directCov >= 0.5 && s.predCov >= 0.5 && !s.dangling, bulletFilter: (s) => s.cueHit && (env.docs[s.di].entity || env.docs[s.di].kind !== 'encyclopedia'), heading: 'In more detail', requireLead: 'The pages I retrieved discuss the topic, but I found no sentence in them that states a cause or reason for this.' });
+  else if (t === 'reason') {
+    // when several sentences tie the cause to the asked event itself ("… led to the fall of X"), only those are used
+    const governed = env.ranked.sentences.slice(0, 400).filter((s) => s.gov && s.score >= env.top.score * 0.3 && !s.proc).length;
+    const strictGov = governed >= 2 ? (s) => !!s.gov : () => true;
+    const moreGov = governed >= (ctx.wide ? 4 : 99) ? (s) => !!s.gov : () => true;
+    res = composeExtractive(env, { leadFilter: (s) => s.cueHit && strictGov(s) && s.directCov >= 0.5 && s.predCov >= 0.5 && !s.dangling, bulletFilter: (s) => s.cueHit && moreGov(s) && (env.docs[s.di].entity || env.docs[s.di].kind !== 'encyclopedia' || (!!ctx.wide && s.predCov >= 0.5 && (s.directCov >= 0.5 || !!s.gov))), heading: ctx.wide ? 'Explanations the sources give' : 'In more detail', requireLead: 'The pages I retrieved discuss the topic, but I found no sentence in them that states a cause or reason for this.' });
+  }
   else res = composeExtractive(env, { heading: t === 'mechanism' ? 'How it works, according to the sources' : 'Key points', openFirst: !!part.fn, leadFilter: t === 'mechanism' ? (s) => s.defHit && !s.dangling && s.order <= 1 : part.fn ? (s) => s.defHit && !s.dangling : null, bulletFilter: t === 'mechanism' ? (s) => s.cueHit && (s.order <= 14 || /\b(process|mechanism|overview|function|operation|principle|stages?|steps?|cycle|reactions?)\b/i.test(s.heading)) : null });
   // a near-identical statement elsewhere that gives a different figure is shown as a dispute, never counted as support
   for (const d of env.disputes.slice(0, 2)) {
@@ -571,6 +633,7 @@ export function answerPart(part, docs, ctx) {
   }
   res.ranked = env.ranked;
   res.qm = env.qm;
+  res.env = env;                    // research reports continue composing in the same environment (shared citations, nothing quoted twice)
   return res;
 }
 

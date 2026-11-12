@@ -3,6 +3,8 @@
 
 import { enc, ProviderError } from './base.js';
 import { extractPage } from '../extract/readable.js';
+import { parseHTML, findAll, textOf, hasClass, stripTags, decodeEntities } from '../extract/html.js';
+import { squash } from '../util/text.js';
 import { MONTH_NAMES } from '../util/dates.js';
 
 const SKIP_SECTIONS = /^(see also|references|external links|further reading|notes|bibliography|citations|sources|footnotes|works cited|explanatory notes|gallery|notes and references)$/i;
@@ -114,6 +116,55 @@ export default {
     const url = `https://${lang}.wikipedia.org/wiki/${encodeURI(title.replace(/ /g, '_'))}`;
     const page = extractPage(`<html><body><article>${res.json.parse.text}</article></body></html>`, url);
     return { title: res.json.parse.title, site: 'Wikipedia', lang, blocks: page.blocks, pageType: 'reference', via: 'api', url, bytes: res.bytes, ms: res.ms, fromCache: res.fromCache };
+  },
+
+  /** Wide title search: up to 50 hits with snippets in one request (leads only — no article text). */
+  async searchTitles(query, ctx) {
+    const lang = ctx.lang || 'en';
+    const url = `${api(lang)}?action=query&format=json&formatversion=2&list=search&srsearch=${enc(query)}&srlimit=${Math.min(ctx.limit || 50, 50)}&srnamespace=0&srprop=snippet%7Ctimestamp%7Cwordcount`;
+    const { json } = await ctx.http.getJSON(url, { signal: ctx.signal, timeoutMs: ctx.timeoutMs || 6000, hostLimit: 3, fresh: ctx.noCache, ttlMs: 30 * 60000 });
+    if (json.error) throw new ProviderError(json.error.info || 'Wikipedia API error', 'api_error');
+    const site = `https://${lang}.wikipedia.org/wiki/`;
+    return ((json.query && json.query.search) || []).filter((h) => h && h.title && (h.wordcount || 0) >= 120).map((h) => ({ title: h.title, url: site + encodeURI(h.title.replace(/ /g, '_')), snippet: squash(decodeEntities(stripTags(h.snippet || ''))).slice(0, 320), provider: 'wikipedia', kind: 'encyclopedia', date: h.timestamp || '' }));
+  },
+
+  /** Articles that Wikipedia's search engine considers similar to a given article ("morelike"): neighbouring topics. */
+  related(title, ctx) { return this.searchTitles(`morelike:${title}`, ctx); },
+
+  /**
+   * The sources an article cites: [{url, title, type, year, doi}]. An encyclopedia article is a curated reading list;
+   * its references lead to the primary sources behind it. One API request per article.
+   */
+  async references(title, ctx) {
+    const lang = ctx.lang || 'en';
+    const q = `${api(lang)}?action=parse&format=json&formatversion=2&prop=text&disablelimitreport=1&disableeditsection=1&redirects=1&page=${enc(title)}`;
+    const res = await ctx.http.getJSON(q, { signal: ctx.signal, timeoutMs: ctx.timeoutMs || 8000, hostLimit: 3, maxBytes: 4_000_000, fresh: ctx.noCache, ttlMs: 60 * 60000 });
+    if (!res.json.parse) throw new ProviderError('Wikipedia page not found', 'not_found');
+    const root = parseHTML(String(res.json.parse.text || ''), { maxNodes: 400000 });
+    const out = [], seen = new Set();
+    const ID_HOST = /(^|\.)(doi\.org|ncbi\.nlm\.nih\.gov|worldcat\.org|semanticscholar\.org|harvard\.edu|jstor\.org|archive\.org|archive\.today|archive\.ph|webcitation\.org|wikidata\.org|wikimedia\.org|wikipedia\.org|handle\.net|bnf\.fr|loc\.gov|scixplorer\.org|zbmath\.org|ams\.org|osti\.gov|ssrn\.com|books\.google\.[a-z.]+)$/i;
+    for (const cite of findAll(root, (el) => el.tag === 'cite', 1500)) {
+      const cls = cite.attrs.class || '';
+      const links = findAll(cite, (el) => el.tag === 'a' && hasClass(el, 'external') && /^https?:\/\//i.test(el.attrs.href || ''), 12);
+      if (!links.length) continue;
+      let doi = '', main = null;
+      for (const a of links) {
+        let host = '';
+        try { host = new URL(a.attrs.href).hostname.replace(/^www\./, ''); } catch { continue; }
+        if (host === 'doi.org' && !doi) { try { doi = decodeURIComponent(new URL(a.attrs.href).pathname.slice(1)).toLowerCase(); } catch { /* malformed DOI link */ } }
+        if (!main && !ID_HOST.test(host)) main = a;
+      }
+      const text = squash(textOf(cite));
+      const quoted = (text.match(/["“]([^"”]{8,220})["”]/) || [])[1] || '';
+      const ttl = squash(quoted || (main ? textOf(main) : '') || text.slice(0, 160)).replace(/^["“]|["”]$/g, '');
+      const url = main ? main.attrs.href : doi ? `https://doi.org/${doi}` : '';
+      if (!url || seen.has(url) || ttl.length < 6) continue;
+      seen.add(url);
+      const type = (cls.match(/\b(journal|news|web|book|report|magazine|conference|thesis|pressrelease|encyclopaedia|arxiv|biorxiv|medrxiv|podcast|av-media)\b/) || [])[1] || 'web';
+      out.push({ url, title: ttl.slice(0, 220), type, year: (text.match(/\((?:[^()]*?\b)?((?:19|20)\d{2})\)/) || [])[1] || '', doi, hasPage: !!main });
+      if (out.length >= 600) break;
+    }
+    return { title: res.json.parse.title || title, references: out, bytes: res.bytes };
   },
 
   /** Titles of the "Current events" portal pages for the days leading up to `now`. */

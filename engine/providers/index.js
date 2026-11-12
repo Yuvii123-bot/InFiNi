@@ -7,9 +7,10 @@ import { stackexchange, mdn, arxiv, hackernews, gdelt } from './verticals.js';
 import ddgInstant from './ddg_instant.js';
 import feeds from './feeds.js';
 import { firecrawl, tavily } from './searchapis.js';
+import { openalex, europepmc } from './scholar.js';
 import { canonicalUrl, domainOf } from '../util/text.js';
 
-export const PROVIDERS = { wikipedia, ddg_instant: ddgInstant, searxng, tavily, brave, ddg_html: ddg, firecrawl, mwmbl, marginalia, wiby, stackexchange, mdn, arxiv, hackernews, feeds, gdelt };
+export const PROVIDERS = { wikipedia, ddg_instant: ddgInstant, searxng, tavily, brave, ddg_html: ddg, firecrawl, mwmbl, marginalia, wiby, stackexchange, mdn, arxiv, openalex, europepmc, hackernews, feeds, gdelt };
 
 // Order of preference for general web search. The first provider that returns enough results wins;
 // if it fails (error, rate limit, human check) the next one is tried.

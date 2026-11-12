@@ -51,17 +51,36 @@ export function classifySource(url, meta = {}, learned = null) {
 
 /** Group documents by independent origin: same publisher family, or near-identical text (syndicated copies). */
 export function originGroups(docs) {
+  const n = docs.length;
   const parent = docs.map((_, i) => i);
-  const find = (i) => (parent[i] === i ? i : (parent[i] = find(parent[i])));
+  const find = (i) => { while (parent[i] !== i) { parent[i] = parent[parent[i]]; i = parent[i]; } return i; };
   const union = (a, b) => { parent[find(a)] = find(b); };
   const sh = docs.map((d) => {
+    if (d.offTopic) return null;
     const text = (d.blocks || []).filter((b) => b.type === 'p').slice(0, 12).map((b) => b.text).join(' ').slice(0, 2400);
     const toks = tokenize(text);
     return toks.length >= 40 ? shingles(toks, 5) : null;
   });
-  for (let i = 0; i < docs.length; i++) for (let j = i + 1; j < docs.length; j++) {
-    if (docs[i].origin === docs[j].origin) union(i, j);
-    else if (sh[i] && sh[j] && jaccard(sh[i], sh[j]) > 0.45) { union(i, j); docs[j].copyOf = docs[i].url; }
+  // same origin: one pass
+  const first = new Map();
+  for (let i = 0; i < n; i++) { const o = docs[i].origin; if (first.has(o)) union(i, first.get(o)); else first.set(o, i); }
+  const copy = (i, j) => { if (sh[i] && sh[j] && docs[i].origin !== docs[j].origin && jaccard(sh[i], sh[j]) > 0.45) { union(i, j); docs[j].copyOf = docs[i].url; } };
+  if (n <= 80) { for (let i = 0; i < n; i++) for (let j = i + 1; j < n; j++) copy(i, j); }
+  else {
+    // many documents: only pairs that share one of their smallest shingle hashes are compared (near-copies always do)
+    const buckets = new Map();
+    for (let i = 0; i < n; i++) {
+      if (!sh[i]) continue;
+      const hs = [];
+      for (const x of sh[i]) { let h = 0x811c9dc5; for (let k = 0; k < x.length; k++) { h ^= x.charCodeAt(k); h = Math.imul(h, 0x01000193); } hs.push(h >>> 0); }
+      hs.sort((a, b) => a - b);
+      for (const h of hs.slice(0, 6)) { let b = buckets.get(h); if (!b) buckets.set(h, (b = [])); b.push(i); }
+    }
+    const done = new Set();
+    for (const b of buckets.values()) {
+      if (b.length < 2 || b.length > 40) continue;
+      for (let x = 0; x < b.length; x++) for (let y = x + 1; y < b.length; y++) { const k = b[x] * 100003 + b[y]; if (done.has(k)) continue; done.add(k); copy(b[x], b[y]); }
+    }
   }
   const ids = new Map();
   return docs.map((_, i) => { const r = find(i); if (!ids.has(r)) ids.set(r, ids.size); return ids.get(r); });

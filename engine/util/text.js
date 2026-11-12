@@ -123,13 +123,16 @@ export function termSet(text) { return new Set(terms(text)); }
 // ---------------------------------------------------------------------------------------------
 // Sentence segmentation (rule based; abbreviation- and initial-aware)
 // ---------------------------------------------------------------------------------------------
-const ABBR = new Set(('mr mrs ms dr prof sr jr st vs etc inc ltd co corp no nos fig figs eq al gen col lt sgt capt rev hon gov sen rep  c ca approx est fl cf viz al' +
+const ABBR = new Set(('mr mrs ms dr prof sr jr st vs etc inc ltd co corp no nos fig figs eq al gen col lt sgt capt rev hon gov sen rep c ca approx est fl cf viz al ' +
   'pres mt ft jan feb mar apr jun jul aug sep sept oct nov dec approx est dept univ vol vols pp ed eds ca cf e.g i.e u.s u.k u.n a.m p.m ' +
-  'ph.d b.c a.d u.s.a viz op cit ibid resp incl min max').split(' '));
+  'ph.d b.c a.d u.s.a viz op cit ibid resp incl min max').split(' ').filter(Boolean));
 
 export function splitSentences(text) {
   const out = [];
   if (!text) return out;
+  // "…in June 2022.Results and Discussion: …", "…for health.Objective: This paper…": a full stop glued to the next
+  // sentence (text assembled from page elements or abstract indexes). A space is put back before a capitalised word.
+  if (/[\p{Ll}\d)\]%][.!?]\p{Lu}\p{Ll}{2}/u.test(text)) text = text.replace(/([\p{Ll}\d)\]%]{2})([.!?])(?!(?:Com|Org|Net|Edu|Gov)\b)(?=\p{Lu}\p{Ll}{2,}[\s:,])/gu, '$1$2 ');
   const re = /([.!?]+)(["'”’)\]]*)(\s+|$)/g;
   let start = 0, m;
   while ((m = re.exec(text))) {
