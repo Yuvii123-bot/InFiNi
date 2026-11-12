@@ -212,6 +212,8 @@ function classify(l, hint) {
     if ((m = l2.match(/^who (?:is|was|are|were) (.+)$/)) && !/\b(of|in|for|to|that|who|behind|from)\b/.test(m[1]) && !/^(the|a|an) /.test(m[1])) return R('who', 'definition', { target: m[1], person: true });
     return R('who', 'person');
   }
+  // "What happened to the temple in the 2015 earthquake?", "what happened at the Battle of Hastings": history, not this week's news
+  if (/^what (?:happened|occurred|took place|went on)\b/.test(l2) && ((l2.match(/\b(1[0-9]{3}|20[0-9]{2})\b/g) || []).some((y) => Number(y) < new Date().getUTCFullYear()) || /\b(?:centur(?:y|ies)|ancient|medieval|world war|civil war|war of|battle of|siege of|revolution|dynasty|empire|bce?|decades? ago|years ago|in history|historically|in the past)\b/.test(l2))) return R('what', 'description');
   if (/^what (?:happened|is happening|has happened|happens|is going on|went on|is new|occurred|took place)\b/.test(l2) || /^(?:any |the )?(?:latest |recent |top |breaking )?(?:news|headlines)\b/.test(l2) || /\b(?:latest|recent|today's|top|breaking) (?:news|headlines|developments|updates)\b/.test(l2) || /^what is (?:the )?(?:latest|new)\b/.test(l2)) return R('what', 'news');
   if (/^which\b/.test(l2)) {
     const noun = (l2.match(/^which (?:of the |of these |of those )?(\w+)/) || [])[1] || '';
@@ -293,6 +295,12 @@ function analyzePart(text, { now = Date.now(), hint = null } = {}) {
       if (k < np.end) { np.end = k; np.text = tokens.slice(np.start, k + 1).map((t) => t.t).join(' '); }
     }
   }
+  // "How long do batteries last?", "How old is the universe?", "how much does a tesla cost": the degree word after "how"
+  // asks for the measure — it is not what the question is about
+  if (tokens.length > 2 && tokens[0].l === 'how') for (const np of nps) { if (np.start === 1 && np.end === 1 && !tokens[1].cap && nps.length > 1 && /^(?:long|old|much|many|far|tall|big|large|small|often|fast|quickly|slow|deep|high|low|heavy|wide|hot|cold|strong|likely|common|rare|expensive|cheap|safe|dangerous|hard|difficult|easy|soon|late|early|good|bad|accurate|effective|reliable|popular|close|near|thick|thin|short|young|new|dense|bright|loud|rich|poor|healthy|serious|severe|frequent|frequently|well|important|useful|powerful|efficient)$/.test(tokens[1].l)) np.generic = true; }
+  // "the impact of remote work on productivity", "the relationship between sleep and memory", "the future of fusion":
+  // the noun that names the relation is what is asked about the topic, not the topic
+  if (nps.length > 1) for (const np of nps) { if (np.start === np.end && !np.proper && tokens[np.end + 1] && /^(?:of|between)$/.test(tokens[np.end + 1].l) && /^(?:impacts?|influences?|relationships?|links?|connections?|correlations?|associations?|interactions?|consequences|implications|significance|importance|benefits?|advantages?|disadvantages?|drawbacks?|risks?|dangers?|pros|cons|future|history|origins?|evolution|rise|decline|status|roles?|effects?|causes?|symptoms?|treatments?|prevention|economics|ethics|science|psychology|politics|basics|fundamentals|principles|limits|limitations|challenges|problems|applications|uses)$/.test(tokens[np.start].l)) np.generic = true; }
   const nonGeneric = nps.filter((np) => !np.generic && !(np.start === 0 && COMMANDS.has(tokens[0].l)));
   const byText = (s) => s && nonGeneric.find((np) => np.text.toLowerCase() === stripDet(s).toLowerCase());
   const targetOf = (s) => { if (!s) return ''; const want = stripDet(s).toLowerCase(); const i = work.toLowerCase().lastIndexOf(want); return i >= 0 ? work.slice(i, i + want.length) : stripDet(s); };

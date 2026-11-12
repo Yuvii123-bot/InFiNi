@@ -1,7 +1,10 @@
 // INFINI AI — open scholarly indexes with documented, keyless APIs.
 //   openalex   : OpenAlex (CC0 metadata for ~250 million works: titles, abstracts, citation counts, open-access links)
+//   crossref   : Crossref (the DOI registry: metadata of ~160 million works; abstracts where the publisher deposited them)
 //   europepmc  : Europe PMC (life-science literature: abstracts, publication types, and the full text of open-access articles)
-// One request returns dozens of abstracts, so these two are how a research run can take in hundreds of studies quickly.
+// One request returns dozens of abstracts, so these are how a research run can take in hundreds of studies quickly.
+// OpenAlex answers without a key only on a small daily allowance and pauses anonymous search under load; a free key
+// (OPENALEX_API_KEY) lifts that. Crossref needs no key and is asked as well, so abstracts keep coming either way.
 // An abstract is a summary written by the authors: documents built from it are marked "abstract only" until the full
 // text has been read as well.
 
@@ -52,6 +55,8 @@ function oaWork(w) {
     content: abstract.length >= 120 ? { title, site: venue || 'OpenAlex', author: authors.join(', ') + ((w.authorships || []).length > 4 ? ' et al.' : ''), published, blocks: [{ type: 'p', text: abstract, heading: 'Abstract' }], pageType: 'scholarly', via: 'api', partial: true, lang: w.language || '' } : null,
   };
 }
+// a free API key (OPENALEX_API_KEY) raises the daily allowance tenfold; the contact address is sent as before
+const oaAuth = (ctx) => `${ctx.cfg && ctx.cfg.contact && /@/.test(ctx.cfg.contact) ? `&mailto=${enc(ctx.cfg.contact)}` : ''}${ctx.cfg && ctx.cfg.keys && ctx.cfg.keys.openalex ? `&api_key=${enc(ctx.cfg.keys.openalex)}` : ''}`;
 const OA_SELECT = 'id,doi,title,display_name,publication_year,publication_date,cited_by_count,type,language,open_access,primary_location,authorships,abstract_inverted_index';
 
 export const openalex = {
@@ -59,7 +64,7 @@ export const openalex = {
   note: 'Open index of scholarly works across all disciplines (CC0): titles, abstracts, citation counts and open-access links. Keyless.',
   available: () => true,
   async search(query, ctx) {
-    const mail = ctx.cfg && ctx.cfg.contact && /@/.test(ctx.cfg.contact) ? `&mailto=${enc(ctx.cfg.contact)}` : '';
+    const mail = oaAuth(ctx);
     const q = query.replace(/[",]/g, ' ').trim();
     const { json } = await ctx.http.getJSON(`https://api.openalex.org/works?search=${enc(q)}&per-page=${Math.min(ctx.limit || 10, 100)}&select=${OA_SELECT}${ctx.fresh === 'year' || ctx.fresh === 'month' ? `&filter=from_publication_date:${new Date((ctx.now || Date.now()) - 400 * 86400000).toISOString().slice(0, 10)}` : ''}${mail}`, opts(ctx));
     if (!json || !Array.isArray(json.results)) throw new ProviderError('Unexpected OpenAlex response', 'bad_response');
@@ -71,9 +76,61 @@ export const openalex = {
   async byDoi(dois, ctx) {
     const list = [...new Set(dois.map(cleanDoi).filter((d) => /^10\.\d{4,9}\/\S+$/.test(d) && !/[|,]/.test(d)))].slice(0, 50);
     if (!list.length) return [];
-    const mail = ctx.cfg && ctx.cfg.contact && /@/.test(ctx.cfg.contact) ? `&mailto=${enc(ctx.cfg.contact)}` : '';
+    const mail = oaAuth(ctx);
     const { json } = await ctx.http.getJSON(`https://api.openalex.org/works?filter=doi:${list.map(enc).join('|')}&per-page=50&select=${OA_SELECT}${mail}`, opts(ctx));
     return ((json && json.results) || []).map(oaWork).filter(Boolean);
+  },
+};
+
+/** A Crossref abstract is a fragment of JATS XML: section titles become labels, the rest plain text. */
+export function jatsAbstractToText(xml) {
+  let t = String(xml || '');
+  t = t.replace(/<jats:title[^>]*>\s*abstract\s*<\/jats:title>/gi, ' ').replace(/<jats:title[^>]*>([^<]{1,60})<\/jats:title>/gi, ' $1: ').replace(/<\/jats:(?:p|sec|list-item)>/gi, ' ');
+  t = squash(decodeEntities(stripTags(t))).replace(/^(?:abstract|summary)[\s:.]+/i, '').replace(/:\s*:/g, ':');
+  return t;
+}
+const CR_TYPE = { 'journal-article': 'article', 'posted-content': 'preprint', 'proceedings-article': 'article', 'book-chapter': 'book-chapter', book: 'book', monograph: 'book', 'reference-entry': 'reference-entry', dissertation: 'dissertation', report: 'report', 'peer-review': 'peer-review', dataset: 'dataset' };
+function crWork(w) {
+  const title = squash(stripTags(decodeEntities(String((Array.isArray(w.title) ? w.title[0] : w.title) || ''))));
+  const doi = cleanDoi(w.DOI);
+  if (!title || !/^10\.\d{4,9}\/\S+$/.test(doi)) return null;
+  const abstract = jatsAbstractToText(w.abstract);
+  const parts = ((w.published || w.issued || {})['date-parts'] || [[]])[0] || [];
+  const year = Number(parts[0]) || 0;
+  const published = year ? (parts[1] && parts[2] ? `${year}-${String(parts[1]).padStart(2, '0')}-${String(parts[2]).padStart(2, '0')}` : String(year)) : '';
+  const venue = squash(stripTags(decodeEntities(String((Array.isArray(w['container-title']) ? w['container-title'][0] : w['container-title']) || w['group-title'] || w.publisher || ''))));
+  const authors = (w.author || []).slice(0, 4).map((a) => squash(`${a.given || ''} ${a.family || a.name || ''}`)).filter(Boolean);
+  const type = CR_TYPE[w.type] || String(w.type || '');
+  const meta = { work: doi, doi, year, citedBy: Number(w['is-referenced-by-count']) || 0, type, venue, oa: false, oaUrl: '', study: type === 'preprint' ? 'preprint' : studyFromTypes([title]) };
+  return {
+    title, url: `https://doi.org/${doi}`, snippet: truncate(abstract, 320), provider: 'crossref', kind: 'academic', date: published, meta,
+    content: abstract.length >= 120 ? { title, site: venue || 'Crossref', author: authors.join(', ') + ((w.author || []).length > 4 ? ' et al.' : ''), published, blocks: [{ type: 'p', text: abstract, heading: 'Abstract' }], pageType: 'scholarly', via: 'api', partial: true, lang: w.language || '' } : null,
+  };
+}
+
+export const crossref = {
+  id: 'crossref', label: 'Crossref', kind: 'academic', keyless: true, documented: true, defaultOn: true,
+  note: 'The DOI registry: metadata of scholarly works in every field, with the abstract where the publisher deposited one. Keyless.',
+  available: () => true,
+  async search(query, ctx) {
+    const mail = ctx.cfg && ctx.cfg.contact && /@/.test(ctx.cfg.contact) ? `&mailto=${enc(ctx.cfg.contact)}` : '';
+    const q = query.replace(/[",]/g, ' ').trim();
+    const recent = ctx.fresh === 'year' || ctx.fresh === 'month' ? `,from-pub-date:${new Date((ctx.now || Date.now()) - 400 * 86400000).toISOString().slice(0, 10)}` : '';
+    // only works that carry an abstract: a title alone tells too little to count as a source
+    const { json } = await ctx.http.getJSON(`https://api.crossref.org/works?query.bibliographic=${enc(q)}&filter=has-abstract:true${recent}&rows=${Math.min(ctx.limit || 10, 100)}&select=DOI,title,abstract,issued,published,container-title,type,is-referenced-by-count,author,publisher,group-title${mail}`, opts(ctx, { timeoutMs: Math.min(ctx.timeoutMs || 9000, 9000), circuit: 'search' }));
+    const list = json && json.message && json.message.items;
+    if (!Array.isArray(list)) throw new ProviderError('Unexpected Crossref response', 'bad_response');
+    const out = list.map(crWork).filter(Boolean);
+    out.total = Number(json.message['total-results']) || out.length;
+    return out;
+  },
+  /** Look up works by DOI (up to 40 per request). */
+  async byDoi(dois, ctx) {
+    const list = [...new Set(dois.map(cleanDoi).filter((d) => /^10\.\d{4,9}\/\S+$/.test(d) && !/[|,]/.test(d)))].slice(0, 40);
+    if (!list.length) return [];
+    const mail = ctx.cfg && ctx.cfg.contact && /@/.test(ctx.cfg.contact) ? `&mailto=${enc(ctx.cfg.contact)}` : '';
+    const { json } = await ctx.http.getJSON(`https://api.crossref.org/works?filter=${list.map((d) => `doi:${enc(d)}`).join(',')}&rows=${list.length}&select=DOI,title,abstract,issued,published,container-title,type,is-referenced-by-count,author,publisher,group-title${mail}`, opts(ctx, { circuit: 'search' }));
+    return ((json && json.message && json.message.items) || []).map(crWork).filter(Boolean);
   },
 };
 

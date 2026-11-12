@@ -13,7 +13,7 @@ import { digestDoc, digestModel } from './digest.js';
 import { keyPhrases, sharedHeadings, articleSections, mergeAspects } from './aspects.js';
 import { runProvider, isEnabled, providerCooling, PROVIDERS } from '../providers/index.js';
 import wikipedia from '../providers/wikipedia.js';
-import { openalex } from '../providers/scholar.js';
+import { openalex, crossref } from '../providers/scholar.js';
 import { stemsOf } from '../rank/rank.js';
 import { canonicalUrl, domainOf, uniq, squash, capitalize } from '../util/text.js';
 
@@ -25,10 +25,11 @@ export const RESEARCH_BUDGET = {
 };
 // How many times one question may call each search service during the loop (on top of the first round).
 const CALLS = {
-  widen: { tavily: 1, firecrawl: 2, ddg_html: 1, mwmbl: 3, marginalia: 1, searxng: 4, brave: 2, wikipedia: 4, openalex: 1, europepmc: 1, hackernews: 1 },
-  deep: { tavily: 2, firecrawl: 3, ddg_html: 2, mwmbl: 5, marginalia: 2, searxng: 6, brave: 4, wikipedia: 8, openalex: 2, europepmc: 1, hackernews: 2 },
-  research: { tavily: 5, firecrawl: 8, ddg_html: 4, mwmbl: 16, marginalia: 4, searxng: 20, brave: 10, wikipedia: 30, openalex: 14, europepmc: 10, hackernews: 4 },
+  widen: { tavily: 1, firecrawl: 2, ddg_html: 1, mwmbl: 3, marginalia: 1, searxng: 4, brave: 2, wikipedia: 4, openalex: 1, crossref: 1, europepmc: 1, hackernews: 1 },
+  deep: { tavily: 2, firecrawl: 3, ddg_html: 2, mwmbl: 5, marginalia: 2, searxng: 6, brave: 4, wikipedia: 8, openalex: 2, crossref: 2, europepmc: 1, hackernews: 2 },
+  research: { tavily: 5, firecrawl: 8, ddg_html: 4, mwmbl: 16, marginalia: 4, searxng: 20, brave: 10, wikipedia: 30, openalex: 14, crossref: 14, europepmc: 10, hackernews: 4 },
 };
+const PARTICIPANT = new Set('employee employees employer employers worker workers manager managers staff user users people person persons patient patients consumer consumers customer customers student students teacher teachers researcher researchers scientist scientists participant participants respondent respondents individual individuals company companies firm firms organization organizations organisation organisations business businesses country countries government governments institution institutions population populations community communities household households adult adults children child women woman men human humans author authors expert experts member members group groups team teams family families citizen citizens resident residents'.split(' '));
 const ADJECTIVE = /(?:ive|ory|ic|ous|ular|[a-z]{5}al|[a-z]{4}ary)$|^(?:immune|acute|severe|adverse|renal|fetal|foetal|neural|dental|mental|viral|fatal|social|legal|moral|rural|urban|human)$/;
 const NOUN_AL = new Set('chemical material animal metal potential individual hospital capital removal survival disposal proposal approval arrival journal signal mineral criminal professional official festival cereal terminal tribunal interval manual trial denial burial mammal portal crystal withdrawal renewal refusal rehearsal appraisal dismissal plastic traffic music logic topic magic fabric clinic critic public republic statistic characteristic antibiotic probiotic pandemic epidemic mechanic arsenic garlic panic picnic relic tonic tunic directive objective perspective initiative alternative representative executive incentive narrative adjective detective memory history theory category territory factory laboratory inventory victory summary library boundary dictionary glossary salary anniversary'.split(' '));
 const API_HOST = /(^|\.)(wikipedia\.org|europepmc\.org)$/;       // read through documented APIs with their own request budgets
@@ -53,7 +54,11 @@ export async function runResearch(x) {
   const whole = parts.map((p) => p.text).join(' ');
   const calls = { ...CALLS[mode] };
   const main = parts[0];
-  const focus = squash(main.focus || main.keywords.slice(0, 4).join(' '));
+  // What further searches are built around: everything the question names except the relation it asks about —
+  // "the impact of remote work on productivity" → "remote work productivity"; "health effects of microplastics" → "microplastics".
+  const attrStemSet = new Set(stemsOf(main.attribute || ''));
+  const named = (main.nps || []).filter((np) => { const st = stemsOf(np); return st.length && !st.every((k) => attrStemSet.has(k)); });
+  const focus = squash((named.length ? uniq(named, (t) => t.toLowerCase()).join(' ') : main.focus || '').split(/\s+/).slice(0, 7).join(' ') || main.focus || main.keywords.slice(0, 4).join(' '));
   const qStems = new Set(parts.flatMap((p) => p.terms.map((t) => t.stem)));
   const attributeStems = new Set(stemsOf(main.attribute || ''));
   let model = digestModel(parts);
@@ -141,6 +146,11 @@ export async function runResearch(x) {
       spend('openalex');
       jobs.push(runProvider('openalex', query, ctxFor({ limit: mode === 'research' ? 100 : 40, timeoutMs: 9000 }), x.logSearch).then((res) => (res ? takeAbstracts(res, aspect) : 0)));
     }
+    // Crossref is asked as well: it needs no key, and OpenAlex without a key answers only while its small daily allowance lasts
+    if (scholarly && can('crossref')) {
+      spend('crossref');
+      jobs.push(runProvider('crossref', query, ctxFor({ limit: mode === 'research' ? 100 : 40, timeoutMs: 9000 }), x.logSearch).then((res) => (res ? takeAbstracts(res, aspect) : 0)));
+    }
     if (scholarly && BIOMED.test(whole) && can('europepmc')) {
       spend('europepmc');
       // the abstracts of the wider literature come from OpenAlex; Europe PMC is asked for articles whose full text it can deliver
@@ -164,13 +174,16 @@ export async function runResearch(x) {
       summary.references += res.length;
       frontier.addResults(res.filter((r) => r.hasPage).map((r) => ({ url: r.url, title: r.title, snippet: '', provider: 'wikipedia-reference', kind: r.type === 'news' ? 'news' : r.type === 'journal' ? 'academic' : 'web', date: r.year })), { weight: 0.75, source: 'references' });
       // references that carry a DOI: fetch their abstracts in batches, the most promising titles first
-      if (isEnabled('openalex', x.cfg, x.off) && !providerCooling('openalex')) {
+      const oaUp = isEnabled('openalex', x.cfg, x.off) && !providerCooling('openalex'), crUp = isEnabled('crossref', x.cfg, x.off) && !providerCooling('crossref');
+      if (oaUp || crUp) {
         const terms = new Map([...model.terms].filter(([st]) => model.core.has(st)));
         const scoreTitle = (t) => { const st = new Set(stemsOf(t)); let got = 0, tot = 0; for (const [k, w] of terms) { tot += w; if (st.has(k)) got += w; } return tot ? got / tot : 0; };
         const dois = res.filter((r) => r.doi).map((r) => ({ doi: r.doi, s: scoreTitle(r.title) })).filter((r) => r.s >= 0.3).sort((a, b) => b.s - a.s).slice(0, mode === 'research' ? 150 : 50).map((r) => r.doi);
-        for (let i = 0; i < dois.length && summary.abstracts < B.abstracts; i += 50) {
-          const batch = dois.slice(i, i + 50);
-          const works = await logged('openalex', 'OpenAlex (abstracts of cited works)', `${batch.length} DOIs cited by “${title}”`, () => openalex.byDoi(batch, ctxFor({ timeoutMs: 9000 })));
+        let useOa = oaUp;
+        for (let i = 0; i < dois.length && summary.abstracts < B.abstracts; i += 40) {
+          const batch = dois.slice(i, i + 40);
+          let works = useOa ? await logged('openalex', 'OpenAlex (abstracts of cited works)', `${batch.length} DOIs cited by “${title}”`, () => openalex.byDoi(batch, ctxFor({ timeoutMs: 9000 }))) : null;
+          if (!works) { useOa = false; if (crUp) works = await logged('crossref', 'Crossref (abstracts of cited works)', `${batch.length} DOIs cited by “${title}”`, () => crossref.byDoi(batch, ctxFor({ timeoutMs: 9000 }))); }
           if (works) takeAbstracts(works);
         }
       }
@@ -255,13 +268,17 @@ export async function runResearch(x) {
     };
     // sub-topics from the answers' vocabulary: recurring phrases, and — for "effects / causes / risks / uses of X" — single
     // terms that many sources name where the answer stands ("Inflammation", "Cancer"). Ranked together; a phrase goes before the term it contains.
-    let phrases = keyPhrases(best, x.docs, qStems, { max: B.aspects * 2, minOrigins: independent >= 60 ? 4 : independent >= 15 ? 3 : 2, keys: keys ? keys.terms : null });
+    let phrases = keyPhrases(best, x.docs, qStems, { max: B.aspects * 2, minOrigins: independent >= 60 ? 4 : independent >= 15 ? 3 : 2, keys: keys ? keys.terms : null })
+      // "digestive, respiratory": two describing words in a row are a fragment of a list, not the name of a sub-topic
+      .filter((ph) => { const last = String(ph.label).toLowerCase().split(/\s+/).pop(); return !(ADJECTIVE.test(last) && !NOUN_AL.has(last)); });
     if (keys && keys.sided) {
       // "effects / causes / uses of X": a phrase is a sub-topic when its head word mostly stands where the answers stand
       // ("oxidative stress"), not when it describes the topic or its setting ("microplastic pollution", "plastic particles")
       const side = new Map(keys.list.map((k) => [k.stem, k.origins ? k.obj / k.origins : 0]));
+      const focusSet = new Set(focusStems);
       phrases = phrases.filter((ph) => {
         const words = stemsOf(ph.label);
+        if (words.some((st) => focusSet.has(st))) return false;          // "remote workers", "microplastic pollution": the topic again, not a part of the answer
         const r = side.get(words[words.length - 1]);
         return r == null ? !words.some((st) => qStems.has(st)) : r >= 0.5;
       });
@@ -270,7 +287,11 @@ export async function runResearch(x) {
     // "reproductive" → "Reproductive effects": a describing word is completed with the relation the question itself asks about
     const relNoun = (String(main.attribute || '').toLowerCase().match(/\b(effects?|impacts?|consequences|causes|reasons|risks|dangers|hazards|benefits|advantages|disadvantages|symptoms|signs|uses|applications|treatments|complications|problems|challenges|factors)\b/) || [])[1] || '';
     if (keys && keys.sided) {
-      const singles = keys.list.filter((k) => k.obj >= Math.max(3, Math.ceil(independent * 0.04)) && k.obj / k.origins >= 0.5 && k.weight >= 0.3 && k.word.length >= 5 && !qStems.has(k.stem)).slice(0, B.aspects * 2)
+      // single words: nouns and describing words that name an answer — not "reduced", "increased", "significantly"
+      // — and not the people or bodies a study is about ("employees", "patients"), nor a word built on one of the question's own ("workers", "workplace" when work was asked about)
+      const qWords = [...qStems].filter((w) => w.length >= 4);
+      const derived = (w) => qWords.some((q) => w.startsWith(q) || q.startsWith(w.replace(/s$/, '')));
+      const singles = keys.list.filter((k) => k.obj >= Math.max(3, Math.ceil(independent * 0.04)) && k.obj / k.origins >= 0.42 && k.weight >= 0.3 && k.word.length >= 5 && !qStems.has(k.stem) && !/(?:ed|ly|ize|ise|ify|ate)$/.test(k.word) && !focusStems.includes(k.stem) && !PARTICIPANT.has(k.word) && !derived(k.word)).slice(0, B.aspects * 2)
         .map((k) => ({ label: capitalize(ADJECTIVE.test(k.word) && !NOUN_AL.has(k.word) && relNoun ? `${k.word} ${relNoun}` : k.word), stems: [k.stem], source: 'recurring term', support: k.obj, common: k.weight }));
       for (const ph of phrases) ph.common = 1.15 * Math.max(0, ...ph.stems.map((st) => keys.terms.get(st) || 0));
       fromVocabulary = [...phrases, ...singles].sort((a, b) => b.common - a.common);
