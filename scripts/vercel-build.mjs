@@ -19,7 +19,7 @@ const fn = `${out}/functions/api/index.func`;
 fs.mkdirSync(fn, { recursive: true });
 for (const dir of ['api', 'server', 'engine']) fs.cpSync(dir, `${fn}/${dir}`, { recursive: true });
 fs.writeFileSync(`${fn}/package.json`, JSON.stringify({ type: 'module' }));
-fs.writeFileSync(`${fn}/.vc-config.json`, JSON.stringify({ runtime: process.env.INFINI_RUNTIME || 'nodejs24.x', handler: 'api/index.js', launcherType: 'Nodejs', shouldAddHelpers: false, supportsResponseStreaming: true, maxDuration: 60 }, null, 2));
+fs.writeFileSync(`${fn}/.vc-config.json`, JSON.stringify({ runtime: process.env.INFINI_RUNTIME || 'nodejs24.x', handler: 'api/index.js', launcherType: 'Nodejs', shouldAddHelpers: false, supportsResponseStreaming: true, maxDuration: 300 }, null, 2));
 
 const security = {
   'X-Content-Type-Options': 'nosniff', 'Referrer-Policy': 'no-referrer', 'X-Frame-Options': 'SAMEORIGIN',

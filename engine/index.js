@@ -696,7 +696,9 @@ export function createEngine(userCfg) {
         emit({ type: 'note', stage: 'comparing', text: 'The first round found the topic but no passage that answers the question directly — widening the search.' });
       }
       if (mode === 'research') {
-        limited = researchGate();
+        // the caller (the HTTP server) may hold its own limit per client; then the engine's limits for the whole instance
+        if (typeof req.researchAllowed === 'function') { try { limited = String(req.researchAllowed() || ''); } catch { limited = ''; } }
+        if (!limited) limited = researchGate();
         if (limited) { mode = 'deep'; emit({ type: 'note', stage: 'comparing', text: `A full research run was not started: ${limited}. Answering at depth “deep” instead.` }); }
         else holdsResearch = true;
       }

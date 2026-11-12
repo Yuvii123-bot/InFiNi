@@ -114,12 +114,17 @@ export function createFrontier(opts) {
     next(busy = () => false) {
       if (dirty) { queue.sort((a, b) => a.score - b.score); dirty = false; }               // ascending: best at the end
       let best = -1, bestVal = 0, looked = 0;
+      const busyHost = new Map();                                                          // asked once per host and call
       for (let i = queue.length - 1; i >= 0 && looked < 32; i--) {
         const c = queue[i];
         const used = taken.get(c.domain) || 0;
         if (used >= capFor(c.domain, c)) { queue.splice(i, 1); if (best > i) best--; c.queued = false; c.capped = true; continue; }
+        // a lead whose site is busy or failing is passed over without using up the look-ahead: otherwise a block of
+        // high-ranking leads from one slow site (an API with a request limit, a site that is down) would hold up all the others
+        let b = busyHost.get(c.host);
+        if (b === undefined) { b = !!busy(c.host); busyHost.set(c.host, b); }
+        if (b) continue;
         looked++;
-        if (busy(c.host)) continue;
         const val = c.score / (1 + 0.3 * used);                                          // each further page from the same site is worth less
         if (val > bestVal) { bestVal = val; best = i; }
       }

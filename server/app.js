@@ -1,5 +1,9 @@
 // INFINI AI — HTTP application (framework-free). Used by the standalone server and by the serverless entry.
 // Endpoints: POST /api/ask (NDJSON stream) · POST /api/preview · GET /api/status · GET /api/health · static files.
+//
+// /api/ask streams one JSON object per line: stage, search, fetch, note, research, progress, draft, answer, done | error.
+// A research run ("depth": "research", or a message such as "do deep research on …") can take a few minutes and reads
+// hundreds of pages, so it costs more of a client's allowance and each client may start only a few per hour.
 
 import fs from 'node:fs';
 import path from 'node:path';
@@ -20,7 +24,18 @@ function countryName(code) {
 export function createApp(cfg = loadConfig()) {
   const engine = createEngine(cfg);
   const buckets = new Map();          // ip -> {tokens, ts}
+  const researchStarts = new Map();   // ip -> [start times of research runs in the last hour]
   let active = 0;
+  const DEPTH_COST = { fast: 1, balanced: 1, auto: 1, deep: 2, research: 4 };
+  /** '' when this client may start a research run now (and counts it), else the reason why not. */
+  const researchAllowed = (ip) => {
+    const now = Date.now();
+    const list = (researchStarts.get(ip) || []).filter((t) => now - t < 3600_000);
+    if (list.length >= cfg.research.perClientPerHour) { researchStarts.set(ip, list); return `this device has started ${list.length} research runs in the last hour (the limit is ${cfg.research.perClientPerHour} per hour); the next one can start in about ${Math.max(1, Math.ceil((3600_000 - (now - list[0])) / 60000))} min`; }
+    list.push(now); researchStarts.set(ip, list);
+    if (researchStarts.size > 5000) for (const [k, v] of researchStarts) if (!v.length || now - v[v.length - 1] > 3600_000) researchStarts.delete(k);
+    return '';
+  };
   const log = (o) => { if (process.env.LOG_LEVEL !== 'silent') console.log(JSON.stringify({ t: new Date().toISOString(), ...o })); };
 
   const clientIp = (req) => {
@@ -67,10 +82,12 @@ export function createApp(cfg = loadConfig()) {
 
   async function ask(req, res) {
     const ip = clientIp(req);
-    const wait = rateLimit(ip);
-    if (wait) return json(res, 429, { error: 'rate_limited', message: `Too many questions from this address. Try again in ${wait} s.`, retryAfter: wait }, { 'Retry-After': String(wait) });
     if (active >= cfg.maxConcurrentAsks) return json(res, 503, { error: 'busy', message: 'The server is answering other questions right now. Please retry in a few seconds.' }, { 'Retry-After': '3' });
     const body = await parseJson(req);
+    // deeper searches cost more of the client's allowance (deep ×2, research ×4)
+    const askedDepth = body.settings && typeof body.settings === 'object' && typeof body.settings.depth === 'string' ? body.settings.depth : 'auto';
+    const wait = rateLimit(ip, Math.min(DEPTH_COST[askedDepth] || 1, cfg.rate.burst));
+    if (wait) return json(res, 429, { error: 'rate_limited', message: `Too many questions from this address. Try again in ${wait} s.`, retryAfter: wait }, { 'Retry-After': String(wait) });
     if (typeof body.question !== 'string' || !body.question.trim()) return json(res, 400, { error: 'bad_request', message: 'Field "question" (string) is required.' });
     if (body.question.length > 2000) return json(res, 400, { error: 'bad_request', message: 'The question is too long (limit: 2000 characters; the first 600 are analysed).' });
     const ac = new AbortController();
@@ -84,9 +101,9 @@ export function createApp(cfg = loadConfig()) {
       // the device's time zone (for "what time is it") and the country the edge reports (only used to phrase a helpline search)
       const tz = typeof body.tz === 'string' && /^[A-Za-z_+\-/0-9]{2,48}$/.test(body.tz) ? body.tz : '';
       const cc = cfg.trustProxy ? String(req.headers['x-vercel-ip-country'] || '').toUpperCase() : '';
-      const result = await engine.ask({ question: body.question, context: body.context, settings: body.settings, learned: body.learned, regenerate: body.regenerate === true, tz, country: countryName(cc) }, { signal: ac.signal, onEvent: send });
+      const result = await engine.ask({ question: body.question, context: body.context, settings: body.settings, learned: body.learned, regenerate: body.regenerate === true, tz, country: countryName(cc), researchAllowed: () => researchAllowed(ip) }, { signal: ac.signal, onEvent: send });
       send({ type: 'done', ms: Date.now() - t0 });
-      log({ ev: 'ask', ms: Date.now() - t0, kind: result.kind, confidence: result.confidence ? result.confidence.level : null, sources: result.sources.length, ...(process.env.LOG_QUESTIONS === '1' ? { q: body.question.slice(0, 200) } : {}) });
+      log({ ev: 'ask', ms: Date.now() - t0, kind: result.kind, depth: result.depth ? result.depth.used : null, pages: result.run ? result.run.pages : undefined, confidence: result.confidence ? result.confidence.level : null, sources: result.sources.length, ...(process.env.LOG_QUESTIONS === '1' ? { q: body.question.slice(0, 200) } : {}) });
     } catch (e) {
       if (e.code === 'aborted' || ac.signal.aborted) log({ ev: 'ask_stopped', ms: Date.now() - t0 });
       else { log({ ev: 'ask_error', message: e.message, stack: String(e.stack || '').split('\n').slice(0, 4).join(' | ') }); send({ type: 'error', message: 'The engine hit an internal error while answering. Nothing was made up; please retry.', detail: String(e.message || '').slice(0, 200) }); }
@@ -129,7 +146,7 @@ export function createApp(cfg = loadConfig()) {
       if (p === '/api/ask') return req.method === 'POST' ? await ask(req, res) : json(res, 405, { error: 'method_not_allowed' }, { Allow: 'POST' });
       if (p === '/api/preview') return req.method === 'POST' ? await preview(req, res) : json(res, 405, { error: 'method_not_allowed' }, { Allow: 'POST' });
       if (p === '/api/health') return json(res, 200, { ok: true, version: VERSION });
-      if (p === '/api/status') { const s = engine.status(); return json(res, 200, { version: VERSION, llm: false, brain: s.brain, uptimeS: s.uptimeS, totals: s.totals, wikimediaBudget: s.wikimediaBudget, contactConfigured: s.contactConfigured, cache: { entries: s.http.cacheEntries, bytes: s.http.cacheBytes, hits: s.http.cacheHits, misses: s.http.cacheMisses }, providers: engine.providers(), rate: cfg.rate }); }
+      if (p === '/api/status') { const s = engine.status(); return json(res, 200, { version: VERSION, llm: false, brain: s.brain, uptimeS: s.uptimeS, totals: s.totals, depths: ['auto', 'fast', 'balanced', 'deep', 'research'], research: { ...s.research, perClientPerHour: cfg.research.perClientPerHour }, wikimediaBudget: s.wikimediaBudget, contactConfigured: s.contactConfigured, cache: { entries: s.http.cacheEntries, bytes: s.http.cacheBytes, hits: s.http.cacheHits, misses: s.http.cacheMisses }, providers: engine.providers(), rate: cfg.rate }); }
       if (p.startsWith('/api/')) return json(res, 404, { error: 'not_found' });
       if (req.method !== 'GET' && req.method !== 'HEAD') return json(res, 405, { error: 'method_not_allowed' }, { Allow: 'GET, HEAD' });
       return serveStatic(req, res, p);

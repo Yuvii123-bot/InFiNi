@@ -42,6 +42,7 @@ export function loadConfig(env = (typeof process !== 'undefined' ? process.env :
       concurrency: num(env.CRAWL_CONCURRENCY, 40, 4, 96),
       maxConcurrent: num(env.MAX_CONCURRENT_RESEARCH, 2, 1, 16),
       perHour: num(env.RESEARCH_PER_HOUR, 12, 1, 1000),
+      perClientPerHour: num(env.RESEARCH_PER_CLIENT_PER_HOUR, 6, 1, 1000),
     },
     http: {
       userAgent,

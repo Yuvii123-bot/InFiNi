@@ -9,4 +9,4 @@ export default function handler(req, res) {
   if (sub) req.url = '/api/' + String(sub).replace(/^\/+/, '');
   return app.handle(req, res);
 }
-export const config = { api: { bodyParser: false }, maxDuration: 60 };
+export const config = { api: { bodyParser: false }, maxDuration: 300 };          // a research run may take a few minutes (RESEARCH_MAX_SECONDS, default 170, plus the first round and the final report)
