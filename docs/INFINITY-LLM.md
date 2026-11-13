@@ -154,6 +154,12 @@ a model of a few million parameters would be wrong most of the time, and the int
 
 ## 6. Learning system (`learning/`)
 
+> **Since the always-on worker** ([`WORKER.md`](WORKER.md)): cycles are no longer started by a visit, a timer in the
+> web server or a person. A separate permanent process discovers and verifies text continuously and starts a cycle by
+> itself. The phases below are unchanged; the first one also runs on its own as *discovery*. Added: MediaWiki sources,
+> a fixed benchmark that is kept out of all training text, a memorisation probe, more gate checks, training that gets
+> more careful after a refusal, and a channel that carries approved models to the servers.
+
 One **cycle** (`learning/cycle.mjs`) runs these phases in order. Its progress is saved after each phase, so a cycle
 that is interrupted resumes where it stopped.
 
@@ -216,6 +222,9 @@ What these numbers are: measurements of specific abilities on specific held-out 
 data. What they are not: a general intelligence score, or evidence about questions unlike the training data.
 
 ## 8. Promotion gate, versions and rollback
+
+> The gate has more checks now (fixed benchmark, held-out document text, memorisation, "measurably better"); the
+> current list with its limits is in [`WORKER.md`](WORKER.md#5-the-promotion-gate).
 
 The gate (`promotionGate` in `evalsuite.mjs`) compares the candidate with the production model **on the same new
 validation set**. All checks must pass:

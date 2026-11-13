@@ -17,6 +17,10 @@ INFINI AI has three parts. No outside model is hosted, downloaded or called; the
   dataset version, continue training from the current model, evaluate the candidate on held-out data, and replace the
   current model **only if the candidate measures better**; otherwise the candidate is rejected and nothing changes.
   Every version is kept and can be rolled back to. `/learning.html` shows all of it from the training system's records.
+  **Learning runs by itself**: a separate always-on worker (`learning/worker.mjs`) discovers and verifies text
+  continuously, trains a candidate when enough has arrived, promotes it only through the gate, and sends an approved
+  model to the running site through a model channel — nobody has to visit a page or press a button
+  ([`docs/WORKER.md`](docs/WORKER.md)).
   **It is small** (about 1.3 million parameters in the published version, roughly a hundred thousand times smaller than
   commercial assistants): it holds a short conversation in the style it was trained on, and that is all it does.
   Design, limits and measured results: [`docs/INFINITY-LLM.md`](docs/INFINITY-LLM.md).
@@ -111,6 +115,7 @@ A research run makes at most `RESEARCH_KEYED_SEARCHES` (default 5) further searc
 | File | Contents |
 |---|---|
 | [`docs/INFINITY-LLM.md`](docs/INFINITY-LLM.md) | Infinity LLM: what existed before, what changed, the model, the tokenizer, training, the learning cycle, licence and quality filters, verification, evaluation, the promotion gate, versions and rollback, serving, limits, and the measured results of the published model. |
+| [`docs/WORKER.md`](docs/WORKER.md) | The always-on learning worker: continuous discovery, automatic training, the fixed benchmark, the promotion gate, recovery after failures, how approved models reach the site, how to run it, measured results, limits. |
 | [`docs/PURE-LLM.md`](docs/PURE-LLM.md) | The Infinity LLM chat (pure neural mode): how a reply is produced, the API, what the tests prove, measured replies, limits. |
 | [`docs/REPORT.md`](docs/REPORT.md) | Full report: version 3.1.0 first (LangSearch, the OpenAlex key, what they changed), then 3.0.0 (deep search and research runs): what was built, how, what works (with the evidence), why, and the limits. |
 | [`docs/REPORT-2.0.0.md`](docs/REPORT-2.0.0.md) | The report for version 2.0.0 (the built-in brain). |
@@ -146,8 +151,10 @@ cli.js
 ```bash
 npm start                 # server
 npm run test:pure         # 9 tests of the Infinity LLM chat: replies come from the network's weights and from nothing else
-npm test                  # 93 offline tests: engine, brain, research runs, the 9 above, and 16 for Infinity LLM (tokenizer, inference parity with PyTorch, licence and quality filters, verification, reply check, gate, registry, rollback, API, interface)
+npm run test:worker       # 21 tests of the always-on learning worker: unattended operation, crash recovery, benchmark, gate, publication, channel, dashboard
+npm test                  # 114 offline tests: engine, brain, research runs, the 9 and 21 above, and 16 for Infinity LLM (tokenizer, inference parity with PyTorch, licence and quality filters, verification, reply check, gate, registry, rollback, API, interface)
 npm run test:llm          # 9 tests of the neural network and its training in PyTorch (needs Python with torch)
+node learning/worker.mjs         # the always-on learning worker: discovers, trains, evaluates, promotes and publishes by itself (docs/WORKER.md)
 node learning/cli.mjs cycle      # one learning cycle; also: status · hw --bench · chat "hello" · rollback · publish
 npm run test:ui           # 49 end-to-end checks of the browser client, including a research run (needs network; about 90 s)
 npm run bench             # web benchmark (live; slow without INFINI_CONTACT)

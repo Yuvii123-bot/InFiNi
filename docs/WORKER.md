@@ -257,7 +257,7 @@ node learning/cli.mjs discover          # one discovery round
 node learning/cli.mjs cycle [--no-acquire]
 node learning/cli.mjs health            # check the production model; roll back if it is damaged
 node learning/cli.mjs benchmark [dir]   # run the fixed benchmark on a model
-node learning/cli.mjs pause | resume | rollback [--to mNNNN]
+node learning/cli.mjs pause | resume | rollback [mNNNN]
 node learning/cli.mjs pack [file] | restore [file] | state-pull | state-push | channel | seed
 ```
 
