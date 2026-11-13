@@ -15,6 +15,7 @@ import http from 'node:http';
 import crypto from 'node:crypto';
 import { fileURLToPath } from 'node:url';
 import { createApp } from '../server/app.js';
+import { workerLiveness } from '../learning/manager.mjs';
 import { installDom } from './helpers/fake-dom.mjs';
 import { fakeConfig } from './helpers/fake-web.mjs';
 
@@ -95,6 +96,14 @@ test('learning dashboard: worker, discovery, candidate against production and th
     const status = await (await fetch(`http://127.0.0.1:${server.address().port}/api/llm/status`)).json();
     assert.equal(status.learning.host.remoteWorker, true);
     assert.equal(status.learning.worker.alive, true);
+    // seen from another machine, a report that is some minutes old is normal; a much older one is not
+    assert.ok(status.learning.worker.reportDelaySeconds >= 300);
+    const beat = (s) => ({ state: 'running', heartbeat: new Date(Date.now() - s * 1000).toISOString() });
+    assert.equal(workerLiveness(beat(400)).alive, false, 'on the worker\'s own machine three minutes of silence mean it is gone');
+    assert.equal(workerLiveness(beat(400), Date.now(), status.learning.worker.reportDelaySeconds).alive, true);
+    assert.equal(workerLiveness(beat(3600), Date.now(), status.learning.worker.reportDelaySeconds).alive, false);
+    assert.equal(workerLiveness({ ...beat(5), state: 'stopped' }, Date.now(), 600).alive, false);
+    assert.match(text, /its reports reach this page up to \d+ min late/);
     assert.equal(status.learning.host.channel.version, id);
     assert.equal(status.model.version, id);
     assert.doesNotMatch(JSON.stringify(status), /\/home\/|data\/llm\//, 'no path of the worker machine reaches a visitor');

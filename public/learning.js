@@ -117,7 +117,7 @@ function workerCard(L) {
   return card('Learning worker', 'A separate long-running process. It discovers, trains, evaluates and publishes without anyone visiting this page.',
     h('div', { class: 'banner' }, state, w.session ? pill(`session ${w.session}`) : null, h('span', { class: 'muted small', text: `${w.detail || ''}${w.nextAction ? ` · ${w.nextAction}` : ''}` })),
     kv([
-      ['Heartbeat', ago(w.heartbeatAgeSeconds), when(w.heartbeat)], ['Uptime', dur(w.uptimeSeconds), `this run, since ${when(w.started)}`], ['Total uptime', dur(t.uptimeSeconds), `${num(w.starts)} starts since ${when(w.firstStarted)}`],
+      ['Heartbeat', ago(w.heartbeatAgeSeconds), w.reportDelaySeconds ? `${when(w.heartbeat)} · the worker runs elsewhere; its reports reach this page up to ${Math.round(w.reportDelaySeconds / 60)} min late` : when(w.heartbeat)], ['Uptime', dur(w.uptimeSeconds), `this run, since ${when(w.started)}`], ['Total uptime', dur(t.uptimeSeconds), `${num(w.starts)} starts since ${when(w.firstStarted)}`],
       ['Recoveries', num(w.recoveries), 'restarts after an unclean end'], ['Failed steps', num(w.childFailures), `${num(w.consecutiveFailures)} in a row now`], ['Discovery rounds', num(t.discoveryRounds)],
       ['Documents', `${num(t.documentsAccepted)} verified`, `${num(t.documentsCollected)} collected · ${num(t.documentsRejected)} rejected`], ['Cycles', num(t.cycles), `${num(t.promoted)} promoted · ${num(t.rejected)} rejected`],
       w.lastStep ? ['Last step', `${w.lastStep.kind}: ${w.lastStep.outcome}`, `${dur(w.lastStep.seconds)} · ${when(w.lastStep.started)}`] : null,

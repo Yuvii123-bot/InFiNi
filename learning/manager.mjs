@@ -11,10 +11,19 @@ import { snapshot, workerRunning, isPaused, setState, getState } from './cycle.m
 import { rollback as doRollback, loadRegistry } from './registry.mjs';
 
 /** Is the worker that wrote this record still alive? Judged by the age of its heartbeat. */
-export function workerLiveness(w, now = Date.now()) {
+export function workerLiveness(w, now = Date.now(), delaySeconds = 0) {
   if (!w || !w.heartbeat) return { alive: false, heartbeatAgeSeconds: null };
   const age = Math.max(0, Math.round((now - Date.parse(w.heartbeat)) / 1000));
-  return { alive: w.state !== 'stopped' && age < 180, heartbeatAgeSeconds: age };
+  // A worker on another machine is seen through its published records, which are as old as the publishing interval
+  // plus the interval at which this server looks at the channel: that delay is not a sign of a dead worker.
+  return { alive: w.state !== 'stopped' && age < 180 + delaySeconds, heartbeatAgeSeconds: age, ...(delaySeconds ? { reportDelaySeconds: delaySeconds } : {}) };
+}
+
+/** How late the records of a worker elsewhere may be when they are read here (seconds). */
+function remoteDelayOf(snap, channelInfo) {
+  const publish = Number(snap && snap.config && snap.config.worker && snap.config.worker.publishSeconds) || 120;
+  const poll = Number(channelInfo && channelInfo.intervalSeconds) || 300;
+  return Math.round(publish + poll + 120);                                   // + time to upload and to download
 }
 
 function canTrainHere(root, { serverless, learning }) {
@@ -29,12 +38,13 @@ export function createManager({ root = '', serverless = false, learning = true, 
   const cap = canTrainHere(root, { serverless, learning });
   let child = null, timer = null;
 
+  const remoteDelay = (snap) => remoteDelayOf(snap, channel ? channel.info() : null);
   function view() {
     if (!cap.ok) {
       // records published by the learning worker through its channel are newer than the ones shipped with the app
       const live = channel && channel.snapshot();
       const snap = live || readJSON(path.join(bundled || BUNDLED, 'snapshot.json'), null);
-      if (live) return { ...live, host: { trainingCapable: false, adminConfigured, remoteWorker: true, reason: 'training runs on a separate worker; this page shows the records that worker publishes', snapshotOf: live.published || null, channel: channel.info() }, worker: live.worker ? { ...live.worker, ...workerLiveness(live.worker) } : null };
+      if (live) return { ...live, host: { trainingCapable: false, adminConfigured, remoteWorker: true, reason: 'training runs on a separate worker; this page shows the records that worker publishes', snapshotOf: live.published || null, channel: channel.info() }, worker: live.worker ? { ...live.worker, ...workerLiveness(live.worker, Date.now(), remoteDelay(live)) } : null };
       const base = snap || { status: { state: 'unavailable' }, model: null, registry: { models: {}, history: [] }, cycles: [], curve: [], datasets: [], corpus: null, evaluations: [], events: [], totals: {} };
       return { ...base, host: { trainingCapable: false, adminConfigured, reason: cap.reason, snapshotOf: snap ? snap.published : null, channel: channel ? channel.info() : undefined }, status: { ...(base.status || {}), state: 'not running on this host', phase: null, training: null } };
     }

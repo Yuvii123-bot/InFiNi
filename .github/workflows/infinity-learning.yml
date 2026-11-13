@@ -8,7 +8,9 @@
 #   start      change .github/infinity-learning.start on a branch, or run this workflow by hand
 #   stop       set the repository variable INFINITY_LEARNING to "off", or disable this workflow
 #   rollback   run this workflow by hand with action = rollback
-#   watchdog   the hourly schedule restarts a broken chain (GitHub runs schedules only from the default branch)
+#   watchdog   every hour: if no session is running or waiting, one is started (GitHub runs schedules only from the
+#              default branch, so this works once the workflow is on it)
+#   new code   a session ends by itself between two steps when a newer commit was pushed to its branch
 #
 # A machine that stays on (deploy/, Dockerfile.worker) runs the same worker as one permanent process and is the better
 # home for it; see docs/WORKER.md.
@@ -38,15 +40,33 @@ permissions:
   contents: write        # releases: the model channel and the stored state
   actions: write         # start the next session
 
-concurrency:
-  group: infinity-learning
-  cancel-in-progress: false
-
 jobs:
+  # The hourly schedule does one thing: if no session is running or waiting, it starts one. (GitHub runs schedules only
+  # from the default branch, so this job exists once the workflow is there.)
+  watchdog:
+    if: ${{ github.event_name == 'schedule' && vars.INFINITY_LEARNING != 'off' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - name: Start a session if none is running
+        run: |
+          busy=$(gh run list --repo "$GITHUB_REPOSITORY" --workflow infinity-learning.yml --limit 30 --json databaseId,status,event \
+            --jq "[.[] | select(.databaseId != $GITHUB_RUN_ID and .event != \"schedule\" and (.status == \"in_progress\" or .status == \"queued\" or .status == \"pending\" or .status == \"waiting\" or .status == \"requested\"))] | length")
+          echo "sessions running or waiting: $busy"
+          if [ "$busy" = "0" ]; then
+            echo "no session is alive: starting one on $GITHUB_REF_NAME"
+            gh workflow run infinity-learning.yml --repo "$GITHUB_REPOSITORY" --ref "$GITHUB_REF_NAME" -f action=learn -f chain=true -f runtime=18000 -f failures=0
+          fi
+
   session:
-    if: ${{ vars.INFINITY_LEARNING != 'off' }}
+    if: ${{ github.event_name != 'schedule' && vars.INFINITY_LEARNING != 'off' }}
     runs-on: ubuntu-latest
     timeout-minutes: 340
+    concurrency:
+      group: infinity-learning
+      cancel-in-progress: false
     env:
       GITHUB_TOKEN: ${{ github.token }}
       GH_TOKEN: ${{ github.token }}

@@ -791,6 +791,8 @@ test('deployment: the workflow, the container and the service unit run the same 
   assert.match(wf, /gh workflow run infinity-learning\.yml/, 'each session starts the next one');
   assert.match(wf, /concurrency:\s*\n\s*group: infinity-learning\s*\n\s*cancel-in-progress: false/, 'two sessions never train at once');
   assert.match(wf, /vars\.INFINITY_LEARNING != 'off'/, 'there is a switch to stop the chain');
+  assert.match(wf, /watchdog:\s*\n\s*if: \$\{\{ github\.event_name == 'schedule'/, 'the hourly schedule only checks and restarts');
+  assert.match(wf, /session:\s*\n\s*if: \$\{\{ github\.event_name != 'schedule'/, 'a scheduled run never trains next to a running session');
   assert.match(wf, /timeout-minutes: 340/);
   assert.doesNotMatch(wf, /secrets\.(?!GITHUB_TOKEN)/, 'no secret beyond the token GitHub provides');
   assert.match(wf, /INFINI_WORKER_CODE_SHA: \$\{\{ github\.sha \}\}/, 'a session knows which commit it runs, and ends early when a newer one was pushed');
