@@ -151,8 +151,8 @@ cli.js
 ```bash
 npm start                 # server
 npm run test:pure         # 9 tests of the Infinity LLM chat: replies come from the network's weights and from nothing else
-npm run test:worker       # 21 tests of the always-on learning worker: unattended operation, crash recovery, benchmark, gate, publication, channel, dashboard
-npm test                  # 114 offline tests: engine, brain, research runs, the 9 and 21 above, and 16 for Infinity LLM (tokenizer, inference parity with PyTorch, licence and quality filters, verification, reply check, gate, registry, rollback, API, interface)
+npm run test:worker       # 23 tests of the always-on learning worker: unattended operation, crash recovery, benchmark, gate, publication, channel, dashboard
+npm test                  # 116 offline tests: engine, brain, research runs, the 9 and 23 above, and 16 for Infinity LLM (tokenizer, inference parity with PyTorch, licence and quality filters, verification, reply check, gate, registry, rollback, API, interface)
 npm run test:llm          # 9 tests of the neural network and its training in PyTorch (needs Python with torch)
 node learning/worker.mjs         # the always-on learning worker: discovers, trains, evaluates, promotes and publishes by itself (docs/WORKER.md)
 node learning/cli.mjs cycle      # one learning cycle; also: status · hw --bench · chat "hello" · rollback · publish

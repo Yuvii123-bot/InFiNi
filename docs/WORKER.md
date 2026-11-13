@@ -266,11 +266,139 @@ Settings are in `.env.example` (section "The always-on learning worker") and in 
 
 ## 9. Measured
 
-RESULTS-PLACEHOLDER
+All of this was measured on 13 November 2026 (times in UTC). Nobody started, approved or restarted anything by hand
+except where the text says so.
+
+### 9.1 On GitHub Actions (hosted runner: 4 cores, 16 GB memory, 86 GB disk)
+
+| When | What happened |
+|---|---|
+| 13:12:15 | Session 1 starts (a push to the start file; first session limited to 780 s). Empty state → started from the published `m0002`, published to the release `infinity-model`. |
+| 13:12–13:23 | Eight discovery rounds: 320 documents fetched, 67 accepted, 253 rejected. |
+| 13:24:12 | 67 verified documents are waiting (threshold 60): the worker starts cycle `c0003` by itself. |
+| 13:25:15 | The session's time is used up in the middle of the cycle (data and dataset done). The worker stops the step, stores the state (24.0 MB) in the release `infinity-state` and ends; the workflow starts session 2. |
+| 13:25:58 | Session 2's worker starts from the stored state: *"cycle c0003 is unfinished (phases done: acquire, dataset) and will be continued"*. |
+| 13:28:41 | `c0003` ends: **`m0003` promoted**, all 15 checks passed. Held-out loss 1.8347 against 2.2548 for `m0002` on the same data; fixed benchmark 63.3% against 57.6%. Published to the release within 6 seconds, `channel.json` last. |
+| 13:40–13:43 | Cycle `c0004` on 66 new documents: **`m0004` refused**. Benchmark 58.6% against 63.3% (allowed: −3 points); benchmark text loss 6.238 against 6.182 (allowed: +0.05). `m0003` stays; the caution level rises from 0 to 1. |
+| 13:42:09 | The site (Vercel, deployed once with `INFINI_MODEL_CHANNEL`) handles its first request: reads the channel, downloads `m0003`, verifies the checksums, passes the self-test (largest difference 0.000006), and answers with it — 1.1 seconds in all. `/api/llm/status` reports version `m0003`, source `channel`, and the worker's records. |
+| 13:48 | Still running: 19 discovery rounds, 760 documents fetched, 159 accepted, 601 rejected; 2 cycles (1 promoted, 1 refused); 1 recovery; 0 failed steps. |
+
+Resources there: worker process 98–131 MB; trainer 695 MB; a cycle took 270 s and 209 s (training 369 steps each);
+a discovery round 18–34 s plus a 60 s pause; the state grew from 32 MB to 100 MB.
+
+Why documents were rejected (typical round of 40): no licence that permits reuse 8–17, too many from one website
+10–13, could not be fetched 2–9, text quality 1–5, not English 0–3, duplicates 0–3.
+
+**A fault this run exposed.** Every document of these two sessions came from the `web` source: the sources were asked
+in a fixed order and the first one used up the whole round, so the other five were never asked. The sandbox had hidden
+this, because `web` is unreachable there. Fixed (every source gets a share of each round, and the first place rotates;
+section 2), with a test. The sessions above still ran the old order: a running session keeps the code it started with.
+
+### 9.2 In the development sandbox (2 cores, 3.8 GB memory)
+
+Five worker processes one after another on the same state, 68 minutes of worker time: 17 discovery rounds (361
+documents fetched, 341 accepted, 20 rejected) and four cycles.
+
+| Cycle | Training plan | Result | Decisive numbers (candidate against production, same data) |
+|---|---|---|---|
+| `c0003` | caution 0: learning rate 0.0004, 369 steps | **refused** | gap 1.31 (limit 0.6); benchmark text loss 6.904 against 6.713; held-out *document* loss 4.157 against 4.004 — although the overall held-out loss was lower (1.221 against 1.254) |
+| `c0004` | caution 1: 0.0002, 303 steps | **refused** | gap 0.722 (limit 0.6; production on the same passages 0.341) |
+| `c0005` | caution 2: 0.0001, 270 steps | **promoted** (`m0005`) | held-out loss 2.188 against 2.283; document loss 3.091 against 3.232; benchmark 58.6% against 57.6%; gap 0.539 against 0.540 |
+| `c0006` | caution 1: 0.0002, 369 steps | **refused** | benchmark text loss 6.642 against 6.583 (allowed +0.05), although held-out loss was lower (2.186 against 2.234) |
+
+- **Killed without warning.** At 13:07:43, during the training of `c0006`, the worker was killed with `kill -9`, then
+  the step process; the trainer was left running alone. A new worker, started at 13:08:05, reported: *"the previous
+  worker (pid 3670) ended without shutting down; a stale step lock was removed; cycle c0006 is unfinished (phases done:
+  acquire, dataset) and will be continued"*, stopped the orphaned trainer, resumed training from the checkpoint and
+  finished the cycle at 13:15:39. Checkpoints were 200 steps apart then, so about 100 steps were repeated; they are
+  50 steps apart now.
+- **Stopped properly.** SIGTERM: stopped, published and released the lock in 2 seconds.
+- **Model to a running server.** A second server process, started with the deployed `m0002` and pointed at the worker's
+  channel directory, answered with `m0005` after the promotion without a restart (self-test difference 0.000003);
+  "hello, who are you?" → "I'm glad. Being good company is exactly what I'm trying to be." (19 tokens, 90 ms).
+- Training ran at about 11,000 tokens per second; the trainer used 1.29 GB, the worker 77–136 MB; an evaluation
+  (held-out data, probes, benchmark, memorisation probe, for both models) took about two minutes.
+
+### 9.3 Fixed benchmark, every version measured so far
+
+| Version | Where | Status | Score | Language | Knowledge | Reasoning | Conversation | Text loss |
+|---|---|---|---|---|---|---|---|---|
+| `m0002` | both | start | 57.6% | 58.3% | 47.9% | 52.1% | 71.9% | 6.713 |
+| `m0003` | sandbox | refused | 58.1% | 58.3% | 50.0% | 52.1% | 71.9% | 6.904 |
+| `m0004` | sandbox | refused | 56.8% | 60.4% | 47.9% | 43.8% | 75.0% | 6.691 |
+| `m0005` | sandbox | promoted | 58.6% | 58.3% | 52.1% | 45.8% | 78.1% | 6.583 |
+| `m0006` | sandbox | refused | 56.8% | 64.6% | 43.8% | 50.0% | 68.8% | 6.642 |
+| `m0003` | runner | **promoted, answering on the site** | 63.3% | — | — | — | — | 6.182 |
+| `m0004` | runner | refused | 58.6% | — | — | — | — | 6.238 |
+
+The sandbox and the runner are two separate learning histories that both began at `m0002`; their version numbers
+coincide by accident. The runner's is the one the site follows. (Its per-part scores are on the dashboard; they were
+not copied here.)
+
+### 9.4 Tests
+
+`npm test`: 116 tests, all passing, offline, about 70 seconds. 23 of them are for this work (`npm run test:worker`):
+the real worker with stand-in steps (unattended discover → train → publish; refusal; crash retry; kill and resume;
+clean stop; second worker refused; sessions; ending for newer code; damaged model rolled back; pause; hand-over from
+the dashboard), the benchmark and its exclusion from training, the memorisation probe, the gate, the state archive,
+publication to a GitHub release (stand-in API), the channel (verify, refuse, follow a rollback, survive an outage),
+a server swapping models through the channel, the source shares, the MediaWiki collector, the deployment files, and
+the dashboard rendered from a snapshot that a real worker published.
 
 ## 10. Limits
 
-LIMITS-PLACEHOLDER
+These are the things that are not solved, or not verified.
+
+**The model**
+
+- It is still a 1.3-million-parameter network. Continuous learning makes it measurably better on its own tests cycle by
+  cycle; it does not make it a capable assistant. On the fixed benchmark, guessing scores 50% and the best version so
+  far scores 63%.
+- The benchmark is small (176 items). A difference of a few items between two versions is within noise; the gate
+  therefore refuses on several independent measurements, and it will sometimes refuse a candidate that was in fact
+  fine (in the sandbox run, `m0006` was refused for reading the 16 benchmark passages 0.058 worse, with a limit of 0.05).
+- "Better on held-out data of this cycle" is measured on documents from the same sources as the training data. It says
+  nothing about subjects the sources do not cover.
+- The gate cannot detect a source that is consistently wrong in a way other sources do not contradict. The
+  cross-source verification, the licence allow-list and the limit per website reduce that risk; they do not remove it.
+
+**GitHub Actions as the host**
+
+- It is a chain of sessions, not one process. Between two sessions nothing learns (measured once: 43 seconds from the
+  end of one session's worker to the start of the next).
+- The chain can break: GitHub can fail to start a run, delay it, or stop a job. The hourly watchdog restarts a broken
+  chain, but only from the default branch; on any other branch a broken chain stays broken until somebody starts it.
+- GitHub disables scheduled workflows in a repository without activity for 60 days, and its terms do not promise
+  free runners for a permanent workload. A machine that stays on (section 8) has neither problem.
+- A running session keeps the code it started with. A fix reaches it when the session ends: by itself between two
+  steps once it notices the newer commit (sessions started from this version on), otherwise after at most five hours.
+- The state travels as one archive (24 MB after the first session, 41 MB after the first cycle). What a session
+  did after its last upload (every 15 minutes, after every cycle, and at the end) is lost if the runner dies; the
+  next session then repeats that work.
+- Job logs are not readable from outside GitHub without signing in; the release text of `infinity-model` and the
+  dashboard are the windows into a session.
+
+**Serving**
+
+- On a serverless host, a new function instance downloads the current model (2.8 MB) before its first reply, or
+  answers that request with the deployed model if the download is slow. The dashboard there shows the worker's
+  records with a delay of up to nine minutes.
+- The channel is public and unsigned: its integrity rests on GitHub (only someone who can write to the repository's
+  releases can publish) and on the checks before a swap (checksums, self-test). There is no signature that would let a
+  server refuse a model published by someone who gained write access.
+
+**Not run**
+
+- `Dockerfile.worker`, `docker-compose.yml`, `deploy/infinity-worker.service` and `deploy/fly.worker.toml` were
+  written and checked for consistency with the worker's commands; no image was built and no service was started
+  (neither Docker nor systemd is available where this was developed).
+- The MediaWiki sources (Simple English Wikipedia, Wikibooks, Wikivoyage) are tested against a fake site. In the
+  sandbox they are unreachable; on the runner the sessions measured below ran before the fix that gives every source
+  its share, so they were not asked yet.
+- The watchdog job has not run (it needs the default branch).
+- Rollback through the workflow (`action = rollback`) is covered by tests of the command it calls, not by a run.
+- No run longer than about an hour has been observed. Behaviour over days — disk growth, the corpus limit, the
+  caution level settling — is designed for (pruning, limits) but not measured.
 
 ## 11. Files
 
