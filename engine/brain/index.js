@@ -145,21 +145,28 @@ const LEAD = new Set('now so then also and but well please ok hey hi hello alrig
 const DEVICE_KIN = /^(?:my |the )?(?:mom|mum|mother|dad|father|papa|mama|brother|sister|wife|husband|friend|boss|girlfriend|boyfriend|uncle|aunt|grandma|grandpa|son|daughter|teacher|doctor|police|ambulance|office|home|him|her|them|me|someone|\d+)\b/;
 
 export function createBrain(opts = {}) {
-  const persona = { version: opts.version || '3.1.0', creator: opts.creator || 'Nepal369', born: '2026-11', maxPages: Number(opts.maxPages) || 1500 };
+  const persona = { version: opts.version ?? '4.0.0', creator: opts.creator || 'Nepal369', born: '2026-11', maxPages: Number(opts.maxPages) || 1500 };
+  // What the brain says about itself has to be true. When a trained Infinity LLM is serving next to it, replies marked
+  // "llm" are used; otherwise the ones marked "!llm". `opts.llm` is a description ({ version, parameters }), a function
+  // returning one (or null), or nothing.
+  let llmSource = typeof opts.llm === 'function' ? opts.llm : () => opts.llm || null;
+  const LM = () => { try { return llmSource() || null; } catch { return null; } };
 
   /** Pick one reply of an intent that fits the situation; returns {text, expect} or null when none fits. */
   function chooseReply(c, intent, vars = {}) {
     const st = c.st, last = st.last;
     const dp = c.env.dp;
+    const lm = LM();
     const flags = {
       first: st.turn === 0 && !c.env.ctxTurn, named: !!st.name, '!named': !st.name, web: !!last && last.k === 'web' && !!last.t, brain: !!last && last.k === 'brain',
       'web.high': !!last && last.k === 'web' && last.lvl === 'high' && !!last.t, 'web.medium': !!last && last.k === 'web' && last.lvl === 'medium', 'web.low': !!last && last.k === 'web' && last.lvl === 'low', 'web.none': !!last && last.k === 'web' && (last.lvl === 'insufficient' || !last.lvl),
       'dp.morning': dp === 'morning', 'dp.afternoon': dp === 'afternoon', 'dp.evening': dp === 'evening', 'dp.night': dp === 'night', 'asked.none': true,
-      'after.joke': !!last && last.k === 'brain' && (last.i === 'fun.joke' || last.i === 'fun.riddle'), q: !!vars.q,
+      'after.joke': !!last && last.k === 'brain' && (last.i === 'fun.joke' || last.i === 'fun.riddle'), q: !!vars.q, llm: !!lm, '!llm': !lm,
     };
     const CONTEXT = /^(first|web|brain|dp\.|after\.|q$)/;
     const S = storeStats();
     const all = {
+      llmVersion: lm && lm.version ? String(lm.version) : '', llmParams: lm && Number(lm.parameters) > 0 ? Number(lm.parameters).toLocaleString('en-US') : '',
       name: st.name.split(' ')[0], topic: last && last.k === 'web' ? last.t : '', conf: last ? last.lvl : '', confpct: last && last.pct ? String(last.pct) : '', nsrc: last && last.n ? String(last.n) : '',
       time: c.env.clock, creator: persona.creator, Creator: cap(persona.creator), version: persona.version, maxPages: persona.maxPages.toLocaleString('en-US'),
       nPatterns: S.patterns.toLocaleString('en-US'), nFacts: S.facts.toLocaleString('en-US'), nIntents: String(S.intents), nReplies: String(S.replies), ...vars,
@@ -179,8 +186,12 @@ export function createBrain(opts = {}) {
     if (!pool.length) pool = tier.length > 1 ? tier.filter((u) => u.i !== recent[recent.length - 1]) : tier;
     const pick = pool[Math.floor(c.rand() * pool.length)];
     st.used[intent.id] = [...recent, pick.i].slice(-Math.min(4, Math.max(1, tier.length - 1)));
-    const text = pick.r.t.replace(/\{(\w+)\}/g, (_, k) => all[k]);
-    return { text, expect: pick.r.e || '', chips: intent.chips };
+    const fill = (t) => t.replace(/\{(\w+)\}/g, (_, k) => all[k]);
+    const text = fill(pick.r.t);
+    // Every wording that would have been equally right here (same follow-up expectation). The language model's reply is
+    // checked against these before it is shown in place of this one.
+    const alternatives = [text, ...tier.filter((u) => u.i !== pick.i && (u.r.e || '') === (pick.r.e || '')).map((u) => fill(u.r.t))].slice(0, 24);
+    return { text, expect: pick.r.e || '', chips: intent.chips, alternatives };
   }
   const D = () => dialogue();
   const say = (c, id, vars = {}, extra = {}) => { const it = D().byId.get(id); const r = it && chooseReply(c, it, vars); return r ? { ...r, intent: it, ...extra } : null; };
@@ -468,16 +479,16 @@ export function createBrain(opts = {}) {
       const kind = (t.match(/\b(essay|paragraph|article|blog post|blog|letter|email|mail|application|cover letter|resume|cv|speech|report|summary|review|caption|captions|bio|tweet|post|status|message|script|dialogue|lyrics|slogan|tagline|title|description|introduction|conclusion|outline|thesis|assignment|homework|notes|presentation|ppt|proposal|plan|invitation|wish|code|program|function|query|regex|formula|website|app|story|poem|song|joke|image|picture|photo|drawing|painting|logo|poster|banner|wallpaper|icon|avatar|portrait|illustration|art|artwork|meme|video|animation|gif|diagram|chart|graph|map|thumbnail|sticker|cartoon)\b/) || [])[1] || '';
       if (/^(story|poem|song|joke)$/.test(kind) && x && /^(write|compose|create|generate|make|prepare|draft|type)\b/.test(t)) {
         const base = kind === 'joke' ? H.joke({ ...c, slots: { x } }) : kind === 'story' ? H.story(c) : kind === 'poem' ? H.poem(c) : H.sing(c);
-        const note = `I can't write a new ${kind} about ${x}: I have no language model, only a small collection I can recite. Here is one from it.`;
+        const note = LM() ? `I can't write a new ${kind} about ${x}: my language model is far too small to compose one, so here is one from a small collection I can recite.` : `I can't write a new ${kind} about ${x}: I have no language model, only a small collection I can recite. Here is one from it.`;
         return { ...base, text: `${note} ${base.text}`, blocks: [P(note), ...(base.blocks || [P(base.text)])] };
       }
       if (/^(summary|review|description|introduction|outline|notes|report|article)$/.test(kind) && x && /^(write|give|make|prepare|create|generate|draft|type|compose)\b/.test(t) && !/\b(my|this|the following)\b/.test(x)) return { pass: { question: /^(summary|outline|notes)$/.test(kind) ? `Summarize ${x}` : `Explain ${x}`, preface: `I can't write original text, but I can gather what the sources say about ${x}:` } };
       if (/\b(image|picture|photo|drawing|painting|logo|poster|banner|wallpaper|icon|avatar|portrait|illustration|art|artwork|meme|video|animation|gif|sticker|cartoon|thumbnail)\b/.test(kind) || /^(draw|sketch|paint|design|render)\b/.test(t)) return { text: "I can't draw or create images. I work only with text. If you want to see what something looks like, an image search engine will serve you better; I can still tell you what the web says about it.", chips: x && x.split(' ').length <= 8 ? [searchChip(x)] : [] };
-      if (/\b(code|program|function|script|query|regex|formula|website|app|html|sql|python|javascript|java)\b/.test(t)) return { text: "I can't write or fix code. I have no language model inside, so I can't compose anything new. What I can do is find documentation and worked examples: ask me a specific question such as “how do I sort a list in Python?” and I'll search for it." };
-      if (/^(summarize|summarise|paraphrase|rewrite|rephrase|proofread|edit|correct|fix|improve|check|translate|debug|review|explain|optimize|refactor)\b/.test(t)) return { text: "I can't rework text or code that you paste to me. I don't have a language model, so I can't rewrite, translate or correct. I can look up a rule or an example if you ask me a specific question, and I can summarise a public web page if you give me its address." };
+      if (/\b(code|program|function|script|query|regex|formula|website|app|html|sql|python|javascript|java)\b/.test(t)) return { text: (LM() ? "I can't write or fix code. My language model is small and was trained for short conversation, so it can't compose working code." : "I can't write or fix code. I have no language model inside, so I can't compose anything new.") + " What I can do is find documentation and worked examples: ask me a specific question such as “how do I sort a list in Python?” and I'll search for it." };
+      if (/^(summarize|summarise|paraphrase|rewrite|rephrase|proofread|edit|correct|fix|improve|check|translate|debug|review|explain|optimize|refactor)\b/.test(t)) return { text: (LM() ? "I can't rework text or code that you paste to me. My language model is too small to rewrite, translate or correct reliably." : "I can't rework text or code that you paste to me. I don't have a language model, so I can't rewrite, translate or correct.") + " I can look up a rule or an example if you ask me a specific question, and I can summarise a public web page if you give me its address." };
       if (/\b(homework|assignment|exam|test|coursework|thesis|project)\b/.test(t) && /^(do|solve|finish|complete|help|can you do|will you do)\b/.test(t)) return { text: "I can't do the work for you, and I wouldn't be good at it: I can't write original text. But ask me the actual questions from it, one at a time, and I'll look each one up and show you where the answer comes from." };
       const topic = x && x.split(' ').length <= 10 ? x : '';
-      return { text: `I can't write ${kind ? `${article(kind)} ${kind}` : 'that'} for you. I have no language model, so I can't compose original text. ${topic ? `What I can do is gather key points about ${topic} from the web, each with its source, for you to write from. Shall I?` : 'I can look up facts and examples for you to write from, though.'}`, ...(topic ? { expect: 'search', expectData: topic, chips: [searchChip(topic)] } : {}) };
+      return { text: `I can't write ${kind ? `${article(kind)} ${kind}` : 'that'} for you. ${LM() ? 'My language model is small: it handles short conversation, not original compositions.' : "I have no language model, so I can't compose original text."} ${topic ? `What I can do is gather key points about ${topic} from the web, each with its source, for you to write from. Shall I?` : 'I can look up facts and examples for you to write from, though.'}`, ...(topic ? { expect: 'search', expectData: topic, chips: [searchChip(topic)] } : {}) };
     },
   };
 
@@ -497,7 +508,8 @@ export function createBrain(opts = {}) {
     st.turn += 1;
     const city = cityOf(c);
     const chips = [...new Set([...(r.chips || []), ...((it && !r.chips && it.chips) || [])])].map((x) => x.replace('{city}', city)).filter((x) => !/\{\w+\}/.test(x) && !/ in $/.test(x)).slice(0, 4);
-    return { handled: true, text, blocks, suggestions: chips, state: st, origin: r.origin || extra.origin || 'conversation', intent: it ? it.id : (extra.id || ''), group: it ? it.group : (extra.group || ''), sure: r.sure !== false };
+    return { handled: true, text, blocks, suggestions: chips, state: st, origin: r.origin || extra.origin || 'conversation', intent: it ? it.id : (extra.id || ''), group: it ? it.group : (extra.group || ''), sure: r.sure !== false,
+      alternatives: c.preface || r.blocks ? [] : (Array.isArray(r.alternatives) && r.alternatives.length ? r.alternatives : [r.text || '']).filter(Boolean) };
   }
 
   /** Answer with an intent: its handler first, then its own replies. Returns a result or null. */
@@ -929,5 +941,5 @@ export function createBrain(opts = {}) {
     return fixed ? passOn(fixed, '', 'spelling') : passOn();
   }
 
-  return { respond, stats: storeStats };
+  return { respond, stats: storeStats, /** Tell the brain which language model (if any) is serving beside it. */ setModel(src) { llmSource = typeof src === 'function' ? src : () => src || null; } };
 }

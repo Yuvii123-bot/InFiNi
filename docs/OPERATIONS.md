@@ -4,7 +4,9 @@
 
 Node.js ≥ 18.17 (developed and measured on 20.x). Nothing else: there are **no npm dependencies** and no build step.
 The built-in brain's data files (`engine/brain/data/`, 4 MB) are prebuilt and part of the repository.
-Outbound HTTPS must be allowed. No API key is required and no LLM key exists.
+Outbound HTTPS must be allowed. No API key is required and no LLM key exists: the language model is the project's own
+and runs inside the server (`model/`, about 3 MB). Training a new version of it additionally needs Python ≥ 3.10 with
+PyTorch and NumPy and a writable directory; serving does not. See "Infinity LLM" below.
 Memory: 115 to 150 MB resident for ordinary questions (about 50 MB before the first chat message). A research run needs more while it lasts, and how much depends on how much it finds: 280 to 410 MB were measured for the whole process during single runs with the Tavily key alone (300 to 500 pages), and 590 to 640 MB with the LangSearch and OpenAlex keys as well (850 to 1,500 pages; `bench/results/research.md`). Plan for about 500 MB per research run that may be in progress at the same time (`MAX_CONCURRENT_RESEARCH`, default 2), on top of the base; on a host with 1 GB set `MAX_CONCURRENT_RESEARCH=1` or lower `RESEARCH_MAX_PAGES`.
 
 ## Run locally
@@ -70,6 +72,59 @@ See `.env.example`. Secrets are read from the environment only, are never writte
 | `POST /api/preview` `{url}` | Extracted text of a source page (same guarded fetch path; text blocks only). |
 | `GET /api/status` | Version, provider availability, cache counters, Wikimedia budget, the size of the brain's data (`brain`) and how many messages it answered (`totals.brain`), the depths, and `research` (enabled, limits, runs in progress, runs started in the last hour). No secrets. |
 | `GET /api/health` | Liveness. |
+| `GET /api/llm/status` | The model in use (version, size, self-test) and the learning records: state, live training progress, loss curve, model versions with their measurements and gate results, cycles, dataset versions, corpus statistics, hardware, history, recent events. Public and read-only. |
+| `POST /api/llm/chat` `{message, history?[[user, reply]…], temperature?}` | The model alone, without rules or web: streams `token` events, then `answer` (`ok`, `text`, `reason` when the reply was withheld, tokens, speed) and `done`. 503 when no model is loaded. |
+| `POST /api/llm/admin` `{action, …}` with `Authorization: Bearer <INFINI_ADMIN_TOKEN>` | `check`, `pause`, `resume`, `start` (a learning cycle), `evaluate` (the production model), `rollback` `{to?, reason?}`, `configure` `{settings}`. 403 when the server has no token, 401 for a wrong one (failed attempts are rate-limited), 409 when a cycle is already running, learning is paused or the host cannot train. |
+
+`POST /api/ask` additionally accepts `history` (up to 8 `[user, reply]` pairs, the context the model reads) and `settings.neural: false` (do not use the model for this request). When the model writes, the stream carries `token` events: `{start, mode: 'chat'|'grounded', model}`, then `{text}` per token, and `{reset}` if the text is withdrawn. The final `answer` has `origin: 'neural'` and a `neural` object with the model version, token counts, speed and the rule-based reply it replaced; or `neural.used: false` with the reason.
+
+## Infinity LLM
+
+Full description: [`INFINITY-LLM.md`](INFINITY-LLM.md).
+
+| Variable | Default | Meaning |
+|---|---|---|
+| `INFINI_LLM` | `1` | `0` = do not load the model; the app answers as version 3 did. |
+| `INFINI_LLM_DIR` | `data/llm` in the repository | State of the learning system: corpus, datasets, checkpoints, model versions, registry. Needs a writable disk. Not in Git. |
+| `INFINI_ADMIN_TOKEN` | empty | Protects the controls on the learning page. At least 16 characters. Empty = controls disabled. |
+| `INFINI_LLM_MIN_LOGPROB` | `-1.6` | A generated reply whose mean log-probability per token is lower is withheld and the rules answer instead. |
+| `INFINI_LLM_MIN_AGREEMENT` | `0.6` | A generated reply is shown only if its word-overlap F1 with a correct rule-based reply to the same message reaches this value. `0` switches the check off. |
+| `INFINI_LEARNING` | `1` | `0` = this host never trains. |
+| `INFINI_LEARNING_SCHEDULER` | `1` | `0` = cycles start only on request (`node learning/cli.mjs cycle`, or the dashboard). |
+| `INFINI_PYTHON` | `.venv/bin/python`, then `python3` | Interpreter with PyTorch, for training only. |
+| `GITHUB_TOKEN` | empty | Read-only token that raises the GitHub API allowance when collecting text from public repositories. |
+
+Set up training on a host with a disk:
+
+```bash
+python3 -m venv .venv && .venv/bin/pip install torch numpy     # once; a CPU-only build is enough
+node learning/cli.mjs hw --bench          # what this machine can train, measured
+node learning/cli.mjs cycle               # one learning cycle: collect → filter → verify → dataset → train → evaluate → gate
+node learning/cli.mjs status              # production model, versions, last cycle
+node learning/cli.mjs chat "hello"        # talk to the production model directly
+node learning/cli.mjs rollback            # back to the previous stable model
+node learning/cli.mjs publish             # copy the production model and its records into model/ (commit that to deploy it)
+```
+
+The first cycle trains from random weights (`cycle.bootstrapSeconds`, 25 minutes by default). Later cycles continue
+from the production model for `cycle.trainSeconds` (7 minutes by default). To let cycles run by themselves, switch
+"Run cycles automatically" on in the dashboard, or put `{"cycle": {"auto": true, "intervalMinutes": 360}}` in
+`<INFINI_LLM_DIR>/config.json`. All settings and their defaults are in `learning/store.mjs` (`DEFAULTS`).
+
+Training runs as a separate process at lowered priority (`nice 10`), with a thread limit, a memory limit
+(`resources.maxTrainRssMb`) and an optional duty cycle (`resources.duty`), so the chat server stays responsive.
+If the server stops, the checkpoint on disk is the last one written and the cycle resumes from its last finished phase.
+
+**Where each kind of host stands**
+
+| Host | Serves the model | Trains |
+|---|---|---|
+| `node server/server.js` on a machine with Python and PyTorch | yes | yes, on schedule or on request |
+| Container from the `Dockerfile` (read-only, no Python) | yes, the published model | no |
+| Vercel or another serverless host | yes, the published model | no: no disk, no Python, minutes of run time. The learning page shows the records published with the app. |
+
+To update a serverless deployment: run cycles on a machine that can train, `node learning/cli.mjs publish`, commit
+`model/`, deploy.
 
 ## Production deployment
 
@@ -85,7 +140,7 @@ Put it behind a TLS reverse proxy (Caddy, nginx) and set `TRUST_PROXY=1`. Disabl
 ```bash
 docker build -t infini-ai . && docker run -p 8787:8787 -e INFINI_CONTACT=https://your-domain.example/about --read-only --cap-drop ALL --memory 2g infini-ai
 ```
-The image is Node + this repository (no `npm install`): `engine/` includes the brain's data. The process needs no writable disk.
+The image is Node + this repository (no `npm install`): `engine/` includes the brain's data and `model/` the published language model. The process needs no writable disk; it serves the model and does not train.
 
 ### Vercel (serverless)
 

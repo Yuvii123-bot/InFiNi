@@ -2,11 +2,25 @@
 
 **Live:** https://infini-ai.vercel.app — a question can be linked directly, e.g. `https://infini-ai.vercel.app/?q=Why+do+stars+shine%3F`
 
-**A chatbot with no language model: its own small brain for conversation, the live web for knowledge.**
+**A chat assistant with its own small neural language model, trained from scratch, and the live web for knowledge.**
 
-INFINI AI has two parts, and neither is a large language model. None is hosted, downloaded or called; there is no LLM API key.
+INFINI AI has three parts. No outside model is hosted, downloaded or called; there is no LLM API key.
 
-* **The built-in brain** answers conversation: greetings, small talk, questions about itself, feelings, jokes, riddles and games. It remembers what you tell it during a chat, knows everyday common sense ("can a penguin fly"), tells the time and date, and understands casual typing, shorthand and typos. It is rules and data: 52,938 stored phrasings, 902 prepared replies, 220,406 common-sense relations.
+* **Infinity LLM** (new in 4.0.0) is a decoder-only Transformer whose weights started as random numbers and were trained
+  by this repository's own code (`llm/`, PyTorch). It writes conversational replies, token by token, inside the Node
+  server (`engine/neural/`, plain JavaScript, no dependencies). Each reply it writes is compared with the rule-based
+  reply to the same message and is shown only when the two say the same thing. **Measured on phrasings it had not
+  seen, about one reply in five passes that check; the rule-based brain supplies the others.** The label under every
+  reply says which of the two wrote it. For factual questions it chooses, among the sentences the
+  web pipeline retrieved, the ones that answer the question; it cannot output a factual sentence that is not in a source.
+  It keeps learning in controlled cycles (`learning/`): collect openly licensed text, filter and verify it, build a
+  dataset version, continue training from the current model, evaluate the candidate on held-out data, and replace the
+  current model **only if the candidate measures better**; otherwise the candidate is rejected and nothing changes.
+  Every version is kept and can be rolled back to. `/learning.html` shows all of it from the training system's records.
+  **It is small** (about 1.3 million parameters in the published version, roughly a hundred thousand times smaller than
+  commercial assistants): it holds a short conversation in the style it was trained on, and that is all it does.
+  Design, limits and measured results: [`docs/INFINITY-LLM.md`](docs/INFINITY-LLM.md).
+* **The built-in brain** (rules and data, no neural network) classifies every message, keeps the memory of the chat, and answers common sense, exact skills, safety messages and questions about the assistant itself; it also supplies the reply whenever the model is unsure or absent. On its own it answers conversation: greetings, small talk, questions about itself, feelings, jokes, riddles and games. It remembers what you tell it during a chat, knows everyday common sense ("can a penguin fly"), tells the time and date, and understands casual typing, shorthand and typos. It is rules and data: 52,938 stored phrasings, 902 prepared replies, 220,406 common-sense relations.
 * **The web pipeline** answers everything that needs knowledge. For every such question it:
   1. **Understands** it with rule-based language analysis (question type, topic, follow-up references);
   2. **Plans** sub-searches;
@@ -19,8 +33,8 @@ INFINI AI has two parts, and neither is a large language model. None is hosted, 
 
   Measured on 13 November 2026 with three free keys — LangSearch, Tavily, OpenAlex — as on the live site (`bench/results/research.md`): one research run read **880 to 1,500 pages** and took in **800 abstracts** — **1,653 to 2,245 documents from 312 to 522 sites, out of 9,690 to 16,170 results screened** — in **70 to 91 seconds**. With the Tavily key alone (version 3.0.0) the same runs read 293 to 499 pages and 520 to 705 abstracts in 45 to 55 seconds. The budget is up to 1,500 pages and 170 seconds: one of the three benchmark runs reached the page budget, the others ended earlier because new searches stopped bringing new material — a run says why it ended. More than a quarter of the pages found cannot be read (refusals, JavaScript, robots.txt) and are counted as such. An abstract is counted as an abstract, never as a page.
 
-Every message goes to the brain first. It replies itself, or hands the message to the web pipeline (with certain typos repaired on the way).
-The brain never invents a fact, and when the sources do not support an answer the web pipeline says: *“I could not verify this from the sources I found.”*
+Every message goes to the brain first. It replies itself (with Infinity LLM writing the wording of conversational replies when a model is loaded), or hands the message to the web pipeline (with certain typos repaired on the way).
+The brain never invents a fact; the model is not used as a source of facts, and when the sources do not support an answer the web pipeline says: *“I could not verify this from the sources I found.”*
 
 ```
 node server/server.js        →  http://localhost:8787   (chat UI, installable PWA)
@@ -29,7 +43,8 @@ node cli.js "Who invented the telephone?"
 node cli.js "do deep research on solid-state batteries"      # or: node cli.js --depth research "solid-state batteries"
 ```
 
-No install step: zero npm dependencies, Node ≥ 18.17. The brain's data files are prebuilt and included.
+No install step: zero npm dependencies, Node ≥ 18.17. The brain's data files and the trained model (`model/`, about 3 MB) are included.
+Training a new model version additionally needs Python with PyTorch (`docs/OPERATIONS.md`, "Infinity LLM"); answering does not.
 
 ## What you get
 
@@ -45,13 +60,15 @@ No install step: zero npm dependencies, Node ≥ 18.17. The brain's data files a
 
 ## Honest scope
 
+* **Infinity LLM is a very small language model.** It was trained on a few million tokens on a CPU. It can reply to everyday conversation; it does not reason, it cannot write essays or code, it knows no facts by itself, and it can produce a wrong or odd reply. When its own confidence in a reply is low, the rule-based reply is shown instead, and the interface always says which of the two you are reading. It is not conscious, and "learning" means the training cycles described above, nothing more.
+* **Continuous learning needs a machine that can train.** On a serverless host such as Vercel the app serves the published model and shows the published learning records; it does not train there.
 * The brain is **not intelligent in the way a language model is, and it is not conscious**. Every reply is a sentence prepared in advance, a filled-in template or the result of an exact function. It answers what it was prepared for; anything else goes to the web or gets an honest “I can't do that”. It works in English.
 * The web pipeline **repeats and organises what sources say**. It cannot reason beyond them, write essays or original code, or hold opinions.
 * Answer quality is bounded by what it can retrieve. With no key at all, general web search uses Firecrawl’s keyless search (a small daily allowance per server address), then best-effort public interfaces (DuckDuckGo’s HTML page, Mwmbl, Marginalia, Wiby), next to Wikipedia/Wikidata, publisher feeds and specialist APIs. For dependable web coverage add a **free key that needs no payment method** — see “Web search without paying” below.
 * A research run **collects, sorts and quotes; it does not think**. The report is made of the sources' own sentences, picked and grouped by rule. It can quote a weak sentence, group one under the wrong heading, or miss the best source. Which way a source “leans” is read from its wording, not judged.
 * **How many pages a run reads depends on the topic and on the day.** About a third of all pages refuse automated reading, need JavaScript, or are closed by robots.txt; they are skipped and counted, never bypassed. An abstract is counted as an abstract, never as a page read. The 1,500-page budget is a ceiling: in our measurements a run found 260 to 480 readable, relevant pages before new searches stopped bringing more.
 * Its rules misread some questions and its ranking sometimes picks a poor passage; `docs/EVALUATION.md` reports measured failures, not just successes.
-* “Learning” means only: which sources worked, vocabulary that co-occurred with your topics, answers you chose to save, and what you told it in the current chat — stored in your browser and clearable. It does not train or improve by itself.
+* In the browser, “learning” means only: which sources worked, vocabulary that co-occurred with your topics, answers you chose to save, and what you told it in the current chat — stored in your browser and clearable. None of your messages are used to train the model: its training text is openly licensed documents and the project's own example conversations.
 
 ## Web search without paying
 
@@ -83,6 +100,7 @@ A research run makes at most `RESEARCH_KEYED_SEARCHES` (default 5) further searc
 
 | File | Contents |
 |---|---|
+| [`docs/INFINITY-LLM.md`](docs/INFINITY-LLM.md) | Infinity LLM: what existed before, what changed, the model, the tokenizer, training, the learning cycle, licence and quality filters, verification, evaluation, the promotion gate, versions and rollback, serving, limits, and the measured results of the published model. |
 | [`docs/REPORT.md`](docs/REPORT.md) | Full report: version 3.1.0 first (LangSearch, the OpenAlex key, what they changed), then 3.0.0 (deep search and research runs): what was built, how, what works (with the evidence), why, and the limits. |
 | [`docs/REPORT-2.0.0.md`](docs/REPORT-2.0.0.md) | The report for version 2.0.0 (the built-in brain). |
 | [`docs/BRAIN.md`](docs/BRAIN.md) | The built-in brain: what it is and is not, how a message is handled, memory, spelling repair, data files, how to edit and rebuild it, measurements, limits. |
@@ -94,13 +112,17 @@ A research run makes at most `RESEARCH_KEYED_SEARCHES` (default 5) further searc
 ## Repository layout
 
 ```
-engine/   brain/ (the built-in brain: index.js normalize.js pattern.js store.js sense.js skills.js spell.js lexicon.js data/)
+llm/      model.py (the Transformer)  train.py  evaluate.py  export.py  hw.py  tests/   (Python + PyTorch; training only)
+learning/ sources.mjs licence.mjs process.mjs verify.mjs corpus.mjs dataset.mjs (data) · cycle.mjs evalsuite.mjs registry.mjs manager.mjs cli.mjs (training cycle, gate, versions)
+model/    current/ (the published model: weights.bin model.json tokenizer.json)  snapshot.json (the published learning records)
+engine/   neural/ (tokenizer.js model.js generate.js service.js: Infinity LLM inference in plain JavaScript)
+          brain/ (the built-in brain: index.js normalize.js pattern.js store.js sense.js skills.js spell.js lexicon.js data/)
           research/ (run.js: the search–read–compare loop · frontier.js: the queue of leads · aspects.js salience.js: sub-topics · digest.js directive.js)
           classify/ (classify.js: sorting of everything found)   synth/ (synth.js · report.js: the report)   providers/ (… scholar.js: OpenAlex, Crossref, Europe PMC)
           nlp/ plan/ net/ extract/ rank/ evidence/ math/ util/  index.js config.js
 server/   app.js (HTTP layer)  server.js (standalone)
 api/      index.js (serverless entry)        vercel.json   Dockerfile   .env.example
-public/   index.html app.css app.js sw.js manifest.webmanifest icons/
+public/   index.html app.css app.js learning.html learning.css learning.js sw.js manifest.webmanifest icons/
 tools/    brain/ (editable sources of the brain's data: intents/ fun.txt commonsense/ spell-names.txt sources/; build.mjs fetch-raw.mjs dev/)
           dev/ (run.mjs: ask the engine directly, with recording and replay of its HTTP traffic · phrasings.mjs: how messages are understood)
 test/     unit.test.js brain.test.js research.test.js (offline; research runs are tested on a synthetic web)  ui-smoke.mjs (drives the real client against the real server)
@@ -112,7 +134,9 @@ cli.js
 
 ```bash
 npm start                 # server
-npm test                  # 58 offline tests: 25 for the engine, 20 for the brain, 13 for deep search and research runs
+npm test                  # 84 offline tests: engine, brain, research runs, and 16 for Infinity LLM (tokenizer, inference parity with PyTorch, licence and quality filters, verification, reply check, gate, registry, rollback, API, interface)
+npm run test:llm          # 9 tests of the neural network and its training in PyTorch (needs Python with torch)
+node learning/cli.mjs cycle      # one learning cycle; also: status · hw --bench · chat "hello" · rollback · publish
 npm run test:ui           # 49 end-to-end checks of the browser client, including a research run (needs network; about 90 s)
 npm run bench             # web benchmark (live; slow without INFINI_CONTACT)
 npm run bench:research    # three research runs and two deep searches, with everything they read counted (live; about 3 minutes)

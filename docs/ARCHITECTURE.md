@@ -1,6 +1,12 @@
 # INFINI AI — Architecture
 
-INFINI AI has no language model. It has two parts (the brain since version 2.0.0; deep search and research runs, section 3a, since 3.0.0):
+> **Version 4.0.0 added Infinity LLM**, a small neural language model trained from scratch by this project. It is
+> described in [`INFINITY-LLM.md`](INFINITY-LLM.md): the model, its training, the learning cycle, the promotion gate and
+> how it is wired into the parts below. This document describes those parts: the rule-based brain and the web pipeline,
+> which contain no neural network and work unchanged when no model is loaded. Where the text below says "no language
+> model", it means these two parts.
+
+The brain and the web pipeline use no language model. They are two parts (the brain since version 2.0.0; deep search and research runs, section 3a, since 3.0.0):
 
 * a **built-in brain** (`engine/brain/`) for conversation, memory within a chat, everyday common sense and a few exact
   skills. It is rules and prepared data. Full description: [`BRAIN.md`](BRAIN.md);
@@ -15,7 +21,7 @@ and cannot fly). It holds nothing about people, places, events or anything recen
 
 | Constraint | Consequence |
 |---|---|
-| No pretrained LLM anywhere (hosted or local) | Understanding, ranking and synthesis are explicit rules and statistics. Web answers are extractive: a sentence is shown only if it was found in a retrieved source, or it is a template filled with a structured fact that carries its own citation, or it is fixed connective text. Conversation replies are sentences written in advance, chosen by matching the message against stored phrasings; nothing is generated. |
+| No pretrained LLM anywhere (hosted or local); since 4.0.0 the only model is the project's own, trained from random weights | Understanding, ranking and synthesis are explicit rules and statistics. Web answers are extractive: a sentence is shown only if it was found in a retrieved source, or it is a template filled with a structured fact that carries its own citation, or it is fixed connective text. Conversation replies are sentences written in advance, chosen by matching the message against stored phrasings; nothing is generated. |
 | 2–6 GB RAM devices, no GPU, slow networks | Server process ≈ 115–150 MB RSS for ordinary questions (≈ 50 MB before the brain is first used; a research run adds about 300 MB while it lasts), engine load < 0.1 s, first chat reply < 0.2 s, later chat replies ≈ 0.5 ms, zero runtime dependencies, client is 73 kB JS + 40 kB CSS unminified, no framework, no build step. The brain's data is 4 MB on disk (the whole deployment bundle is 1.35 MB compressed). |
 | Must be deployable immediately | `node server/server.js` runs it. Same code runs as a serverless function (`api/index.js`) and in a container. |
 | Retrieved pages are untrusted | One guarded HTTP client; extraction produces plain text blocks; the browser inserts text with `textContent` only; there is no code path that follows instructions found in pages. |
