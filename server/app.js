@@ -1,7 +1,10 @@
 // INFINI AI — HTTP application (framework-free). Used by the standalone server and by the serverless entry.
 // Endpoints: POST /api/ask (NDJSON stream) · POST /api/preview · GET /api/status · GET /api/health · static files.
 //
-// /api/ask streams one JSON object per line: stage, search, fetch, note, research, progress, draft, answer, done | error.
+// Infinity LLM: GET /api/llm/status (model + learning records) · POST /api/llm/chat (the model alone, token stream) ·
+//               POST /api/llm/admin (training controls; needs "Authorization: Bearer <INFINI_ADMIN_TOKEN>").
+//
+// /api/ask streams one JSON object per line: stage, search, fetch, note, research, progress, draft, token, answer, done | error.
 // A research run ("depth": "research", or a message such as "do deep research on …") can take a few minutes and reads
 // hundreds of pages, so it costs more of a client's allowance and each client may start only a few per hour.
 
@@ -10,6 +13,9 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { createEngine, loadConfig, VERSION } from '../engine/index.js';
 import { BlockedError } from '../engine/net/guard.js';
+import crypto from 'node:crypto';
+import { createNeural, lean } from '../engine/neural/service.js';
+import { createManager } from '../learning/manager.mjs';
 
 const ROOT = path.join(path.dirname(fileURLToPath(import.meta.url)), '..', 'public');
 const MIME = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.css': 'text/css; charset=utf-8', '.json': 'application/json; charset=utf-8', '.webmanifest': 'application/manifest+json; charset=utf-8', '.svg': 'image/svg+xml', '.png': 'image/png', '.ico': 'image/x-icon', '.txt': 'text/plain; charset=utf-8' };
@@ -37,6 +43,15 @@ export function createApp(cfg = loadConfig()) {
     return '';
   };
   const log = (o) => { if (process.env.LOG_LEVEL !== 'silent') console.log(JSON.stringify({ t: new Date().toISOString(), ...o })); };
+  // Infinity LLM: the neural model that writes the replies, and the supervisor of its learning cycles. Both are optional:
+  // without a trained model (or with INFINI_LLM=0) the application answers exactly as before.
+  const llm = cfg.llm || { enabled: false };
+  const neural = llm.enabled ? createNeural({ root: llm.dir, minLogProb: llm.minLogProb, minAgreement: llm.minAgreement, log, bundled: llm.bundled || undefined }) : null;
+  // what the brain says about itself follows what is really loaded
+  engine.brain.setModel(() => (neural && neural.ready() ? neural.info() : null));
+  const manager = llm.enabled ? createManager({ root: llm.dir, serverless: llm.serverless, learning: llm.learning, scheduler: llm.scheduler, adminConfigured: !!llm.adminToken, bundled: llm.bundled || undefined, log }) : null;
+  const sha = (s) => crypto.createHash('sha256').update(String(s)).digest();
+  const isAdmin = (req) => { const m = /^Bearer\s+(.+)$/i.exec(String(req.headers.authorization || '')); return !!(llm.adminToken && m && crypto.timingSafeEqual(sha(m[1].trim()), sha(llm.adminToken))); };
 
   const clientIp = (req) => {
     if (cfg.trustProxy) { const xf = String(req.headers['x-forwarded-for'] || '').split(',')[0].trim(); if (xf) return xf.slice(0, 64); }
@@ -108,9 +123,15 @@ export function createApp(cfg = loadConfig()) {
       // the device's time zone (for "what time is it") and the country the edge reports (only used to phrase a helpline search)
       const tz = typeof body.tz === 'string' && /^[A-Za-z_+\-/0-9]{2,48}$/.test(body.tz) ? body.tz : '';
       const cc = cfg.trustProxy ? String(req.headers['x-vercel-ip-country'] || '').toUpperCase() : '';
-      const result = await engine.ask({ question: body.question, context: body.context, settings: body.settings, learned: body.learned, regenerate: body.regenerate === true, tz, country: countryName(cc), researchAllowed: () => researchAllowed(ip) }, { signal: ac.signal, onEvent: send });
+      // With the model switched on, the engine's finished answer is held back for a moment: the model writes its part
+      // (streamed as "token" events) and the combined answer is sent. A client can opt out per request (settings.neural === false).
+      const useNeural = !!(neural && neural.ready() && !(body.settings && typeof body.settings === 'object' && body.settings.neural === false));
+      let held = null;
+      const onEvent = useNeural ? (ev) => { if (ev && ev.type === 'answer') held = ev.result; else send(ev); } : (ev) => send(ev && ev.type === 'answer' ? { ...ev, result: lean(ev.result) } : ev);
+      let result = await engine.ask({ question: body.question, context: body.context, settings: body.settings, learned: body.learned, regenerate: body.regenerate === true, tz, country: countryName(cc), researchAllowed: () => researchAllowed(ip) }, { signal: ac.signal, onEvent });
+      if (useNeural && held) { result = await neural.enhance({ result: held, question: body.question, history: body.history, send, signal: ac.signal }); send({ type: 'answer', result }); }
       send({ type: 'done', ms: Date.now() - t0 });
-      log({ ev: 'ask', ms: Date.now() - t0, kind: result.kind, depth: result.depth ? result.depth.used : null, pages: result.run ? result.run.pages : undefined, confidence: result.confidence ? result.confidence.level : null, sources: result.sources.length, ...(process.env.LOG_QUESTIONS === '1' ? { q: body.question.slice(0, 200) } : {}) });
+      log({ ev: 'ask', ms: Date.now() - t0, kind: result.kind, neural: result.neural ? (result.neural.used ? result.neural.mode : 'fallback') : undefined, depth: result.depth ? result.depth.used : null, pages: result.run ? result.run.pages : undefined, confidence: result.confidence ? result.confidence.level : null, sources: result.sources.length, ...(process.env.LOG_QUESTIONS === '1' ? { q: body.question.slice(0, 200) } : {}) });
     } catch (e) {
       if (e.code === 'aborted' || ac.signal.aborted) log({ ev: 'ask_stopped', ms: Date.now() - t0 });
       else { log({ ev: 'ask_error', message: e.message, stack: String(e.stack || '').split('\n').slice(0, 4).join(' | ') }); send({ type: 'error', message: 'The engine hit an internal error while answering. Nothing was made up; please retry.', detail: String(e.message || '').slice(0, 200) }); }
@@ -124,6 +145,57 @@ export function createApp(cfg = loadConfig()) {
     if (typeof body.url !== 'string' || body.url.length > 2000 || !/^https?:\/\//i.test(body.url)) return json(res, 400, { error: 'bad_request', message: 'Field "url" must be an http(s) URL.' });
     try { return json(res, 200, await engine.preview(body.url)); }
     catch (e) { return json(res, e instanceof BlockedError ? 403 : 502, { error: e.code || 'fetch_failed', message: e instanceof BlockedError ? `That address is not allowed: ${e.message}` : `The page could not be read: ${String(e.message).split('\n')[0].slice(0, 160)}` }); }
+  }
+
+  /** The model alone: no rules, no retrieval. Streams the reply token by token as NDJSON. */
+  async function llmChat(req, res) {
+    const ip = clientIp(req);
+    const wait = rateLimit(ip);
+    if (wait) return json(res, 429, { error: 'rate_limited', message: `Too many messages from this address. Try again in ${wait} s.`, retryAfter: wait }, { 'Retry-After': String(wait) });
+    const body = await parseJson(req);
+    if (typeof body.message !== 'string' || !body.message.trim()) return json(res, 400, { error: 'bad_request', message: 'Field "message" (string) is required.' });
+    if (body.message.length > 2000) return json(res, 400, { error: 'bad_request', message: 'The message is too long (limit: 2000 characters).' });
+    if (!neural || !neural.ready()) return json(res, 503, { error: 'llm_unavailable', message: `Infinity LLM is not available: ${neural ? neural.info().reason : 'switched off'}.` });
+    const ac = new AbortController();
+    let finished = false;
+    res.on('close', () => { if (!finished) ac.abort(); });
+    res.writeHead(200, { 'Content-Type': 'application/x-ndjson; charset=utf-8', 'Cache-Control': 'no-store, no-transform', 'X-Accel-Buffering': 'no', Connection: 'keep-alive' });
+    const send = (ev) => { if (!res.writableEnded && !ac.signal.aborted) res.write(JSON.stringify(ev) + '\n'); };
+    const temperature = typeof body.temperature === 'number' && body.temperature >= 0 && body.temperature <= 1.5 ? body.temperature : 0.6;
+    const g = await neural.chat({ user: body.message, history: body.history, temperature, signal: ac.signal, onToken: (text) => send({ type: 'token', text }) });
+    send({ type: 'answer', ok: g.ok, text: g.text || '', reason: g.reason || undefined, model: g.model, tokens: g.tokens, promptTokens: g.promptTokens, contextTurns: g.usedTurns, ms: g.ms, tokensPerSecond: g.tokensPerSecond, meanLogProb: g.meanLogProb, route: g.route });
+    send({ type: 'done' });
+    finished = true; res.end();
+    log({ ev: 'llm_chat', ms: g.ms, tokens: g.tokens, ok: g.ok });
+  }
+  /** Training controls. Every action needs the admin token; without a configured token the controls do not exist. */
+  async function llmAdmin(req, res) {
+    const ip = clientIp(req);
+    if (!llm.adminToken) return json(res, 403, { error: 'admin_disabled', message: 'The training controls are disabled on this server: no admin token is configured (INFINI_ADMIN_TOKEN, at least 16 characters).' });
+    if (!isAdmin(req)) { const wait = rateLimit(ip, 3); log({ ev: 'admin_denied', ip }); return json(res, wait ? 429 : 401, { error: wait ? 'rate_limited' : 'unauthorized', message: wait ? `Too many attempts. Try again in ${wait} s.` : 'A valid admin token is required.' }, wait ? { 'Retry-After': String(wait) } : { 'WWW-Authenticate': 'Bearer' }); }
+    const body = await parseJson(req);
+    const action = String(body.action || '');
+    try {
+      let out;
+      if (action === 'check') out = { ok: true };
+      else if (action === 'pause') out = manager.pause();
+      else if (action === 'resume') out = manager.resume();
+      else if (action === 'start') out = manager.start('cycle');
+      else if (action === 'evaluate') out = manager.start('evaluate');
+      else if (action === 'rollback') { out = manager.rollback({ to: typeof body.to === 'string' && /^m\d{4,}$/.test(body.to) ? body.to : null, reason: typeof body.reason === 'string' ? body.reason : '' }); if (neural) neural.refresh(true); }
+      else if (action === 'configure') out = manager.configure(body.settings && typeof body.settings === 'object' ? body.settings : {});
+      else return json(res, 400, { error: 'bad_request', message: 'Unknown action. Use check, pause, resume, start, evaluate, rollback or configure.' });
+      log({ ev: 'admin', action });
+      return json(res, 200, { ok: true, action, ...out });
+    } catch (e) {
+      const status = e.code === 'unavailable' ? 409 : e.code === 'busy' || e.code === 'paused' ? 409 : e.code === 'bad_request' ? 400 : 422;
+      return json(res, status, { error: e.code || 'failed', message: String(e.message).slice(0, 300) });
+    }
+  }
+  function llmStatus(req, res) {
+    const wait = rateLimit(clientIp(req), 0.2);
+    if (wait) return json(res, 429, { error: 'rate_limited', message: `Too many requests. Try again in ${wait} s.` }, { 'Retry-After': String(wait) });
+    return json(res, 200, { version: VERSION, model: neural ? neural.info() : { available: false, reason: 'switched off' }, learning: manager ? manager.view() : null });
   }
 
   function serveStatic(req, res, pathname) {
@@ -153,7 +225,10 @@ export function createApp(cfg = loadConfig()) {
       if (p === '/api/ask') return req.method === 'POST' ? await ask(req, res) : json(res, 405, { error: 'method_not_allowed' }, { Allow: 'POST' });
       if (p === '/api/preview') return req.method === 'POST' ? await preview(req, res) : json(res, 405, { error: 'method_not_allowed' }, { Allow: 'POST' });
       if (p === '/api/health') return json(res, 200, { ok: true, version: VERSION });
-      if (p === '/api/status') { const s = engine.status(); return json(res, 200, { version: VERSION, llm: false, brain: s.brain, uptimeS: s.uptimeS, totals: s.totals, depths: ['auto', 'fast', 'balanced', 'deep', 'research'], research: { ...s.research, perClientPerHour: cfg.research.perClientPerHour }, wikimediaBudget: s.wikimediaBudget, contactConfigured: s.contactConfigured, cache: { entries: s.http.cacheEntries, bytes: s.http.cacheBytes, hits: s.http.cacheHits, misses: s.http.cacheMisses }, providers: engine.providers(), rate: cfg.rate, ...(s.langsearch ? { langsearch: s.langsearch } : {}) }); }
+      if (p === '/api/llm/status') return req.method === 'GET' ? llmStatus(req, res) : json(res, 405, { error: 'method_not_allowed' }, { Allow: 'GET' });
+      if (p === '/api/llm/chat') return req.method === 'POST' ? await llmChat(req, res) : json(res, 405, { error: 'method_not_allowed' }, { Allow: 'POST' });
+      if (p === '/api/llm/admin') return req.method === 'POST' ? await llmAdmin(req, res) : json(res, 405, { error: 'method_not_allowed' }, { Allow: 'POST' });
+      if (p === '/api/status') { const s = engine.status(); return json(res, 200, { version: VERSION, llm: neural ? neural.info() : false, brain: s.brain, uptimeS: s.uptimeS, totals: s.totals, depths: ['auto', 'fast', 'balanced', 'deep', 'research'], research: { ...s.research, perClientPerHour: cfg.research.perClientPerHour }, wikimediaBudget: s.wikimediaBudget, contactConfigured: s.contactConfigured, cache: { entries: s.http.cacheEntries, bytes: s.http.cacheBytes, hits: s.http.cacheHits, misses: s.http.cacheMisses }, providers: engine.providers(), rate: cfg.rate, ...(s.langsearch ? { langsearch: s.langsearch } : {}) }); }
       if (p.startsWith('/api/')) return json(res, 404, { error: 'not_found' });
       if (req.method !== 'GET' && req.method !== 'HEAD') return json(res, 405, { error: 'method_not_allowed' }, { Allow: 'GET, HEAD' });
       return serveStatic(req, res, p);
@@ -163,5 +238,5 @@ export function createApp(cfg = loadConfig()) {
       return json(res, e.status || 500, { error: e.status ? 'bad_request' : 'internal_error', message: e.status ? e.message : 'Internal error' }, e.status === 413 ? { Connection: 'close' } : {});
     }
   }
-  return { handle, engine, cfg };
+  return { handle, engine, cfg, neural, manager, close: () => { if (manager) manager.close(); return engine.close(); } };
 }

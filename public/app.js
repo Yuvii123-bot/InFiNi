@@ -82,7 +82,7 @@ const idb = (() => {
   };
 })();
 
-const DEFAULTS = { depth: 'auto', theme: 'light', autoExpand: false, providersOff: [], feeds: [] };
+const DEFAULTS = { depth: 'auto', theme: 'light', autoExpand: false, providersOff: [], feeds: [], neural: true };
 const state = { chats: [], chat: null, busy: false, abort: null, settings: { ...DEFAULTS, ...LS.get('infini.settings', {}) }, learned: { domains: {}, providers: {}, vocab: {}, ...LS.get('infini.learned', {}) }, status: null, filter: '' };
 const saveSettings = () => LS.set('infini.settings', state.settings);
 const saveLearned = () => LS.set('infini.learned', state.learned);
@@ -152,7 +152,7 @@ const closeNav = () => { $('app').classList.remove('nav-open'); $('scrim').hidde
 const SUGGESTIONS = [['Chat', 'How are you today?', 'chat'], ['Explain', 'What is quantum computing?', 'bulb'], ['News', 'What happened in Nepal today?', 'news'], ['Common sense', 'Can a penguin fly?', 'fact'], ['How to', 'How do I build an AI agent?', 'steps'], ['Fun', 'Tell me a joke', 'smile']];
 const TRUST = [['spark', 'Its own brain for chat'], ['globe', 'Live web for facts'], ['quote', 'Sources you can check']];
 // where a reply of the built-in brain came from (shown under the reply; plain chat needs no label)
-const ORIGIN = { memory: ['spark', 'From my built-in memory · no web search'], skill: ['spark', 'Worked out by a built-in skill · no web search'], commonsense: ['spark', 'From my built-in common sense · not checked on the web'] };
+const ORIGIN = { neural: ['spark', 'Written by Infinity LLM from its own weights · no web search'], memory: ['spark', 'From my built-in memory · no web search'], skill: ['spark', 'Worked out by a built-in skill · no web search'], commonsense: ['spark', 'From my built-in common sense · not checked on the web'] };
 function renderAll() {
   $('chatTitle').textContent = state.chat.title;
   const thread = $('thread');
@@ -233,7 +233,8 @@ function spansEl(spans, result) {
 function answerEl(result) {
   const box = h('div', { class: 'answer' });
   for (const b of result.answer.blocks) {
-    if (b.type === 'paragraph') box.append(h('p', null, spansEl(b.spans, result)));
+    if (b.type === 'paragraph' && b.neural) box.append(h('div', { class: 'neural-answer' }, h('div', { class: 'neural-tag' }, icon('spark', 13), `Infinity LLM${result.neural && result.neural.model ? ' ' + result.neural.model.version : ''} · chosen from the sources below`), h('p', null, spansEl(b.spans, result))));
+    else if (b.type === 'paragraph') box.append(h('p', null, spansEl(b.spans, result)));
     else if (b.type === 'heading') box.append(h('h3', { class: [b.level === 2 ? 'part' : '', b.subtopic ? 'subtopic' : ''].join(' ').trim() || null, text: b.text }));
     else if (b.type === 'tally') box.append(tallyEl(b));
     else if (b.type === 'list') box.append(h(b.ordered ? 'ol' : 'ul', null, b.items.map((it) => h('li', { class: it.depth ? `d${Math.min(2, it.depth)}` : null }, spansEl(it.spans, result), (it.code || []).map((c) => h('pre', null, h('code', { text: c })))))));
@@ -401,6 +402,7 @@ function botEl(m) {
   fillBot(m);
   return el;
 }
+function neuralLine(n) { return `Written by Infinity LLM ${n.model.version} from its own weights (${num(n.model.parameters)} parameters) · ${n.tokens} tokens${n.tokensPerSecond ? ` at ${num(n.tokensPerSecond)} tokens/s` : ''}${typeof n.agreement === 'number' ? ` · agrees with the rule-based reply (${Math.round(n.agreement * 100)}% word overlap)` : ''} · no web search`; }
 function fillBot(m) {
   const body = m._body;
   body.replaceChildren();
@@ -424,7 +426,8 @@ function fillBot(m) {
   const isBrain = !!r && r.kind === 'brain';
   if (r) {
     body.append(answerEl(r));
-    if (isBrain && ORIGIN[r.origin]) body.append(h('div', { class: 'origin' }, icon(ORIGIN[r.origin][0], 13), ORIGIN[r.origin][1]));
+    if (isBrain && ORIGIN[r.origin]) body.append(h('div', { class: 'origin' }, icon(ORIGIN[r.origin][0], 13), r.origin === 'neural' && r.neural && r.neural.model ? neuralLine(r.neural) : ORIGIN[r.origin][1]));
+    else if (isBrain && r.neural && r.neural.used === false && r.neural.reason) body.append(h('div', { class: 'origin' }, icon('spark', 13), `Reply from the built-in rules: ${r.neural.reason}.`));
     const conf = confidenceEl(r.confidence); if (conf) body.append(conf);
     const runLine = runLineEl(r); if (runLine) body.append(runLine);
     const over = overviewEl(r); if (over) body.append(over);
@@ -526,11 +529,17 @@ async function openSettings() {
   feeds.addEventListener('change', () => { S.feeds = feeds.value.split(/\s+/).filter((u) => safeUrl(u)).slice(0, 4); saveSettings(); });
   const auto = h('input', { type: 'checkbox', checked: S.autoExpand });
   auto.addEventListener('change', () => { S.autoExpand = auto.checked; saveSettings(); });
+  const neuralCb = h('input', { type: 'checkbox', checked: S.neural !== false });
+  neuralCb.addEventListener('change', () => { S.neural = neuralCb.checked; saveSettings(); });
+  const llm = state.status && state.status.llm && state.status.llm.available ? state.status.llm : null;
   const nDomains = Object.keys(state.learned.domains).length, nVocab = Object.keys(state.learned.vocab).length;
   const depthNote = h('small', { class: 'depth-note', text: depthInfo(S.depth) });
   openModal('Settings', [
     h('div', { class: 'field' }, h('span', { class: 'lbl', text: 'Search depth' }), seg(DEPTHS, S.depth, (v) => { S.depth = v; saveSettings(); renderDepth(); depthNote.textContent = depthInfo(v); }), depthNote,
       h('small', { text: `Auto is the default. Deep and Research take longer and count more against the limit on questions per minute${state.status && state.status.research ? `; each device may start ${state.status.research.perClientPerHour} research runs per hour` : ''}. Pages that refuse automated reading are skipped and counted, never bypassed.` })),
+    h('div', { class: 'field' }, h('span', { class: 'lbl', text: 'Language model' }),
+      h('label', { class: 'check' }, neuralCb, h('span', null, 'Let Infinity LLM write the replies', h('small', { text: llm ? `Infinity LLM ${llm.version}: a neural network with ${num(llm.parameters)} parameters, trained from random weights by this project and run by this server. It is small, so every reply it writes is compared with the rule-based reply to the same message and shown only when the two say the same thing; otherwise the rule-based reply is shown, and the label under the reply says which one you are reading. Web answers always show their sources.` : 'No trained model is loaded on this server right now, so replies come from the built-in rules and the web pipeline.' }))),
+      h('a', { class: 'btn small', href: '/learning.html', text: 'Open the learning dashboard' })),
     h('div', { class: 'field' }, h('span', { class: 'lbl', text: 'Appearance' }), seg([['light', 'Light'], ['dark', 'Dark'], ['system', 'System']], S.theme, (v) => { S.theme = v; saveSettings(); applyTheme(); })),
     h('div', { class: 'field' }, h('label', { class: 'check' }, auto, h('span', null, 'Show research activity expanded', h('small', { text: 'Otherwise it collapses to one line under each answer.' })))),
     h('div', { class: 'field' }, h('span', { class: 'lbl', text: 'Sources' }), h('small', { text: 'Search providers are interchangeable; if one fails the next is tried. Untick any you do not want used.' }), ...prov),
@@ -541,13 +550,18 @@ async function openSettings() {
         h('button', { class: 'btn small', type: 'button', text: 'Clear saved knowledge', onclick: async () => { await idb.clear('knowledge'); toast('Saved knowledge cleared'); closeModal(); } }),
         h('button', { class: 'btn small', type: 'button', text: 'Clear learned statistics', onclick: () => { state.learned = { domains: {}, providers: {}, vocab: {} }; saveLearned(); toast('Learned statistics cleared'); closeModal(); } }),
         h('button', { class: 'btn small danger', type: 'button', text: 'Delete all conversations', onclick: async () => { if (!confirm('Delete every conversation stored on this device?')) return; await idb.clear('chats'); state.chats = []; closeModal(); newChat(); toast('All conversations deleted'); } }))),
-    state.status ? h('small', { text: `Engine ${state.status.version} · language model: none${state.status.brain ? ` · built-in brain: ${Number(state.status.brain.patterns).toLocaleString()} phrasings, ${Number(state.status.brain.facts).toLocaleString()} common-sense facts` : ''} · Wikimedia API budget left this minute: ${state.status.wikimediaBudget}${state.status.contactConfigured ? '' : ' (operator contact not configured — lower limit applies)'}` }) : null,
+    state.status ? h('small', { text: `Engine ${state.status.version} · language model: ${llm ? `Infinity LLM ${llm.version} (${num(llm.parameters)} parameters, own weights)` : 'none loaded'}${state.status.brain ? ` · built-in brain: ${Number(state.status.brain.patterns).toLocaleString()} phrasings, ${Number(state.status.brain.facts).toLocaleString()} common-sense facts` : ''} · Wikimedia API budget left this minute: ${state.status.wikimediaBudget}${state.status.contactConfigured ? '' : ' (operator contact not configured — lower limit applies)'}` }) : null,
   ]);
 }
 function openAbout() {
   const ul = (items) => h('ul', null, items.map((t) => h('li', { text: t })));
   openModal('About INFINI AI', [h('div', { class: 'about' },
-    h('p', { text: 'INFINI AI has two parts: a small built-in brain for conversation, memory and everyday common sense, and a live web pipeline for knowledge. There is no large language model inside it and it calls none.' }),
+    h('p', { text: 'INFINI AI has three parts: Infinity LLM, a small neural language model that this project trained from random weights; a built-in rule-based brain for memory, common sense and exact skills; and a live web pipeline for knowledge. It calls no outside language model.' }),
+    h('div', { class: 'sec', text: 'Infinity LLM' }),
+    ul([state.status && state.status.llm && state.status.llm.available ? `The model in use is ${state.status.llm.version}: a decoder-only Transformer with ${num(state.status.llm.parameters)} parameters (${state.status.llm.layers} layers, context of ${state.status.llm.context} tokens), trained on ${num(state.status.llm.trainedTokens || 0)} tokens.` : 'No trained model is loaded on this server right now.',
+      'It writes conversational replies one token at a time from its own weights. For a question that needs facts, the web pipeline finds and checks the sources first; the model then answers only with sentences those sources contain, and each sentence carries its citation.',
+      'It is very small compared with commercial language models. It handles everyday conversation in the style it was trained on; it does not reason, and it is not a source of facts by itself.',
+      'It keeps learning in controlled cycles: openly licensed text is collected, filtered and verified, a candidate model is trained, and the candidate replaces the current model only if it measures better on held-out data. The learning dashboard shows every step.']),
     h('div', { class: 'sec', text: 'The built-in brain' }),
     ul(['It is made of rules and data, not a neural network: a database of everyday phrasings, prepared replies, a common-sense fact base and a few exact skills (clock, calendar, sums, dice, spelling).',
       'It understands casual typing, shorthand and typos, keeps track of the conversation, and remembers what you tell it (your name, what you like) for the current chat. That memory stays on this device.',
@@ -626,6 +640,18 @@ function withOwnMemory(saved, current) {
   return { ...saved, brain: mine ? { ...mine, expect: null, ...last } : last };
 }
 const deviceTz = () => { try { return Intl.DateTimeFormat().resolvedOptions().timeZone || ''; } catch { return ''; } };
+/** The conversation so far as [user, reply] pairs: the context the language model reads before it answers. */
+function historyFor(chat, upTo) {
+  const out = [];
+  let user = null;
+  for (const x of chat.messages) {
+    if (x === upTo) break;
+    if (x.role === 'user') user = x.text;
+    else if (x.role === 'bot' && user && x.result && x.result.answer && x.result.kind === 'brain') { out.push([String(user).slice(0, 500), String(x.result.answer.text || '').slice(0, 700)]); user = null; }
+    else user = null;
+  }
+  return out.slice(-6);
+}
 async function run(question, { regenerate: regen = false, replace = null, context = null, route = '' } = {}) {
   const chat = state.chat;
   if (!chat.messages.length) $('thread').replaceChildren();
@@ -651,15 +677,18 @@ async function run(question, { regenerate: regen = false, replace = null, contex
   // a deep or research run shows live counters, and the answer built so far, while the reading goes on
   const prog = createProgress();
   const draftBox = h('div', { class: 'draft', hidden: true });
+  // the language model's words appear here one token at a time, as they are generated
+  const streamTag = h('div', { class: 'neural-tag' }), streamText = h('p', { class: 'stream-text' });
+  const streamBox = h('div', { class: 'stream', hidden: true }, streamTag, streamText);
   let draft = null;
   act.el.hidden = true;
-  m._body.append(typing, prog.el, act.el, draftBox);
+  m._body.append(typing, prog.el, act.el, draftBox, streamBox);
   const reveal = () => { if (act.el.hidden) { act.el.hidden = false; typing.hidden = true; } };
   scrollDown(true);
   setBusy(true);
   state.abort = new AbortController();
   try {
-    const res = await fetch('/api/ask', { method: 'POST', headers: { 'Content-Type': 'application/json' }, signal: state.abort.signal, body: JSON.stringify({ question, context: ctxBefore, regenerate: regen, tz: deviceTz(), learned: learnedPayload(), settings: { depth: state.settings.depth, providersOff: state.settings.providersOff, feeds: state.settings.feeds, ...(route ? { route } : {}) } }) });
+    const res = await fetch('/api/ask', { method: 'POST', headers: { 'Content-Type': 'application/json' }, signal: state.abort.signal, body: JSON.stringify({ question, context: ctxBefore, history: historyFor(chat, m), regenerate: regen, tz: deviceTz(), learned: learnedPayload(), settings: { neural: state.settings.neural !== false, depth: state.settings.depth, providersOff: state.settings.providersOff, feeds: state.settings.feeds, ...(route ? { route } : {}) } }) });
     if (!res.ok || !res.body) { let msg = `The server answered ${res.status}.`; try { msg = (await res.json()).message || msg; } catch { /* not JSON */ } throw new Error(msg); }
     const reader = res.body.getReader(), dec = new TextDecoder();
     let buf = '';
@@ -676,6 +705,11 @@ async function run(question, { regenerate: regen = false, replace = null, contex
         else if (ev.type === 'error') m.error = ev.message;
         else if (ev.type === 'progress') prog.onEvent(ev);                               // live counters only: not kept with the conversation
         else if (ev.type === 'draft') { draft = ev.result; renderDraft(draftBox, ev); }
+        else if (ev.type === 'token') {
+          if (ev.start) { streamText.textContent = ''; streamTag.replaceChildren(icon('spark', 13), `Infinity LLM${ev.model ? ' ' + ev.model.version : ''} is writing${ev.mode === 'grounded' ? ' from the sources' : ''}…`); streamBox.hidden = false; typing.hidden = true; draftBox.hidden = true; }
+          else if (ev.reset) { streamText.textContent = ''; streamBox.hidden = true; if (act.el.hidden) typing.hidden = false; }
+          else if (ev.text) { streamText.textContent += ev.text; scrollDown(); }
+        }
         else if (ev.type !== 'done') {
           if (ev.type === 'research') { prog.onEvent(ev); if (ev.status === 'start') act.el.classList.add('compact'); }
           if (m.events.length < 160 || ev.type === 'stage' || ev.type === 'research') m.events.push(ev);
@@ -702,6 +736,13 @@ async function run(question, { regenerate: regen = false, replace = null, contex
 }
 function autoGrow() { const q = $('q'); q.style.height = 'auto'; q.style.height = Math.min(160, q.scrollHeight) + 'px'; $('sendBtn').disabled = !q.value.trim(); }
 
+/** The lines under the message box say what is really answering: the neural model when one is loaded, the rules otherwise. */
+function describeModel() {
+  const llm = state.status && state.status.llm && state.status.llm.available ? state.status.llm : null;
+  const hint = document.querySelector('.composer-hint'), fine = document.querySelector('.fineprint');
+  if (hint) hint.textContent = llm ? 'Infinity LLM for chat · live web for facts' : 'Own brain for chat · live web for facts';
+  if (fine) fine.textContent = llm ? `Chat replies are written by Infinity LLM ${llm.version}, a small neural model trained from scratch, when they pass a check against the built-in rules; otherwise the rules reply. Facts come from pages retrieved just now — check the citations.` : 'Chat comes from a built-in brain. Facts come from pages retrieved just now — check the citations.';
+}
 // ---------------- wiring ----------------
 async function init() {
   applyTheme();
@@ -713,7 +754,7 @@ async function init() {
   $('depthBtn').addEventListener('click', (e) => { e.stopPropagation(); toggleDepthMenu(); });
   document.addEventListener('click', (e) => { if (depthMenu && !depthMenu.contains(e.target)) closeDepthMenu(); });
   renderDepth();
-  fetch('/api/status').then((res) => (res.ok ? res.json() : null)).then((st) => { if (st) state.status = st; }).catch(() => { /* the limits are then described with their defaults */ });
+  fetch('/api/status').then((res) => (res.ok ? res.json() : null)).then((st) => { if (st) { state.status = st; describeModel(); } }).catch(() => { /* the limits are then described with their defaults */ });
   $('menuBtn').addEventListener('click', openNav);
   $('scrim').addEventListener('click', closeNav);
   $('histSearch').addEventListener('input', (e) => { state.filter = e.target.value; renderChatList(); });

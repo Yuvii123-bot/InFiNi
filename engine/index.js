@@ -203,7 +203,7 @@ export function createEngine(userCfg) {
           totals.brain++;
           emit({ type: 'stage', stage: 'understanding', status: 'start' });
           emit({ type: 'stage', stage: 'understanding', status: 'done', ms: Date.now() - s0, detail: { intent: 'conversation', followUp: false, rewrites: [], resolved: '', parts: [], brain: { intent: b.intent, origin: b.origin } } });
-          return local('brain', b.blocks, null, { context: { ...context, brain: b.state, turn: (context.turn || 0) + 1 }, suggestions: b.suggestions, origin: b.origin, brain: { intent: b.intent, group: b.group, sure: b.sure } });
+          return local('brain', b.blocks, null, { context: { ...context, brain: b.state, turn: (context.turn || 0) + 1 }, suggestions: b.suggestions, origin: b.origin, brain: { intent: b.intent, group: b.group, sure: b.sure, alternatives: b.alternatives || [] } });
         }
         if (b) {
           brainState = b.state; preface = b.preface || '';
@@ -923,8 +923,30 @@ export function createEngine(userCfg) {
     return { url: res.url, title: page.title, site: page.site, author: page.author, published: page.published, modified: page.modified, blocks: page.blocks.slice(0, 60), quality: page.quality };
   }
 
+  /**
+   * For the learning pipeline (learning/): the same search providers and the same guarded fetch path as answering uses,
+   * so training data is found and read under the same rules (robots.txt, rate budgets, SSRF guard, size limits).
+   */
+  async function discover(query, { signal = null, limit = 6, off = [] } = {}) {
+    const pctx = { http, cfg, signal, limit, timeoutMs: 7000 };
+    const log = [], seen = new Set(), out = [];
+    const add = (list, provider) => { for (const r of list || []) { if (!r || !r.url || seen.has(r.url)) continue; seen.add(r.url); out.push({ url: r.url, title: r.title || '', snippet: r.snippet || '', provider: r.provider || provider }); } };
+    const offSet = new Set(off);
+    if (isEnabled('wikipedia', cfg, offSet)) { try { add(await wikipedia.search(query, pctx), 'wikipedia'); } catch (e) { log.push({ provider: 'wikipedia', error: String(e && e.message) }); } }
+    try { add(await webSearch(query, pctx, (e) => log.push(e), { off: offSet }), 'web'); } catch (e) { log.push({ provider: 'web', error: String(e && e.message) }); }
+    return { results: out.slice(0, limit * 2), log };
+  }
+  async function acquire(url, { signal = null, maxBytes = 1_500_000 } = {}) {
+    if (wikipedia.handles(url)) {
+      const p = await wikipedia.fetch(url, { http, cfg, signal });
+      return { url: p.url || url, via: 'wikipedia-api', html: '', headers: {}, page: { title: p.title, site: p.site, author: '', published: '', modified: p.modified || '', lang: (new URL(url)).hostname.split('.')[0], robots: '', blocks: p.blocks, quality: { chars: p.blocks.reduce((a, b) => a + String(b.text || '').length, 0), fallback: false, jsRequired: false, truncated: false, linkDensity: 0 } } };
+    }
+    const res = await http.getText(url, { robots: true, signal, timeoutMs: 9000, maxBytes });
+    return { url: res.url, via: 'http', html: res.text, headers: res.headers || {}, page: extractPage(res.text, res.url, { lastModified: res.headers && res.headers['last-modified'] }) };
+  }
+
   return {
-    ask, preview, config: cfg,
+    ask, preview, config: cfg, http, discover, acquire,
     providers: (offList = []) => listProviders(cfg, new Set(offList)),
     brain,
     status: () => ({ version: VERSION, uptimeS: Math.round((Date.now() - totals.startedAt) / 1000), totals: { ...totals }, research: { enabled: !!cfg.research.enabled, running: researchLoad.running, startedLastHour: researchLoad.starts.filter((t) => Date.now() - t < 3600_000).length, maxConcurrent: cfg.research.maxConcurrent, perHour: cfg.research.perHour, maxPages: cfg.research.maxPages, maxSeconds: cfg.research.maxSeconds }, brain: brain.stats(), http: http.stats(), wikimediaBudget: http.remaining('wikimedia-api'), contactConfigured: !!cfg.contact, ...(cfg.keys.langsearch ? { langsearch: langsearchUsage() } : {}) }),

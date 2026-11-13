@@ -414,3 +414,14 @@ pre { background: #12151c; color: #e7e9ef; border-radius: 12px; padding: 13px 15
 .ex-item.off { opacity: .6; }
 .ex-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--border-strong); margin: 7px auto 0; }
 .ex-list + .sec, .ex-count + .ex-list { margin-top: 4px; }
+
+/* Infinity LLM: text arriving token by token, and the model's own paragraph inside a web answer */
+.stream { margin: 4px 0 6px; }
+.stream-text { margin: 4px 0 0; white-space: pre-wrap; }
+.stream-text::after { content: ''; display: inline-block; width: 7px; height: 1em; margin-left: 2px; vertical-align: -2px; background: var(--accent); opacity: .55; animation: typing 1.1s ease-in-out infinite; }
+.neural-tag { display: flex; align-items: center; gap: 6px; font-size: 12.5px; color: var(--faint); }
+.neural-tag .ico { color: var(--accent); flex: 0 0 auto; }
+.neural-answer { margin: 0 0 12px; padding: 10px 12px; border: 1px solid var(--border-strong); border-left: 3px solid var(--accent); border-radius: 10px; }
+.neural-answer p { margin: 6px 0 0; }
+a.link-btn { text-decoration: none; }
+@media (prefers-reduced-motion: reduce) { .stream-text::after { animation: none; } }

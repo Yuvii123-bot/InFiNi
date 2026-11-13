@@ -1,8 +1,12 @@
 # INFINI AI — container image. No build step and no dependencies: the image is Node plus this repository.
+# It serves the published Infinity LLM in model/. It does not train: training needs Python and PyTorch and a writable
+# state directory (docs/INFINITY-LLM.md); run that on a host with `node server/server.js` or `node learning/cli.mjs cycle`.
 FROM node:20-alpine
 WORKDIR /app
 COPY package.json ./
 COPY engine ./engine
+COPY learning ./learning
+COPY model ./model
 COPY server ./server
 COPY public ./public
 COPY cli.js ./

@@ -364,9 +364,11 @@
 ## fb.repeat_complaint g=feedback
 > (you already said that|you said that already|you said that before|you just said that|you told me that already|you told me that|you are repeating yourself|stop repeating yourself|stop repeating|do not repeat yourself|you keep saying (that|the same thing)|you keep repeating|same answer|same answer again|the same thing again|same thing again|again the same|not again|you always say (that|the same thing|the same)|say something else|say something different|say something new|tell me something else|tell me something different|give me a different answer|give me another answer|different answer|another answer|i want a different answer|i want a new answer|i have heard that already|i heard that already|heard that before|i know that already|you sound like a broken record|broken record|change your answer|change the answer|can you say something else|anything else to say|is that all you can say|is that all you have|is that all|that is all you can say|do you have anything else to say|got anything else)
 ! ms 28
-< You're right, sorry. My replies come from a fixed store, so I do repeat sometimes. Ask me something new, or tap "Regenerate" for another wording.
-< Fair point. I'm working from prepared replies, so variety has limits. Try me on a different topic?
+<[!llm] You're right, sorry. My replies come from a fixed store, so I do repeat sometimes. Ask me something new, or tap "Regenerate" for another wording.
+<[!llm] Fair point. I'm working from prepared replies, so variety has limits. Try me on a different topic?
 < Sorry for the echo. Give me a new question and I'll have something fresh.
+<[llm] You're right, sorry. I'm a small model with a limited range, so I do repeat sometimes. Ask me something new, or tap "Regenerate" for another wording.
+<[llm] Fair point. My language model is small, so variety has limits. Try me on a different topic?
 * Tell me a joke | What can you do?
 
 ## social.kidding g=ack

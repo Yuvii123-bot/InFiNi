@@ -4,3 +4,7 @@ node_modules/
 bench/results/*.tmp
 *.log
 .cache/
+data/llm/
+__pycache__/
+*.pyc
+.venv/

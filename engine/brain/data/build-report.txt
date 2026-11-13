@@ -1,5 +1,5 @@
-built 2026-11-12
-{"built":"2026-11-12","intents":282,"patterns":52938,"handWritten":32578,"imported":20360,"slotPatterns":247,"replies":902}
+built 2026-11-13
+{"built":"2026-11-13","intents":283,"patterns":52989,"handWritten":32629,"imported":20360,"slotPatterns":247,"replies":932}
 
 phrases that normalise to something else (143 shown):
 social.bye: "i am done for now now" → "i am done for now"

@@ -1,6 +1,6 @@
 // INFINI AI — configuration (environment-driven; every value has a safe default; no key is required).
 
-export const VERSION = '3.1.0';
+export const VERSION = '4.0.0';
 
 const WIKIMEDIA_HOST = /(^|\.)(wikipedia|wikidata|wikimedia|mediawiki|wiktionary|wikinews|wikibooks|wikiquote|wikivoyage|wikiversity|wikisource)\.org$/;
 const WIKIMEDIA_API_PATH = /^\/(w\/api\.php|w\/rest\.php|api\/rest_v1|core\/v1)/;
@@ -70,7 +70,22 @@ export function loadConfig(env = (typeof process !== 'undefined' ? process.env :
         { id: 'mwmbl', label: 'Mwmbl', perMin: 30, test: (u) => u.hostname === 'api.mwmbl.org' },
         // LangSearch allows 5 requests per second on a new account (docs, November 2026): starts are spaced 250 ms apart
         { id: 'langsearch', label: 'LangSearch API', perMin: 120, gapMs: num(env.LANGSEARCH_GAP_MS, 250, 0, 5000), test: (u) => u.hostname === 'api.langsearch.com' },
+        // GitHub REST API (openly licensed text collections for the learning pipeline): well under the documented limits
+        { id: 'github', label: 'GitHub API', perMin: 240, test: (u) => u.hostname === 'api.github.com' },
       ],
+    },
+    // Infinity LLM (engine/neural, learning/). On for the real process environment; a configuration built from an explicit
+    // environment object (tests, embedding) gets the model only when it asks for it with INFINI_LLM=1.
+    llm: {
+      enabled: env.INFINI_LLM !== undefined && env.INFINI_LLM !== '' ? env.INFINI_LLM !== '0' : (typeof process !== 'undefined' && env === process.env),
+      dir: String(env.INFINI_LLM_DIR || ''),                                  // state directory; empty = <repo>/data/llm
+      bundled: String(env.INFINI_LLM_BUNDLED || ''),                          // the published model; empty = <repo>/model
+      minLogProb: num(env.INFINI_LLM_MIN_LOGPROB, -1.6, -20, 0),
+      minAgreement: num(env.INFINI_LLM_MIN_AGREEMENT, 0.6, 0, 1),            // word overlap a generated reply needs with a correct rule-based reply before it is shown               // replies the model itself finds less likely than this are not shown
+      adminToken: String(env.INFINI_ADMIN_TOKEN || '').length >= 16 ? String(env.INFINI_ADMIN_TOKEN) : '',     // protects the training controls; unset = controls disabled
+      serverless: !!(env.VERCEL || env.AWS_LAMBDA_FUNCTION_NAME),              // no writable disk, no long-running processes: training runs elsewhere
+      learning: env.INFINI_LEARNING !== '0',
+      scheduler: env.INFINI_LEARNING_SCHEDULER !== '0',
     },
   };
 }

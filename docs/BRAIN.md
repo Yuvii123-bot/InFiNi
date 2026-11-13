@@ -11,8 +11,13 @@ reworded, to the web pipeline.
 
 ## What it is, and what it is not
 
-The brain is **rules and data**. There is no language model and no neural network, in the app or behind
-it. Every reply is one of three things:
+The brain is **rules and data**. There is no language model and no neural network inside the brain itself.
+Since version 4.0.0 the app also has Infinity LLM, a small neural language model of its own
+([`INFINITY-LLM.md`](INFINITY-LLM.md)). When that model is loaded it writes the wording of conversational replies,
+and the brain still decides what kind of message it is, keeps the memory, answers common sense, exact skills, safety
+messages and every question about the assistant itself, supplies the reply whenever the model's own reply fails its checks, and is the standard those checks compare the model's reply with.
+Replies about itself come in two sets, marked `[llm]` and `[!llm]` in `tools/brain/intents/`, so that what it says is
+true in both situations. Every reply is one of three things:
 
 1. a sentence written in advance (902 of them), chosen to fit the situation;
 2. such a sentence with remembered or computed values filled in ("Nice to meet you, Yuv!");

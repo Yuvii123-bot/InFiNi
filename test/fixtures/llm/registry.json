@@ -1,0 +1,83 @@
+{
+ "format": "infinity-registry/1",
+ "production": "m0001",
+ "previous": null,
+ "experimental": null,
+ "models": {
+  "m0001": {
+   "id": "m0001",
+   "status": "production",
+   "created": "2026-11-13T09:31:19Z",
+   "parent": null,
+   "cycle": "c0001",
+   "dataset": "d0001",
+   "preset": "nano",
+   "config": {
+    "vocab_size": 512,
+    "context": 128,
+    "n_layer": 2,
+    "n_head": 2,
+    "d_model": 64,
+    "mlp_ratio": 4,
+    "dropout": 0,
+    "norm": "rmsnorm",
+    "tie_weights": true
+   },
+   "context": 128,
+   "params": 139584,
+   "step": 216,
+   "tokens_seen": 442368,
+   "train_seconds": 29.4,
+   "sha256": "026d7186e39431d9ca61decbadc68c82eb8049677496e64387311dce4d0f17a3",
+   "weightsBytes": 279168,
+   "tokenizer_sha": "ab1633c2a9ca5be6a2b28b1ae2da6ee13d913d1f19a95b844354788c9889d46d",
+   "initialisation": "random (seeded), no pretrained weights",
+   "val_loss": 3.7482,
+   "groups": {
+    "dialogue": {
+     "val_loss": 3.7482,
+     "windows": 76
+    }
+   },
+   "probes": {
+    "parity": true,
+    "chatExact": 0,
+    "chatF1": 0.1559,
+    "grounded": null,
+    "groundedChance": null,
+    "route": 1,
+    "repetition": 0,
+    "unfinished": 0,
+    "tokensPerSecond": 4128
+   },
+   "gate": {
+    "pass": false,
+    "comparedWith": null,
+    "failed": [
+     "learned something (loss well below a uniform guess)"
+    ]
+   },
+   "evaluatedOn": "d0001",
+   "rejectedAt": "2026-11-13T09:31:22Z",
+   "promotedAt": "2026-11-13T09:31:22Z"
+  }
+ },
+ "history": [
+  {
+   "t": "2026-11-13T09:31:22Z",
+   "action": "reject",
+   "model": "m0001",
+   "kept": null,
+   "reason": "learned something (loss well below a uniform guess) [3.7482 vs 0.6 × ln(512) = 3.74]"
+  },
+  {
+   "t": "2026-11-13T09:31:22Z",
+   "action": "promote",
+   "from": null,
+   "to": "m0001",
+   "by": "fixture",
+   "reason": "test fixture: promoted by tools/llm/make-fixture.mjs, not by the gate"
+  }
+ ],
+ "updated": "2026-11-13T09:31:22Z"
+}

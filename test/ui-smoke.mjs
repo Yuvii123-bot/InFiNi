@@ -5,6 +5,8 @@ import { createApp } from '../server/app.js';
 import { installDom } from './helpers/fake-dom.mjs';
 
 process.env.LOG_LEVEL = 'silent';
+// these checks describe the rule-based replies; the language model has its own offline UI test (test/ui-llm.test.js)
+process.env.INFINI_LLM = process.env.INFINI_LLM || '0';
 // this run sends about twenty messages within seconds; the limiter itself is tested in bench/security.js
 process.env.RATE_LIMIT_PER_MIN = process.env.RATE_LIMIT_PER_MIN || '120';
 process.env.RATE_LIMIT_BURST = process.env.RATE_LIMIT_BURST || '40';

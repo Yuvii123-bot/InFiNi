@@ -1,0 +1,249 @@
+{
+ "format": "infinity-llm/1",
+ "config": {
+  "vocab_size": 512,
+  "context": 128,
+  "n_layer": 2,
+  "n_head": 2,
+  "d_model": 64,
+  "mlp_ratio": 4.0,
+  "dropout": 0.0,
+  "norm": "rmsnorm",
+  "tie_weights": true
+ },
+ "params": 139584,
+ "dtype": "f16",
+ "tensors": [
+  {
+   "name": "tok_emb.weight",
+   "shape": [
+    512,
+    64
+   ],
+   "offset": 0,
+   "size": 32768
+  },
+  {
+   "name": "pos_emb.weight",
+   "shape": [
+    128,
+    64
+   ],
+   "offset": 32768,
+   "size": 8192
+  },
+  {
+   "name": "blocks.0.norm1.weight",
+   "shape": [
+    64
+   ],
+   "offset": 40960,
+   "size": 64
+  },
+  {
+   "name": "blocks.0.attn.qkv.weight",
+   "shape": [
+    192,
+    64
+   ],
+   "offset": 41024,
+   "size": 12288
+  },
+  {
+   "name": "blocks.0.attn.proj.weight",
+   "shape": [
+    64,
+    64
+   ],
+   "offset": 53312,
+   "size": 4096
+  },
+  {
+   "name": "blocks.0.norm2.weight",
+   "shape": [
+    64
+   ],
+   "offset": 57408,
+   "size": 64
+  },
+  {
+   "name": "blocks.0.mlp.fc.weight",
+   "shape": [
+    256,
+    64
+   ],
+   "offset": 57472,
+   "size": 16384
+  },
+  {
+   "name": "blocks.0.mlp.proj.weight",
+   "shape": [
+    64,
+    256
+   ],
+   "offset": 73856,
+   "size": 16384
+  },
+  {
+   "name": "blocks.1.norm1.weight",
+   "shape": [
+    64
+   ],
+   "offset": 90240,
+   "size": 64
+  },
+  {
+   "name": "blocks.1.attn.qkv.weight",
+   "shape": [
+    192,
+    64
+   ],
+   "offset": 90304,
+   "size": 12288
+  },
+  {
+   "name": "blocks.1.attn.proj.weight",
+   "shape": [
+    64,
+    64
+   ],
+   "offset": 102592,
+   "size": 4096
+  },
+  {
+   "name": "blocks.1.norm2.weight",
+   "shape": [
+    64
+   ],
+   "offset": 106688,
+   "size": 64
+  },
+  {
+   "name": "blocks.1.mlp.fc.weight",
+   "shape": [
+    256,
+    64
+   ],
+   "offset": 106752,
+   "size": 16384
+  },
+  {
+   "name": "blocks.1.mlp.proj.weight",
+   "shape": [
+    64,
+    256
+   ],
+   "offset": 123136,
+   "size": 16384
+  },
+  {
+   "name": "norm_f.weight",
+   "shape": [
+    64
+   ],
+   "offset": 139520,
+   "size": 64
+  }
+ ],
+ "bytes": 279168,
+ "sha256": "026d7186e39431d9ca61decbadc68c82eb8049677496e64387311dce4d0f17a3",
+ "step": 216,
+ "tokens_seen": 442368,
+ "train_seconds": 29.399187088012695,
+ "val_loss": 3.735901355743408,
+ "dataset": "d0001",
+ "tokenizer_sha": "ab1633c2a9ca5be6a2b28b1ae2da6ee13d913d1f19a95b844354788c9889d46d",
+ "framework": "torch 2.15.0+cu132",
+ "initialisation": "random (seeded); no pretrained weights",
+ "exported": "2026-11-13T09:31:18Z",
+ "reference": {
+  "tokens": [
+   478,
+   94,
+   432,
+   428,
+   390,
+   107,
+   68,
+   88,
+   501,
+   279,
+   128,
+   363,
+   318,
+   253,
+   479,
+   24,
+   318,
+   149,
+   404,
+   87,
+   374,
+   411,
+   446,
+   154
+  ],
+  "argmax": [
+   54,
+   81,
+   309,
+   459,
+   115,
+   113,
+   302,
+   309,
+   108,
+   123,
+   113,
+   47,
+   54,
+   302,
+   54,
+   277,
+   123,
+   277,
+   113,
+   123,
+   54,
+   332,
+   54,
+   54
+  ],
+  "last_logits_head": [
+   1.040913,
+   1.060383,
+   2.424196,
+   -2.241985,
+   -2.326582,
+   -2.444834,
+   -2.332712,
+   -2.243218,
+   -2.407257,
+   -2.209485,
+   -2.285673,
+   -2.228547,
+   -2.31586,
+   -2.48604,
+   -2.40259,
+   -2.341859,
+   -2.326311,
+   -2.455755,
+   -2.390107,
+   -2.168605,
+   -2.323374,
+   -2.520008,
+   -2.086,
+   -2.233333,
+   -2.264296,
+   -2.390454,
+   -2.451754,
+   -2.428709,
+   -2.30983,
+   -2.307247,
+   -2.460073,
+   -2.173447
+  ],
+  "last_logsumexp": 6.62487,
+  "last_max": 4.15379
+ }
+}
