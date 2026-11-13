@@ -176,7 +176,7 @@ const STAGES = [['understanding', 'Understanding the question'], ['planning', 'P
 function stageMeta(name, d) {
   if (!d) return '';
   if (name === 'understanding') return d.parts && d.parts.length ? d.parts.map((p) => `${p.qtype} → ${p.answerType}`).join(' · ') : d.intent;
-  if (name === 'planning') return `${(d.tasks || []).length} lookups planned · ${d.depth} depth`;
+  if (name === 'planning') return d.long ? `${(d.tasks || []).length} lookups planned for the quick first round` : `${(d.tasks || []).length} lookups planned · ${d.depth} depth`;
   if (name === 'searching') return `${d.ok ?? d.queries} of ${d.queries} searches returned · ${d.results ?? 0} results`;
   if (name === 'reading') return `${d.pages} page${d.pages === 1 ? '' : 's'} read${d.failed ? ` · ${d.failed} unavailable` : ''}`;
   if (name === 'comparing') return `${d.sentences} sentences · ${d.documents} documents · ${d.independentOrigins} independent origins`;

@@ -421,7 +421,8 @@ export function createEngine(userCfg) {
       plan = await stage('planning', async () => {
         const p = buildPlan(analysis, { depth, enabled: (id) => isEnabled(id, cfg, off), wikiBudget: http.remaining('wikimedia-api'), simple: !!style.simple || analysis.parts.some((x) => x.style.simple) });
         planRef = p;
-        return { depth: p.depth, subquestions: p.subquestions, tasks: p.tasks.map((t) => ({ id: t.id, kind: t.kind, label: t.label, provider: t.provider || 'web' })), notes: p.notes, synthesis: p.synthesis };
+        // `long`: these lookups are only the quick first round of a deep search or research run (the depth named here is that round's budget)
+        return { depth: p.depth, long: mode === 'deep' || mode === 'research', subquestions: p.subquestions, tasks: p.tasks.map((t) => ({ id: t.id, kind: t.kind, label: t.label, provider: t.provider || 'web' })), notes: p.notes, synthesis: p.synthesis };
       }).then(() => planRef);
 
       // ---------------- Searching ----------------

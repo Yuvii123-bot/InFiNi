@@ -175,11 +175,23 @@ export function aspectMatcher(aspect) {
 }
 
 /** Merge sub-topic lists (earlier lists win), dropping ones whose vocabulary is already covered. */
+// "Immune function" and "Immune system", "Reproductive health" and "Reproductive disorders": one describing word with two general
+// nouns names one sub-topic, not two. ("Energy density" and "Energy storage" stay apart: neither noun is general.)
+const GENERAL_HEAD = new Set(stemsOf('system systems function functions response responses process processes activity health effect effects impact impacts issue issues problem problems disorder disorders disease diseases condition conditions level levels change changes mechanism mechanisms outcome outcomes damage'));
+const sameThing = (a, o) => {
+  if (a.stems.every((st) => o.stems.includes(st)) || o.stems.every((st) => a.stems.includes(st))) return true;
+  if (a.stems.length !== 2 || o.stems.length !== 2) return false;
+  const shared = a.stems.filter((st) => o.stems.includes(st));
+  if (shared.length !== 1) return false;
+  const restA = a.stems.find((st) => st !== shared[0]), restO = o.stems.find((st) => st !== shared[0]);
+  return !GENERAL_HEAD.has(shared[0]) && GENERAL_HEAD.has(restA) && GENERAL_HEAD.has(restO);
+};
+
 export function mergeAspects(lists, { max = 10 } = {}) {
   const out = [];
   for (const list of lists) for (const a of list || []) {
     if (out.length >= max) return out;
-    if (out.some((o) => a.stems.every((st) => o.stems.includes(st)) || o.stems.every((st) => a.stems.includes(st)))) continue;
+    if (out.some((o) => sameThing(a, o))) continue;
     out.push({ ...a, stems: [...a.stems] });
   }
   return out;

@@ -313,6 +313,41 @@ test('planner produces sub-searches for a multi-part question', () => {
   assert.ok(buildPlan(analyze('When was Alexander Graham Bell born?'), {}).tasks.some((t) => t.kind === 'facts' && t.relations[0].p === 'P569'));
 });
 
+test('ranking: what was asked must stand in the statement, not in a concession; a paper describing itself is not a finding', () => {
+  const law = 'Although the adverse effects of microplastics are well documented, the current legal system in India does not address microplastics, which is a critical gap in the legal system.';
+  const finding = 'Health effects of human exposure to microplastics include respiratory effects from inhalation, digestive effects from ingestion, oxidative stress, and cancer.';
+  const carried = 'Although the health effects of microplastics are not fully established, they include inflammation and oxidative stress in human cells.';
+  const scope = 'We focus on the chemistry of microplastics, analysing their surface chemistry and their ability to adsorb harmful compounds that affect health.';
+  const docs = [
+    doc('Law review', 'https://example.org/law', [law], { kind: 'web' }),
+    doc('Health review', 'https://example.com/health', [finding], { kind: 'web' }),
+    doc('Cell study', 'https://example.net/cells', [carried], { kind: 'web' }),
+    doc('Chemistry review', 'https://example.edu/chem', [scope], { kind: 'web' }),
+  ];
+  const r = rankEvidence(docs, queryModel(part('What are the health effects of microplastics?')));
+  const of = (re) => r.sentences.find((x) => re.test(x.text));
+  assert.match(r.sentences[0].text, /respiratory effects from inhalation|they include inflammation/);
+  assert.equal(of(/legal system in India/).predCov, 0, 'the main clause is about the law');
+  assert.ok(of(/legal system in India/).score < of(/respiratory effects/).score * 0.5);
+  assert.ok(of(/they include inflammation/).predCov > 0, '“they” carries the subject over: left alone');
+  assert.equal(of(/^We focus on/).proc, true, 'a paper saying what it covers');
+  // wording that reports no finding: the aim of a study, what an authority may do, that questions are asked, that data are missing
+  const talk = rankEvidence([
+    doc('A', 'https://a.example.org/1', ['Given the adverse health effects associated with microplastics exposure, we sought to understand how exposure may alter key pathways to impact overall health.'], { kind: 'web' }),
+    doc('B', 'https://b.example.org/1', ['If the FDA determines, based on scientific evidence, that microplastics in food adversely affect human health, the FDA can take regulatory action to protect public health.'], { kind: 'web' }),
+    doc('C', 'https://c.example.org/1', ['Questions have been asked about the human health effects of the exposure to microplastics particles.'], { kind: 'web' }),
+    doc('D', 'https://d.example.org/1', ['Information on the health effects of ingested microplastics particles is absent.'], { kind: 'web' }),
+    doc('E', 'https://e.example.org/1', ['If inhaled, microplastics can cause health effects such as inflammation of the airways.'], { kind: 'web' }),
+  ], queryModel(part('What are the health effects of microplastics?')));
+  const t = (re) => talk.sentences.find((x) => re.test(x.text));
+  assert.equal(t(/we sought to understand/).proc, true);
+  assert.equal(t(/If the FDA determines/).proc, true);
+  assert.equal(t(/Questions have been asked/).intro, true);
+  assert.equal(t(/is absent/).gap, true);
+  assert.ok(!t(/^If inhaled/).proc, 'an ordinary condition is not paper talk');
+  assert.match(talk.sentences[0].text, /^If inhaled/);
+});
+
 test('ranking: predicate match beats name coincidence; aspect is required', () => {
   const docs = [
     doc('Star', 'https://en.wikipedia.org/wiki/Star', ['A star is a luminous spheroid of plasma held together by self-gravity.', 'A star shines for most of its active life due to the thermonuclear fusion of hydrogen into helium in its core.'], { entity: true, kind: 'encyclopedia' }),
