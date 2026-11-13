@@ -239,8 +239,8 @@ journalctl -u infinity-worker -f
   by hand. Each session ends by starting the next.
 - Stop: set the repository variable `INFINITY_LEARNING` to `off`, or disable the workflow.
 - Roll back, pause, resume: run the workflow by hand with `action` = `rollback`, `pause` or `resume`.
-- The hourly schedule in the workflow restarts a broken chain. GitHub runs schedules only from the default branch, so
-  this takes effect once the workflow is on `main`.
+- The hourly schedule in the workflow restarts a broken chain. GitHub runs schedules only from the default branch, and
+  the workflow is on `main`, so this is in effect.
 
 **The site**
 
