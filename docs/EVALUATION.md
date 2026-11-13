@@ -1,5 +1,112 @@
 # INFINI AI — Evaluation
 
+## Update — version 3.1.0 (2026-11-13): two more sources, and what they changed
+
+Version 3.1.0 adds LangSearch as a web-search service (free key), uses a free OpenAlex key, and tightens how a report is
+composed. All figures were measured on 13 November 2026 (by the sandbox's clock, UTC) in the build sandbox (2 CPUs,
+2 GB RAM, Node 20), on the released code, with the three keys the live site has (LangSearch, Tavily, OpenAlex).
+
+**Automated checks**
+
+| Check | Result |
+|---|---|
+| Unit tests (`npm test`) | 68 of 68: 31 engine tests, 20 brain tests, 17 tests for deep search and research runs |
+| Interface smoke test, real client against a local server with live retrieval (`npm run test:ui`) | 49 of 49. Its research run (LangSearch and OpenAlex keys, no Tavily) read 904 pages and 800 abstracts and classified 1,681 documents |
+| Security audit (`npm run audit:security`) | 21 of 21 (one check extended: a search key never appears in a result, a log line or `/api/status`) |
+
+**Research benchmark (`npm run bench:research`, live, five runs one after another in one process)**
+
+| Question | Depth | Time | First draft | Pages read | Not readable | Abstracts | Documents kept | Sites | Results screened | Sources cited | Confidence | Peak memory |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| Health effects of microplastics | research | 85.7 s | 9.5 s | 984 | 384 | 800 | 1,758 | 363 | 11,219 | 39 | High confidence 78% | 598 MB |
+| Impact of remote work on productivity | research | 91.2 s | 8.4 s | 1,500 | 441 | 800 | 2,245 | 522 | 16,170 | 53 | High confidence 80% | 604 MB |
+| Solid-state batteries | research | 70.1 s | 3.1 s | 880 | 340 | 800 | 1,653 | 312 | 9,690 | 104 | High confidence 86% | 616 MB |
+| Is intermittent fasting good for weight loss? | deep | 19.4 s | 3.3 s | 70 | 20 | 60 | 131 | 67 | 1,200 | 14 | High confidence 87% | 550 MB |
+| Why did the Roman Empire fall? | deep | 24.3 s | 3.6 s | 70 | 37 | 60 | 133 | 49 | 1,277 | 20 | High confidence 75% | 370 MB |
+
+Against 3.0.0 (table further down, same questions, same machine, Tavily key only):
+
+| Per research run | 3.0.0 | 3.1.0 |
+|---|---|---|
+| Pages read | 293 to 499 | 880 to 1,500 |
+| Abstracts | 520 to 705 | 800 in every run (the limit for one run) |
+| Documents kept | 906 to 1,005 | 1,653 to 2,245 |
+| Sites | 102 to 125 | 312 to 522 |
+| Results screened | 5,127 to 6,821 | 9,690 to 16,170 |
+| Time | 45 to 55 s | 70 to 91 s |
+| Peak memory | 351 to 388 MB | 598 to 616 MB |
+
+What to know when reading this:
+
+1. **One run reached the budget of 1,500 pages** (remote work; it ended with “page budget used”). The other two ended
+   because new searches were no longer bringing new material, at 880 and 984 pages. An earlier run of the same benchmark
+   on the same day, before the composing rules below, gave 843, 1,125 and 1,500 pages. 1,500 remains a ceiling.
+2. **Where the extra material came from** (counters in `bench/results/research.md`): LangSearch answered 12 to 14
+   searches per run with 558 to 616 links. OpenAlex, which answered no search in the 3.0.0 runs, answered 17 to 21 per
+   run with 1,417 to 1,590 works. Links followed from pages that were read rose from 287–719 to 677–2,462.
+   One key at a time, on the microplastics question, one run each within the same hour and without Tavily:
+
+   | Keys | Pages read | Abstracts | Sites | Results screened | Time |
+   |---|---|---|---|---|---|
+   | OpenAlex only | 231 | 800 | 93 | 6,063 | 74 s |
+   | LangSearch only | 895 | 718 | 324 | 9,972 | 78 s |
+   | LangSearch and OpenAlex (the run of the interface test) | 904 | 800 | — | 10,411 | 71 s |
+   | LangSearch, OpenAlex and Tavily (the benchmark above) | 984 | 800 | 363 | 11,219 | 86 s |
+
+   So LangSearch is what multiplies the pages (about four times as many as without it), and the OpenAlex key is what
+   makes the abstracts dependable: without the key OpenAlex refused both searches of that run (HTTP 429) and Crossref
+   and Europe PMC delivered 718. Tavily adds little on top of the two. These are single runs; the figures move by ten
+   to twenty per cent from run to run.
+3. **A run takes longer and needs more memory**: 70 to 91 s (was 45 to 55 s) and about 600 MB (was 350 to 390 MB).
+   More than a quarter of the pages still cannot be read (340 to 441 per run); nothing is done to get around a refusal.
+4. **Deep searches** are unchanged in size (70 pages, their budget) and now always fill their 60 abstracts (39 and 48
+   before).
+
+**Web benchmark (`npm run bench`, 36 questions, depth Auto)**
+
+| Configuration, on the released code | Passed | Pages that could be read | Citations | Median time |
+|---|---|---|---|---|
+| LangSearch first, then Tavily (as released; two runs) | 36 / 36 and 36 / 36 | 94% and 93% | 99% | 3.2 s and 2.2 s |
+| LangSearch only (Tavily switched off) | 36 / 36 | 94% | 99% | 2.2 s |
+| Tavily first, then LangSearch | 36 / 36 | 81% | 98% | 2.5 s |
+
+The order was decided by this table. With LangSearch first on the code as it stood before, two answers were wrong (34
+of 36): a sentence copied from site to site made Walter Scott the author of *Pride and Prejudice*, and a church's
+telephone number was offered for “the owner of the blue house on Elm Street”. Both were faults in how an answer is
+chosen, not in the search service; both are fixed and have tests. After that, either order passes all 36. LangSearch
+stands first because more of the pages it points to can be read, and because its allowance renews every day where
+Tavily's renews once a month. The median times differ from run to run by more than they differ between the services.
+
+**On the live site after release** (Vercel, the three keys): a research run on the microplastics question took 86 s
+and read 1,096 pages and 800 abstracts from 393 sites (12,291 results screened, 1,874 documents kept, 368 pages not
+readable, 47 sources cited, first draft after 9.6 s, eight drafts); the run before it read 1,016 pages in 92 s. In
+3.0.0 the same question read 316 pages on the live site. LangSearch counted 31,566 and 36,198 tokens for the two runs
+(`/api/status`). “Who made you?” → “Nepal369 built me.” (0.4 s). The two questions that had failed with LangSearch
+first now give Jane Austen, 16 December 1775 (8 s) and “I could not verify this” (1 s).
+
+Two rules were added after the last benchmark run and are covered by tests only: a name that stands only beside or
+only inside a quotation is not a second candidate, and a research report opens with a sentence of running text, not
+with the row of a table (the first live run opened with one). The web benchmark was re-run after the first of the two
+(36 of 36, the second run in the table above).
+
+**What changed in the reports** (read by hand; judgements, not measurements). The first runs with a thousand pages
+showed faults that had been rare: a quotation with HTML tags in it (an abstract deposited with escaped markup); the
+same sentence quoted in three sections, because three sites carried it; a section called “Remote Employees Are Working
+Less”; four key points saying the same thing in other words; “I looked at various sources …” as a statement. Each has
+a rule now (`docs/ARCHITECTURE.md`, section 3a) and a test. Section titles in the final benchmark run:
+
+| Question | Sections |
+|---|---|
+| Health effects of microplastics | Inflammation · Oxidative stress · Endocrine disruption · Respiratory effects · Cardiovascular disease · Reproductive systems |
+| Impact of remote work on productivity | Flexibility · Work-Life Balance · Job satisfaction · Autonomy · Distractions · Reducing commuting |
+| Solid-state batteries | Energy Density · Challenges · Advantages · Thin-film solid-state batteries · Materials · Uses |
+| Is intermittent fasting good for weight loss? | Benefits of Intermittent Fasting · Alternate Day Fasting · Calorie restriction |
+| Why did the Roman Empire fall? | Fall of rome · Edward gibbon · Romulus augustulus |
+
+Still weak: “Fall of rome”, “Benefits of Intermittent Fasting” and “Reducing commuting” are headings taken as they
+were found; key points on a narrow question still resemble one another, because the sources do; the choice of figures
+is by rule and sometimes picks a figure of little weight.
+
 ## Update — version 3.0.0 (2026-11-12): deep search and research runs
 
 Version 3.0.0 adds the loop described in `docs/ARCHITECTURE.md`, section 3a: searches in rounds, hundreds of pages and

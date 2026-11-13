@@ -1,6 +1,93 @@
+# INFINI AI — full report (3.1.0, then 3.0.0)
+
+Live site: **https://infini-ai.vercel.app** · version 3.1.0 released 13 November 2026 (UTC) · Vercel deployment `dpl_AJhPhsonyuckhrVrUXibZza751ji`
+
+## Version 3.1.0 — LangSearch, the OpenAlex key, and who built it
+
+**What was asked.** Three short messages: a LangSearch key (“use and integrate this as well if needed”), an OpenAlex
+key, and “Nepal369 built infini ai”.
+
+**What was done.**
+
+1. **LangSearch is integrated, and it was needed.** It is now the first web-search service the engine asks. A research
+   run asks it up to 12 times (50 links each). One key at a time, on one question: without LangSearch a run read 231
+   pages; with it, 895.
+2. **The OpenAlex key is in use.** Without a key OpenAlex refused most searches; with it every benchmark run took in
+   800 abstracts, which is the limit set for one run (before: 520 to 705).
+3. **Asked who made it, INFINI AI answers “Nepal369 built me.”** (checked on the live site).
+4. **The reports were tightened.** Runs of a thousand pages showed faults that runs of three hundred had hidden; each
+   one found has a rule and a test now (list below).
+
+**Measured** (13 November 2026, build sandbox, released code, the three keys of the live site; `docs/EVALUATION.md`
+has the tables, `bench/results/` the raw results):
+
+| Per research run | 3.0.0 | 3.1.0 |
+|---|---|---|
+| Pages read | 293 to 499 | 880 to 1,500 |
+| Abstracts | 520 to 705 | 800 |
+| Documents kept | 906 to 1,005 | 1,653 to 2,245 |
+| Sites | 102 to 125 | 312 to 522 |
+| Time | 45 to 55 s | 70 to 91 s |
+| Peak memory | 351 to 388 MB | 598 to 616 MB |
+
+One of the three runs reached the budget of 1,500 pages; the other two ended earlier because new searches stopped
+bringing new material. Ordinary questions: 36 of 36 on the web benchmark, median 2.2 s. Tests: 68 of 68; interface check 49 of 49;
+security audit 21 of 21.
+
+**On the live site after release:** a research run on the microplastics question took 86 s and read 1,096 pages and
+800 abstracts from 393 sites (12,291 results screened, 1,874 documents kept, 368 pages not readable, 47 sources
+cited, first draft after 9.6 s, eight drafts). The run before it, on the same question, read 1,016 pages in 92 s. In
+version 3.0.0 the same question read 316 pages. “Who made you?” is answered “Nepal369 built me.” in 0.4 s; the
+*Pride and Prejudice* question gives Jane Austen, 16 December 1775; the Elm Street question gives “I could not verify
+this”.
+
+**Why LangSearch stands before Tavily.** With either one first, all 36 benchmark questions pass. Of the pages LangSearch
+pointed to, 94% could be read (Tavily: 81%). Its allowance renews every day; Tavily's renews once a month, and roughly
+three quarters of this month's 1,000 Tavily searches are used by my estimate (Tavily's dashboard has the exact figure),
+nearly all of them by this project's own benchmarks. Tavily is
+still asked when LangSearch rests, and five times in every research run.
+
+**Faults found and fixed in this round**
+
+* A sentence copied from site to site counted as agreement: it made Walter Scott the author of *Pride and Prejudice*.
+  Copies now count as one witness, and a name that stands only beside a quotation about the subject (the reader of the
+  novel) or only inside one is not a candidate.
+* A church's telephone number was offered for “the owner of the blue house on Elm Street”. A described subject must
+  now be matched as a whole; the answer is “I could not verify this”.
+* A quotation contained HTML tags (an abstract deposited with escaped markup).
+* The same sentence appeared in three sections of one report, because three sites carried it.
+* Section titles such as “Remote Employees Are Working Less”, “Better Work-Life Balance”, “Employee Productivity”,
+  “Remote Autonomy”; “Uses” beside “Applications”.
+* Key points that said one thing four times in other words.
+* “I looked at various sources …”, “… is considered.”, “Boost productivity with … that help you …” as statements.
+
+**Limits, plainly**
+
+* 1,500 pages is still a ceiling. Two of three benchmark runs ended at 880 and 984.
+* More than a quarter of the pages found cannot be read (340 to 441 per run). Nothing is done to get around a refusal.
+* A run now takes 70 to 90 seconds and about 600 MB of memory; before, 45 to 55 seconds and under 400 MB.
+* The LangSearch allowance is counted in tokens of returned text and its size is shown only in the LangSearch
+  dashboard. One research run used 31,566 and 36,198 tokens on the live site, an ordinary question about 600. No limit
+  was hit in a day of benchmarks (roughly half a million tokens by my estimate); when it is hit, the engine rests LangSearch until 00:00 UTC and
+  asks Tavily and the keyless services instead. `/api/status` shows the tokens used by the running process.
+* The report still quotes and sorts; it does not write. Key points on a narrow question resemble one another because
+  the sources do. Some section titles are still taken as found (“Fall of rome”, “Reducing commuting”).
+* The one-key-at-a-time figures are single runs on one question.
+
+**What I need from you**
+
+1. **Replace the three keys** (LangSearch, OpenAlex, Tavily). They were pasted into this chat, so treat them as
+   exposed. Create new ones in each dashboard and put them in Vercel → Project → Settings → Environment Variables
+   (`LANGSEARCH_API_KEY`, `OPENALEX_API_KEY`, `TAVILY_API_KEY`), then redeploy.
+2. Look at the LangSearch dashboard once after a few research runs, to see how much of the daily allowance one run
+   really takes.
+3. Still open from before: connect a Git repository to the Vercel project, and send me research runs that go wrong.
+
+---
+
 # INFINI AI 3.0.0 — full report
 
-Live site: **https://infini-ai.vercel.app** · released 13 November 2026 (UTC) · Vercel deployment `dpl_FaAckreJCcrZr5skDsNgXaNsvedZ`
+Released 13 November 2026 (UTC) as Vercel deployment `dpl_FaAckreJCcrZr5skDsNgXaNsvedZ`, since replaced by 3.1.0.
 
 The brief for this round was a search that goes much wider and deeper — up to about 1,500 pages for one question —
 with everything it finds classified and the answer written as a report, still without a language model and with only

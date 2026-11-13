@@ -1,5 +1,5 @@
 {
- "date": "2026-11-13T02:31:33.375Z",
+ "date": "2026-11-13T02:48:02.389Z",
  "version": "3.1.0",
  "depth": "auto",
  "node": "v20.20.2",
@@ -9,13 +9,13 @@
  "overall": {
   "understanding": 1,
   "queries": 0.9654761904761904,
-  "sources": 0.9785714285714285,
-  "extraction": 0.9388605442176872,
+  "sources": 0.9642857142857143,
+  "extraction": 0.9332482993197281,
   "support": 1,
   "citations": 0.9887755102040817,
   "hallucination": 1,
   "uncertainty": 1,
-  "usefulness": 0.9555555555555557
+  "usefulness": 0.9666666666666668
  },
  "byCat": [
   {
@@ -23,14 +23,14 @@
    "n": 3,
    "understanding": 1,
    "queries": 1,
-   "sources": 1,
-   "extraction": 0.8968253968253969,
+   "sources": 0.9166666666666666,
+   "extraction": 0.8551587301587302,
    "support": 1,
    "citations": 1,
    "hallucination": 1,
    "uncertainty": 1,
    "usefulness": 1,
-   "ms": 4202
+   "ms": 3043
   },
   {
    "cat": "current",
@@ -44,7 +44,7 @@
    "hallucination": 1,
    "uncertainty": 1,
    "usefulness": 1,
-   "ms": 3946
+   "ms": 3484
   },
   {
    "cat": "science",
@@ -58,7 +58,7 @@
    "hallucination": 1,
    "uncertainty": 1,
    "usefulness": 1,
-   "ms": 3397
+   "ms": 2103
   },
   {
    "cat": "history",
@@ -66,13 +66,13 @@
    "understanding": 1,
    "queries": 1,
    "sources": 1,
-   "extraction": 1,
+   "extraction": 0.9583333333333334,
    "support": 1,
    "citations": 0.9166666666666666,
    "hallucination": 1,
    "uncertainty": 1,
    "usefulness": 1,
-   "ms": 3770
+   "ms": 2765
   },
   {
    "cat": "technology",
@@ -80,13 +80,13 @@
    "understanding": 1,
    "queries": 1,
    "sources": 1,
-   "extraction": 0.8690476190476191,
+   "extraction": 0.9107142857142857,
    "support": 1,
    "citations": 0.9523809523809524,
    "hallucination": 1,
    "uncertainty": 1,
    "usefulness": 1,
-   "ms": 3083
+   "ms": 3068
   },
   {
    "cat": "programming",
@@ -99,8 +99,8 @@
    "citations": 1,
    "hallucination": 1,
    "uncertainty": 1,
-   "usefulness": 0.8666666666666667,
-   "ms": 3265
+   "usefulness": 1,
+   "ms": 3267
   },
   {
    "cat": "comparison",
@@ -114,21 +114,21 @@
    "hallucination": 1,
    "uncertainty": 1,
    "usefulness": 1,
-   "ms": 2364
+   "ms": 2056
   },
   {
    "cat": "multi-hop",
    "n": 3,
    "understanding": 1,
    "queries": 0.9583333333333334,
-   "sources": 1,
-   "extraction": 0.9136904761904763,
+   "sources": 0.9166666666666666,
+   "extraction": 0.8898809523809524,
    "support": 1,
    "citations": 1,
    "hallucination": 1,
    "uncertainty": 1,
    "usefulness": 0.6,
-   "ms": 4884
+   "ms": 4243
   },
   {
    "cat": "follow-up",
@@ -142,7 +142,7 @@
    "hallucination": 1,
    "uncertainty": 1,
    "usefulness": 1,
-   "ms": 1268
+   "ms": 860
   },
   {
    "cat": "ambiguous",
@@ -156,7 +156,7 @@
    "hallucination": 1,
    "uncertainty": 1,
    "usefulness": 1,
-   "ms": 880
+   "ms": 315
   },
   {
    "cat": "conflicting",
@@ -170,7 +170,7 @@
    "hallucination": 1,
    "uncertainty": 1,
    "usefulness": 1,
-   "ms": 980
+   "ms": 842
   },
   {
    "cat": "unanswerable",
@@ -184,7 +184,7 @@
    "hallucination": 1,
    "uncertainty": 1,
    "usefulness": 1,
-   "ms": 4758
+   "ms": 3291
   }
  ],
  "rows": [
@@ -192,19 +192,19 @@
    "cat": "factual",
    "q": "What is the capital of Nepal?",
    "kind": "retrieval",
-   "level": "high",
-   "score": 0.87,
-   "ms": 4067,
-   "sources": 4,
-   "origins": 2,
-   "pages": 8,
+   "level": "medium",
+   "score": 0.7,
+   "ms": 3090,
+   "sources": 3,
+   "origins": 1,
+   "pages": 7,
    "searchOps": 4,
    "good": true,
    "scores": {
     "understanding": 1,
     "queries": 1,
-    "sources": 1,
-    "extraction": 1,
+    "sources": 0.75,
+    "extraction": 0.875,
     "support": 1,
     "citations": 1,
     "hallucination": 1,
@@ -219,7 +219,7 @@
    "kind": "retrieval",
    "level": "high",
    "score": 0.9,
-   "ms": 4442,
+   "ms": 3835,
    "sources": 4,
    "origins": 3,
    "pages": 5,
@@ -244,7 +244,7 @@
    "kind": "retrieval",
    "level": "high",
    "score": 0.81,
-   "ms": 4097,
+   "ms": 2203,
    "sources": 2,
    "origins": 2,
    "pages": 6,
@@ -269,7 +269,7 @@
    "kind": "retrieval",
    "level": "high",
    "score": 0.77,
-   "ms": 3406,
+   "ms": 3253,
    "sources": 10,
    "origins": 4,
    "pages": 4,
@@ -286,7 +286,7 @@
     "uncertainty": 1,
     "usefulness": 1
    },
-   "lead": "These are the main stories about Nepal that news publishers reported in the last 24 hours (checked 13 November 2026, 02:29 UTC): • Death toll in Makwanpur EV accident rises to 14, six injured — The death toll in an elect"
+   "lead": "These are the main stories about Nepal that news publishers reported in the last 24 hours (checked 13 November 2026, 02:46 UTC): • Death toll in Makwanpur EV accident rises to 14, six injured — The death toll in an elect"
   },
   {
    "cat": "current",
@@ -294,7 +294,7 @@
    "kind": "retrieval",
    "level": "medium",
    "score": 0.66,
-   "ms": 4206,
+   "ms": 2540,
    "sources": 2,
    "origins": 1,
    "pages": 7,
@@ -319,10 +319,10 @@
    "kind": "retrieval",
    "level": "medium",
    "score": 0.73,
-   "ms": 4225,
+   "ms": 4659,
    "sources": 8,
    "origins": 3,
-   "pages": 10,
+   "pages": 7,
    "searchOps": 5,
    "good": true,
    "scores": {
@@ -336,7 +336,7 @@
     "uncertainty": 1,
     "usefulness": 1
    },
-   "lead": "These are the main stories about artificial intelligence that news publishers reported in the last 7 days (checked 13 November 2026, 02:30 UTC): • The rise of 'housefishing' - when does using AI go from enhancing to misl"
+   "lead": "These are the main stories about artificial intelligence that news publishers reported in the last 7 days (checked 13 November 2026, 02:46 UTC): • Scandal-hit Nvidia CEO Jensen Huang quits, plunging AI chipmaking giant i"
   },
   {
    "cat": "science",
@@ -344,7 +344,7 @@
    "kind": "retrieval",
    "level": "high",
    "score": 0.78,
-   "ms": 3244,
+   "ms": 1872,
    "sources": 4,
    "origins": 4,
    "pages": 7,
@@ -369,7 +369,7 @@
    "kind": "retrieval",
    "level": "high",
    "score": 0.77,
-   "ms": 5135,
+   "ms": 3307,
    "sources": 4,
    "origins": 4,
    "pages": 5,
@@ -394,7 +394,7 @@
    "kind": "retrieval",
    "level": "high",
    "score": 0.77,
-   "ms": 1813,
+   "ms": 1131,
    "sources": 3,
    "origins": 3,
    "pages": 8,
@@ -417,12 +417,12 @@
    "cat": "history",
    "q": "When did World War II end?",
    "kind": "retrieval",
-   "level": "medium",
-   "score": 0.7,
-   "ms": 4299,
-   "sources": 3,
-   "origins": 3,
-   "pages": 8,
+   "level": "high",
+   "score": 0.82,
+   "ms": 4638,
+   "sources": 4,
+   "origins": 4,
+   "pages": 7,
    "searchOps": 3,
    "good": true,
    "scores": {
@@ -436,7 +436,7 @@
     "uncertainty": 1,
     "usefulness": 1
    },
-   "lead": "The sources agree on this date: 2 September 1945 [1][2][3]. • Most history books give a simple answer: World War II ended on September 2, 1945, when Japan formally surrendered aboard the USS Missouri in Tokyo Bay. [1] • "
+   "lead": "The sources agree on this date: 2 September 1945 [1][2][3][4]. • By the time it concluded on the deck of an American warship on September 2, 1945, World War II had claimed the lives of an estimated 60-80 million people, "
   },
   {
    "cat": "history",
@@ -444,17 +444,17 @@
    "kind": "retrieval",
    "level": "medium",
    "score": 0.72,
-   "ms": 3177,
+   "ms": 1959,
    "sources": 3,
    "origins": 3,
-   "pages": 8,
+   "pages": 7,
    "searchOps": 3,
    "good": true,
    "scores": {
     "understanding": 1,
     "queries": 1,
     "sources": 1,
-    "extraction": 1,
+    "extraction": 0.875,
     "support": 1,
     "citations": 1,
     "hallucination": 1,
@@ -469,7 +469,7 @@
    "kind": "retrieval",
    "level": "medium",
    "score": 0.7,
-   "ms": 3833,
+   "ms": 1697,
    "sources": 4,
    "origins": 4,
    "pages": 8,
@@ -494,7 +494,7 @@
    "kind": "retrieval",
    "level": "medium",
    "score": 0.74,
-   "ms": 2949,
+   "ms": 3022,
    "sources": 4,
    "origins": 4,
    "pages": 6,
@@ -519,7 +519,7 @@
    "kind": "retrieval",
    "level": "medium",
    "score": 0.74,
-   "ms": 3187,
+   "ms": 4562,
    "sources": 2,
    "origins": 2,
    "pages": 7,
@@ -529,7 +529,7 @@
     "understanding": 1,
     "queries": 1,
     "sources": 1,
-    "extraction": 0.875,
+    "extraction": 1,
     "support": 1,
     "citations": 1,
     "hallucination": 1,
@@ -544,7 +544,7 @@
    "kind": "retrieval",
    "level": "medium",
    "score": 0.73,
-   "ms": 3113,
+   "ms": 1620,
    "sources": 6,
    "origins": 3,
    "pages": 7,
@@ -568,11 +568,11 @@
    "q": "How to remove duplicates from an array in JavaScript?",
    "kind": "retrieval",
    "level": "medium",
-   "score": 0.65,
-   "ms": 3670,
+   "score": 0.6,
+   "ms": 4930,
    "sources": 2,
    "origins": 2,
-   "pages": 7,
+   "pages": 6,
    "searchOps": 6,
    "good": true,
    "scores": {
@@ -584,9 +584,9 @@
     "citations": 1,
     "hallucination": 1,
     "uncertainty": 1,
-    "usefulness": 0.6
+    "usefulness": 1
    },
-   "lead": "Steps — from Softlookup (“Best Practices”) 1. Use `const` by default and `let` when a value must change. [1] 2. Keep functions small and focused on one task. [1] 3. Handle errors when working with APIs or user input. [1]"
+   "lead": "Use `Set` with spread syntax to quickly remove duplicates from an array. [1] Example code — from DEV Community const array = [1, 1, 1, 3, 3, 2, 2]; // Method 1: Using a Set const unique = [...new Set(array)]; // Method 2"
   },
   {
    "cat": "programming",
@@ -594,7 +594,7 @@
    "kind": "retrieval",
    "level": "high",
    "score": 0.77,
-   "ms": 2148,
+   "ms": 1885,
    "sources": 3,
    "origins": 2,
    "pages": 7,
@@ -619,7 +619,7 @@
    "kind": "retrieval",
    "level": "medium",
    "score": 0.7,
-   "ms": 3978,
+   "ms": 2986,
    "sources": 3,
    "origins": 3,
    "pages": 7,
@@ -644,7 +644,7 @@
    "kind": "retrieval",
    "level": "medium",
    "score": 0.72,
-   "ms": 2515,
+   "ms": 1999,
    "sources": 8,
    "origins": 5,
    "pages": 7,
@@ -669,7 +669,7 @@
    "kind": "retrieval",
    "level": "medium",
    "score": 0.6,
-   "ms": 2291,
+   "ms": 1862,
    "sources": 4,
    "origins": 1,
    "pages": 5,
@@ -694,7 +694,7 @@
    "kind": "retrieval",
    "level": "medium",
    "score": 0.69,
-   "ms": 2287,
+   "ms": 2308,
    "sources": 5,
    "origins": 2,
    "pages": 6,
@@ -719,7 +719,7 @@
    "kind": "retrieval",
    "level": "high",
    "score": 0.9,
-   "ms": 5598,
+   "ms": 4311,
    "sources": 9,
    "origins": 6,
    "pages": 15,
@@ -744,17 +744,17 @@
    "kind": "retrieval",
    "level": "medium",
    "score": 0.66,
-   "ms": 4291,
-   "sources": 5,
-   "origins": 2,
-   "pages": 13,
+   "ms": 3953,
+   "sources": 4,
+   "origins": 1,
+   "pages": 12,
    "searchOps": 8,
    "good": true,
    "scores": {
     "understanding": 1,
     "queries": 1,
-    "sources": 1,
-    "extraction": 0.9285714285714286,
+    "sources": 0.75,
+    "extraction": 0.8571428571428571,
     "support": 1,
     "citations": 1,
     "hallucination": 1,
@@ -768,10 +768,10 @@
    "q": "When was the author of Pride and Prejudice born?",
    "kind": "retrieval",
    "level": "high",
-   "score": 0.76,
-   "ms": 4762,
-   "sources": 9,
-   "origins": 6,
+   "score": 0.77,
+   "ms": 4465,
+   "sources": 8,
+   "origins": 5,
    "pages": 13,
    "searchOps": 8,
    "good": true,
@@ -794,7 +794,7 @@
    "kind": "retrieval",
    "level": "high",
    "score": 0.91,
-   "ms": 704,
+   "ms": 649,
    "sources": 5,
    "origins": 4,
    "pages": 7,
@@ -819,7 +819,7 @@
    "kind": "retrieval",
    "level": "medium",
    "score": 0.66,
-   "ms": 2708,
+   "ms": 1499,
    "sources": 2,
    "origins": 1,
    "pages": 6,
@@ -844,7 +844,7 @@
    "kind": "retrieval",
    "level": "high",
    "score": 0.79,
-   "ms": 391,
+   "ms": 432,
    "sources": 4,
    "origins": 4,
    "pages": 7,
@@ -869,7 +869,7 @@
    "kind": "clarification",
    "level": "none",
    "score": null,
-   "ms": 8,
+   "ms": 11,
    "sources": 0,
    "origins": 0,
    "pages": 0,
@@ -894,7 +894,7 @@
    "kind": "retrieval",
    "level": "high",
    "score": 0.81,
-   "ms": 2629,
+   "ms": 931,
    "sources": 6,
    "origins": 4,
    "pages": 7,
@@ -944,7 +944,7 @@
    "kind": "retrieval",
    "level": "high",
    "score": 0.9,
-   "ms": 516,
+   "ms": 596,
    "sources": 4,
    "origins": 3,
    "pages": 8,
@@ -969,7 +969,7 @@
    "kind": "retrieval",
    "level": "high",
    "score": 0.77,
-   "ms": 2419,
+   "ms": 1928,
    "sources": 4,
    "origins": 4,
    "pages": 7,
@@ -994,7 +994,7 @@
    "kind": "brain",
    "level": "none",
    "score": null,
-   "ms": 6,
+   "ms": 2,
    "sources": 0,
    "origins": 0,
    "pages": 0,
@@ -1019,7 +1019,7 @@
    "kind": "retrieval",
    "level": "insufficient",
    "score": 0.1,
-   "ms": 8748,
+   "ms": 6624,
    "sources": 2,
    "origins": 1,
    "pages": 12,
@@ -1044,7 +1044,7 @@
    "kind": "retrieval",
    "level": "insufficient",
    "score": 0.1,
-   "ms": 1248,
+   "ms": 641,
    "sources": 1,
    "origins": 1,
    "pages": 4,
@@ -1069,7 +1069,7 @@
    "kind": "retrieval",
    "level": "insufficient",
    "score": 0.1,
-   "ms": 4279,
+   "ms": 2607,
    "sources": 2,
    "origins": 2,
    "pages": 4,
@@ -1090,7 +1090,7 @@
   }
  ],
  "latency": {
-  "medianMs": 3187,
-  "maxMs": 8748
+  "medianMs": 2203,
+  "maxMs": 6624
  }
 }

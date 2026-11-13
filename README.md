@@ -17,7 +17,7 @@ INFINI AI has two parts, and neither is a large language model. None is hosted, 
 
 * **Deep search and research runs** (new in 3.0.0) repeat those steps in rounds. Write *“do deep research on the health effects of microplastics”*, or set **Depth** to *Research*, and it searches many services at once, reads the pages, compares everything, finds the sub-topics the sources share, and searches again for those. It follows links and reference lists, and takes in abstracts of scientific papers from open indexes (OpenAlex, Crossref, Europe PMC). Everything found is **classified** by fixed rules (kind of source, kind of document, study design, year, reliability tier, sub-topic, how much was read) and the answer is a **report**: opening, key points, a section per sub-topic, figures, dated statements, what is still uncertain — every statement cited. On a yes-or-no question it counts how the independent sources lean.
 
-  Measured on 13 November 2026 with a free Tavily key (`bench/results/research.md`): one research run read **293 to 499 pages** and took in **520 to 705 abstracts** — about **900 to 1,000 documents from 102 to 125 sites, out of 5,100 to 6,800 results screened** — in **45 to 55 seconds**. On the live site the first research run after release read 316 pages and 800 abstracts in 48 seconds. The budget is up to 1,500 pages and 170 seconds; no run has reached it: a run ends earlier when new searches stop bringing new material, and it says why. An abstract is counted as an abstract, never as a page.
+  Measured on 13 November 2026 with three free keys — LangSearch, Tavily, OpenAlex — as on the live site (`bench/results/research.md`): one research run read **880 to 1,500 pages** and took in **800 abstracts** — **1,653 to 2,245 documents from 312 to 522 sites, out of 9,690 to 16,170 results screened** — in **70 to 91 seconds**. With the Tavily key alone (version 3.0.0) the same runs read 293 to 499 pages and 520 to 705 abstracts in 45 to 55 seconds. The budget is up to 1,500 pages and 170 seconds: one of the three benchmark runs reached the page budget, the others ended earlier because new searches stopped bringing new material — a run says why it ended. More than a quarter of the pages found cannot be read (refusals, JavaScript, robots.txt) and are counted as such. An abstract is counted as an abstract, never as a page.
 
 Every message goes to the brain first. It replies itself, or hands the message to the web pipeline (with certain typos repaired on the way).
 The brain never invents a fact, and when the sources do not support an answer the web pipeline says: *“I could not verify this from the sources I found.”*
@@ -60,15 +60,16 @@ No search key is required and none needs a credit card. Providers are tried in t
 | Provider | What you need | Free allowance (as published by the provider, November 2026) |
 |---|---|---|
 | Your own SearXNG | `SEARXNG_URL` (self-hosted) | unlimited |
+| LangSearch | `LANGSEARCH_API_KEY` — free account, no card | a daily allowance counted in tokens of returned text, renewed at 00:00 UTC (the figure is shown in its dashboard) |
 | Tavily | `TAVILY_API_KEY` — free account, no card | about 1,000 searches a month |
 | Firecrawl | nothing (keyless), or `FIRECRAWL_API_KEY` — free account, no card | keyless: a daily allowance per server address (in our test about 80 searches, then a 24-hour wait); key: 1,000 credits a month ≈ 500 searches |
 | DuckDuckGo HTML, Mwmbl, Wiby | nothing | best effort (DuckDuckGo often asks automated clients for a human check, which is never bypassed) |
 | Marginalia | `MARGINALIA_API_KEY` — free non-commercial key on request by e-mail | independent small-web index |
 | Brave | `BRAVE_API_KEY` | still supported, but Brave now requires a payment method |
 
-Only links are taken from these services. INFINI AI fetches and reads every page itself and never asks a provider for a generated answer. Details and the options that were rejected: `docs/OPERATIONS.md`.
+Only links are taken from these services (from LangSearch also 320 characters of text per result, used to judge whether a link is worth reading). INFINI AI fetches and reads every page itself and never asks a provider for a generated answer. In a deep search or research run all configured services are asked, not only the first. Details and the options that were rejected: `docs/OPERATIONS.md`.
 
-Scholarly abstracts for deep and research runs come from three open indexes, none of which needs a key:
+Scholarly abstracts for deep and research runs come from three open indexes. Two need no key; OpenAlex needs a free one to be dependable:
 
 | Index | What you need | Notes |
 |---|---|---|
@@ -76,13 +77,13 @@ Scholarly abstracts for deep and research runs come from three open indexes, non
 | Europe PMC | nothing | Life sciences and medicine; also delivers the full text of open-access articles. |
 | OpenAlex | nothing, or `OPENALEX_API_KEY` — free account, no card | Since February 2026 OpenAlex answers without a key only on a small daily allowance and pauses anonymous search under load. With a free key it is dependable; without one, Crossref carries the load. |
 
-A research run makes at most `RESEARCH_KEYED_SEARCHES` (default 5) further searches on a metered service such as Tavily, so that one run does not eat a monthly quota.
+A research run makes at most `RESEARCH_KEYED_SEARCHES` (default 5) further searches on a service metered by the month, such as Tavily, so that one run does not eat a monthly quota, and at most `RESEARCH_LANGSEARCH_SEARCHES` (default 12) on LangSearch, whose allowance renews daily (30,000 to 36,000 tokens per run, measured on the live site).
 
 ## Documentation
 
 | File | Contents |
 |---|---|
-| [`docs/REPORT.md`](docs/REPORT.md) | Full report for version 3.0.0 (deep search and research runs): what was built, how, what works (with the evidence), why, and the limits. |
+| [`docs/REPORT.md`](docs/REPORT.md) | Full report: version 3.1.0 first (LangSearch, the OpenAlex key, what they changed), then 3.0.0 (deep search and research runs): what was built, how, what works (with the evidence), why, and the limits. |
 | [`docs/REPORT-2.0.0.md`](docs/REPORT-2.0.0.md) | The report for version 2.0.0 (the built-in brain). |
 | [`docs/BRAIN.md`](docs/BRAIN.md) | The built-in brain: what it is and is not, how a message is handled, memory, spelling repair, data files, how to edit and rebuild it, measurements, limits. |
 | [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) | Design constraints, technology evaluation, the two parts and the pipeline, the research loop, classification, the report composer, modules, the kinds of memory, evidence graph, confidence formula, platform targets. |
