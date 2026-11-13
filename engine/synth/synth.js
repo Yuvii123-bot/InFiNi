@@ -242,9 +242,10 @@ function extractCandidates(env) {
   const lemma = part.verb ? part.verb.lemma : '';
   const life = /^(born|die)$/.test(lemma) || /\b(birth|death|born|died)\b/i.test(part.attribute || '') ? (/(die|death|died)/.test(lemma + ' ' + part.attribute) ? 'death' : 'birth') : null;
   const map = new Map();
-  const add = (norm, value, w, s) => {
+  const add = (norm, value, w, s, aside = false) => {
     if (!norm || w <= 0) return;
-    const c = map.get(norm) || { norm, value, score: 0, sentences: [], origins: new Set(), precision: 0, texts: new Set() };
+    const c = map.get(norm) || { norm, value, score: 0, sentences: [], origins: new Set(), precision: 0, texts: new Set(), stated: 0 };
+    if (!aside) c.stated++;
     // the same sentence found on another site is a copy, not a second witness: it adds little and does not count as agreement
     const key = s.text.toLowerCase().replace(/[^\p{L}\p{N}]+/gu, ' ').trim().slice(0, 240);
     const copy = c.texts.has(key);
@@ -258,16 +259,25 @@ function extractCandidates(env) {
   for (const s of pool) {
     const text = s.text;
     // 'Walter Scott wrote in his journal, "… Miss Austen's very finely written novel of Pride and Prejudice."': when what the question
-    // is about stands only inside a quotation, a name outside it is the one speaking, not the one asked for
+    // is about stands only inside a quotation, a name outside it is the one speaking, not the one asked for. And the other way
+    // round — '… Pride and Prejudice … should have had "a critique on Walter Scott, or the history of Buonaparté"': a name inside a
+    // quotation, with the subject outside it, is something the quoted words mention.
     const quotes = [];
-    { const qre = /["“]([^"”]{12,})["”]/g; let qm; while ((qm = qre.exec(text))) quotes.push([qm.index, qm.index + qm[0].length]); }
-    const inQuote = (i) => quotes.some(([a, b]) => i >= a && i < b);
-    let speakerOnly = false;
-    if (quotes.length && focusWords.length) {
-      const low = text.toLowerCase(); const at = [];
-      for (const w of focusWords) { let i = -1; while ((i = low.indexOf(w, i + 1)) >= 0) at.push(i); }
-      speakerOnly = at.length > 0 && at.every(inQuote);
+    {
+      // straight quotation marks pair up in the order they come (first with second, third with fourth); curly ones say which is which
+      const marks = [];
+      for (let i = text.indexOf('"'); i >= 0; i = text.indexOf('"', i + 1)) marks.push(i);
+      for (let i = 0; i + 1 < marks.length; i += 2) quotes.push([marks[i], marks[i + 1] + 1]);
+      const curly = /“[^”]*”/g; let qm;
+      while ((qm = curly.exec(text))) quotes.push([qm.index, qm.index + qm[0].length]);
     }
+    const inQuote = (i) => quotes.some(([a, b]) => i >= a && i < b);
+    let focusIn = false, focusOut = false;
+    if (quotes.length && focusWords.length) {
+      const low = text.toLowerCase();
+      for (const w of focusWords) { let i = -1; while ((i = low.indexOf(w, i + 1)) >= 0) { if (inQuote(i)) focusIn = true; else focusOut = true; } }
+    }
+    const asideAt = (i) => (focusIn || focusOut) && (inQuote(i) ? !focusIn : !focusOut);
     if (type === 'time') {
       const range = life && text.match(/\(([^()]*?\b\d{3,4})\s*[–—-]\s*([^()]*?\b\d{3,4}[^()]*?)\)/);
       if (range) for (const d of findDates(life === 'birth' ? range[1] : range[2]).slice(0, 1)) if (d.year != null) add(String(d.year), d.iso && d.precision !== 'century' ? formatDate(d.iso) : d.text, s.score * 1.6, s);
@@ -293,8 +303,9 @@ function extractCandidates(env) {
         let w = s.score * nearestCue(text, m.index, cueStems);
         if (type === 'person') { if (toks.length < 2) w *= 0.25; if (ORG_WORDS.test(name)) w *= 0.15; if (locative) w *= 0.4; if (/\b(by|inventor|founder|author|scientist|engineer|president|minister|king|queen|director|credited|named|professor|physicist|chemist)\s+$/.test(before)) w *= 1.3; }
         if (type === 'place') { if (!locative) w *= 0.3; }
-        if (speakerOnly && type === 'person' && !inQuote(m.index)) w *= 0.3;
-        add(name.toLowerCase(), name, w, s);
+        const aside = type === 'person' && asideAt(m.index);
+        if (aside) w *= 0.3;
+        add(name.toLowerCase(), name, w, s, aside);
       }
     } else if (type === 'quantity') {
       const unitRe = { tall: /m|metres?|meters?|ft|feet|km|cm|inch(?:es)?/, high: /m|metres?|meters?|ft|feet|km/, far: /km|kilometres?|kilometers?|miles?|light[- ]years?|au|m/, long: /km|kilometres?|kilometers?|miles?|m|metres?|meters?|years?|days?|hours?|minutes?|months?|weeks?|seconds?/, old: /years?(?: old)?|million years|billion years/, heavy: /kg|kilograms?|tonnes?|tons?|pounds?|lbs?|g|grams?/, fast: /km\/h|mph|m\/s|knots?|kilometres? per hour|miles per hour/, hot: /°\s?[CF]|degrees?|K|kelvin/, cold: /°\s?[CF]|degrees?|K|kelvin/, deep: /m|metres?|meters?|ft|feet|km/, wide: /m|metres?|meters?|km|miles?|ft|feet/, big: /km2|km²|sq(?:uare)? (?:km|mi|kilometres?|kilometers?|miles?)|hectares?|acres?|km|miles?|m/, large: /km2|km²|sq(?:uare)? (?:km|mi|kilometres?|kilometers?|miles?)|hectares?|acres?|km|miles?/ }[part.quantityCue.split(' ')[0]];
@@ -314,7 +325,10 @@ function extractCandidates(env) {
       }
     }
   }
-  return [...map.values()].sort((a, b) => b.score - a.score);
+  // a name that only ever stands beside a quotation about the subject (the reader, the reviewer) is no candidate when another name is stated plainly
+  const all = [...map.values()];
+  const plainly = type === 'person' && all.some((c) => c.stated > 0) ? all.filter((c) => c.stated > 0) : all;
+  return plainly.sort((a, b) => b.score - a.score);
 }
 
 function composeFactoid(env) {

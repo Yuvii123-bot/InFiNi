@@ -495,7 +495,12 @@ test('synthesis: a sentence copied from site to site is one witness; a descripti
   // even one page with that sentence must not outvote one plain statement of who the author is: the name outside the quotation is the reader
   const two = answerPart(part('Who is the author of Pride and Prejudice?'), [docs[0], docs[3]], mkCtx());
   assert.match(JSON.stringify(two.blocks), /"text":"Jane Austen"/);
-  assert.doesNotMatch(JSON.stringify(two.blocks), /disagree|"text":"Walter Scott"/);
+  assert.doesNotMatch(JSON.stringify(two.blocks), /disagree|"text":"Walter Scott"|Another name also appears/);
+  // … and a name that the novelist herself only mentions inside a quotation is not a second candidate either
+  const aside = 'Austen for her part thought the "playfulness and epigrammaticism" of Pride and Prejudice was excessive, complaining in a letter in 1813 that the novel lacked "shade" and should have had a chapter "of solemn specious nonsense, about something unconnected with the story; an essay on writing, a critique on Walter Scott or the history of Buonaparte".';
+  const three = answerPart(part('Who is the author of Pride and Prejudice?'), [doc('Pride and Prejudice', 'https://mirror-one.example/pp', [scott, aside]), doc('Pride and Prejudice (novel)', 'https://mirror-two.example/pp', [scott, aside]), docs[3]], mkCtx());
+  assert.match(JSON.stringify(three.blocks), /"text":"Jane Austen"/);
+  assert.doesNotMatch(JSON.stringify(three.blocks), /disagree|"text":"Walter Scott"|Another name also appears/);
   // the question describes a private house; a church in a street of the same name is not an answer
   const church = [doc('Elm Street Christian Church - Springfield', 'https://churches.example.org/listing', ['The phone number for Elm Street Christian Church is: (217) 544-5351.', 'Elm Street Christian Church is located in Springfield and holds services on Sunday.'])];
   const phone = answerPart(part('What is the phone number of the owner of the blue house on Elm Street in Springfield?'), church, mkCtx());
