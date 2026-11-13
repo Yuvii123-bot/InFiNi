@@ -1,0 +1,9 @@
+# Infinity LLM: learning worker session (filled in by the next commit).
+name: Infinity LLM learning
+on:
+  workflow_dispatch:
+jobs:
+  placeholder:
+    runs-on: ubuntu-latest
+    steps:
+      - run: echo "placeholder"
