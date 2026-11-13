@@ -147,7 +147,13 @@ export function createApp(cfg = loadConfig()) {
     catch (e) { return json(res, e instanceof BlockedError ? 403 : 502, { error: e.code || 'fetch_failed', message: e instanceof BlockedError ? `That address is not allowed: ${e.message}` : `The page could not be read: ${String(e.message).split('\n')[0].slice(0, 160)}` }); }
   }
 
-  /** The model alone: no rules, no retrieval. Streams the reply token by token as NDJSON. */
+  /**
+   * Pure neural chat: the reply is whatever Infinity LLM generates, one token at a time, from the conversation so far.
+   * This handler touches nothing but the model. It does not call the engine (no rule-based brain, no skills, no memory
+   * store) and makes no outbound request (no search, no page reading, no outside model). Nothing replaces, edits or
+   * filters the generated text: a reply the model did not finish, or one it was unsure of, is delivered as it is, with a
+   * note. test/pure.test.js holds this to account. Streams NDJSON: start, token…, answer, done.
+   */
   async function llmChat(req, res) {
     const ip = clientIp(req);
     const wait = rateLimit(ip);
@@ -162,11 +168,16 @@ export function createApp(cfg = loadConfig()) {
     res.writeHead(200, { 'Content-Type': 'application/x-ndjson; charset=utf-8', 'Cache-Control': 'no-store, no-transform', 'X-Accel-Buffering': 'no', Connection: 'keep-alive' });
     const send = (ev) => { if (!res.writableEnded && !ac.signal.aborted) res.write(JSON.stringify(ev) + '\n'); };
     const temperature = typeof body.temperature === 'number' && body.temperature >= 0 && body.temperature <= 1.5 ? body.temperature : 0.6;
-    const g = await neural.chat({ user: body.message, history: body.history, temperature, signal: ac.signal, onToken: (text) => send({ type: 'token', text }) });
-    send({ type: 'answer', ok: g.ok, text: g.text || '', reason: g.reason || undefined, model: g.model, tokens: g.tokens, promptTokens: g.promptTokens, contextTurns: g.usedTurns, ms: g.ms, tokensPerSecond: g.tokensPerSecond, meanLogProb: g.meanLogProb, route: g.route });
+    const seed = Number.isInteger(body.seed) && body.seed >= 0 && body.seed <= 0xffffffff ? body.seed : null;
+    const maxNew = Number.isInteger(body.maxTokens) && body.maxTokens >= 8 && body.maxTokens <= 160 ? body.maxTokens : 120;
+    const info = neural.info();
+    send({ type: 'start', mode: 'pure-llm', model: { name: 'Infinity LLM', version: info.version, parameters: info.parameters, context: info.context }, temperature, seed, maxTokens: maxNew });
+    const g = await neural.chat({ user: body.message, history: body.history, temperature, seed, maxNew, signal: ac.signal, onToken: (text) => send({ type: 'token', text }) });
+    const note = g.text === undefined ? (g.reason || 'generation failed') : !g.text ? 'the model produced no text' : g.loop ? 'the model started repeating itself' : !g.ended ? (ac.signal.aborted ? 'stopped' : 'the reply reached the length limit before the model ended it') : '';
+    send({ type: 'answer', mode: 'pure-llm', ok: g.text !== undefined, text: g.text || '', note: note || undefined, finished: !!g.ended, model: g.model, tokens: g.tokens, promptTokens: g.promptTokens, contextTurns: g.usedTurns, contextWindow: g.context, ms: g.ms, tokensPerSecond: g.tokensPerSecond, meanLogProb: g.meanLogProb });
     send({ type: 'done' });
     finished = true; res.end();
-    log({ ev: 'llm_chat', ms: g.ms, tokens: g.tokens, ok: g.ok });
+    log({ ev: 'llm_chat', ms: g.ms, tokens: g.tokens, finished: !!g.ended });
   }
   /** Training controls. Every action needs the admin token; without a configured token the controls do not exist. */
   async function llmAdmin(req, res) {

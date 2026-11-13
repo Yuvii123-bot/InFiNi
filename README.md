@@ -46,6 +46,16 @@ node cli.js "do deep research on solid-state batteries"      # or: node cli.js -
 No install step: zero npm dependencies, Node ≥ 18.17. The brain's data files and the trained model (`model/`, about 3 MB) are included.
 Training a new model version additionally needs Python with PyTorch (`docs/OPERATIONS.md`, "Infinity LLM"); answering does not.
 
+## Two chats
+
+* **Internet AI** (`/`) is the full assistant: the rule-based brain, the live web with citations, and Infinity LLM
+  where its reply passes a check.
+* **Infinity LLM** (`/llm.html`, the switch in the top bar) is the neural model on its own. Every reply there is
+  generated token by token from the model's weights. No web search, no prepared replies, no rules, no reply check and
+  no fallback. It keeps the conversation of the tab as context. **Expect little:** measured at the most likely
+  setting, 3 of 20 everyday messages got a reply that fits; it knows no facts and does not recall what it was told.
+  How it works, how its purity is tested, and the measured replies: [`docs/PURE-LLM.md`](docs/PURE-LLM.md).
+
 ## What you get
 
 * **Conversation** — “hi”, “how are you”, “my name is Yuv” … “what is my name?”, “tell me a joke” → “another”, “are you conscious?”, “what can you do?”, “i feel sad”. Replies carry suggestion chips. Memory lives on your device, for the current chat.
@@ -101,6 +111,7 @@ A research run makes at most `RESEARCH_KEYED_SEARCHES` (default 5) further searc
 | File | Contents |
 |---|---|
 | [`docs/INFINITY-LLM.md`](docs/INFINITY-LLM.md) | Infinity LLM: what existed before, what changed, the model, the tokenizer, training, the learning cycle, licence and quality filters, verification, evaluation, the promotion gate, versions and rollback, serving, limits, and the measured results of the published model. |
+| [`docs/PURE-LLM.md`](docs/PURE-LLM.md) | The Infinity LLM chat (pure neural mode): how a reply is produced, the API, what the tests prove, measured replies, limits. |
 | [`docs/REPORT.md`](docs/REPORT.md) | Full report: version 3.1.0 first (LangSearch, the OpenAlex key, what they changed), then 3.0.0 (deep search and research runs): what was built, how, what works (with the evidence), why, and the limits. |
 | [`docs/REPORT-2.0.0.md`](docs/REPORT-2.0.0.md) | The report for version 2.0.0 (the built-in brain). |
 | [`docs/BRAIN.md`](docs/BRAIN.md) | The built-in brain: what it is and is not, how a message is handled, memory, spelling repair, data files, how to edit and rebuild it, measurements, limits. |
@@ -134,7 +145,8 @@ cli.js
 
 ```bash
 npm start                 # server
-npm test                  # 84 offline tests: engine, brain, research runs, and 16 for Infinity LLM (tokenizer, inference parity with PyTorch, licence and quality filters, verification, reply check, gate, registry, rollback, API, interface)
+npm run test:pure         # 9 tests of the Infinity LLM chat: replies come from the network's weights and from nothing else
+npm test                  # 93 offline tests: engine, brain, research runs, the 9 above, and 16 for Infinity LLM (tokenizer, inference parity with PyTorch, licence and quality filters, verification, reply check, gate, registry, rollback, API, interface)
 npm run test:llm          # 9 tests of the neural network and its training in PyTorch (needs Python with torch)
 node learning/cli.mjs cycle      # one learning cycle; also: status · hw --bench · chat "hello" · rollback · publish
 npm run test:ui           # 49 end-to-end checks of the browser client, including a research run (needs network; about 90 s)

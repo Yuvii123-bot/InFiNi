@@ -18,6 +18,7 @@
     <button id="newChat" class="btn primary block" type="button"><svg class="ico" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>New chat</button>
     <label class="search"><svg class="ico" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M11 4a7 7 0 1 0 0 14 7 7 0 0 0 0-14zM20 20l-4-4"/></svg><input id="histSearch" type="search" placeholder="Search conversations" autocomplete="off" aria-label="Search conversations"></label>
     <nav id="chatList" aria-label="Chat history"></nav>
+    <a id="openPureSide" class="side-pure" href="/llm.html"><span class="side-pure-dot" aria-hidden="true"></span><span><b>Infinity LLM chat</b><small>Only the neural model replies</small></span></a>
     <div class="side-foot">
       <button id="openSettings" class="link-btn" type="button"><svg class="ico" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 7h9M17 7h3M4 17h3M11 17h9M15 5v4M9 15v4"/></svg>Settings</button>
       <a id="openLearning" class="link-btn" href="/learning.html"><svg class="ico" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 19V5M4 19h16M8 15l3-4 3 2 4-6"/></svg>Learning</a>
@@ -29,6 +30,10 @@
     <header id="topbar">
       <button id="menuBtn" class="icon-btn" type="button" aria-label="Open conversations"><svg class="ico" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h10"/></svg></button>
       <h1 id="chatTitle">New chat</h1>
+      <nav class="mode-switch" id="modeSwitch" aria-label="Chat mode">
+        <a class="on" href="/" aria-current="page" title="Internet AI: answers from live web pages, with sources">Internet AI</a>
+        <a id="openPure" href="/llm.html" title="Infinity LLM: a separate chat where only the neural model replies">Infinity LLM</a>
+      </nav>
       <button id="clearBtn" class="icon-btn" type="button" title="Clear this conversation" aria-label="Clear this conversation"><svg class="ico" width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 20h13M5.5 13.5l8-8a2 2 0 0 1 2.8 0l3.2 3.2a2 2 0 0 1 0 2.8L11.5 20H8l-2.5-2.5a2 2 0 0 1 0-2.8z"/></svg></button>
       <button id="newChatTop" class="icon-btn" type="button" title="New chat" aria-label="New chat"><svg class="ico" width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 5H5v14h14v-7M18.4 3.6a2 2 0 0 1 2.8 2.8L12 15.6l-3.5.9.9-3.5z"/></svg></button>
     </header>
