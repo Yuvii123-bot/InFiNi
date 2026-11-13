@@ -130,6 +130,23 @@ export function withoutPaths(value, stateDir) {
   return walk(value);
 }
 
+/**
+ * Is there newer code than the commit this worker runs? Used by hosts where the worker lives in sessions (GitHub
+ * Actions): a session that learns a fix was pushed ends early, and the next session runs the fixed code.
+ * @returns the new commit's id, or null (same commit, or the question could not be answered)
+ */
+export async function newerCommit({ repo, ref, sha, env = process.env, fetchImpl = fetch }) {
+  if (!repo || !ref || !sha) return null;
+  const token = env.INFINI_PUBLISH_TOKEN || env.GITHUB_TOKEN || env.GH_TOKEN || '';
+  const ctrl = new AbortController(); const timer = setTimeout(() => ctrl.abort(), 15000);
+  try {
+    const res = await fetchImpl(`${env.INFINI_GITHUB_API || 'https://api.github.com'}/repos/${repo}/commits/${encodeURIComponent(ref)}`, { headers: { accept: 'application/vnd.github.sha', 'user-agent': 'infinity-llm-worker', ...(token ? { authorization: `Bearer ${token}` } : {}) }, signal: ctrl.signal });
+    if (!res.ok) return null;
+    const head = (await res.text()).trim();
+    return /^[0-9a-f]{40}$/.test(head) && head !== sha ? head : null;
+  } catch { return null; } finally { clearTimeout(timer); }
+}
+
 function sourceSummary(root) {
   try { const src = (snapshot(root).corpus || {}).sources || {}; return Object.fromEntries(Object.entries(src).map(([k, v]) => [k, { accepted: v.accepted, rejected: v.rejected, domains: v.domains, last: v.last }])); } catch { return null; }
 }

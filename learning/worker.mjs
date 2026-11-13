@@ -41,11 +41,12 @@ function treeRssMb(pid) {
   return total;
 }
 
-export function createWorker({ root = stateDir(), env = process.env, log = (s) => console.log(s), maxRuntime = 0, once = false, seed = true, cli = env.INFINI_WORKER_CLI || path.join(HERE, 'cli.mjs'), publish = publishAll, onCheckpoint = null } = {}) {
+export function createWorker({ root = stateDir(), env = process.env, log = (s) => console.log(s), maxRuntime = 0, once = false, seed = true, cli = env.INFINI_WORKER_CLI || path.join(HERE, 'cli.mjs'), publish = publishAll, onCheckpoint = null, newerCode = null } = {}) {
   const P = paths(root);
   fs.mkdirSync(root, { recursive: true });
   const t0 = Date.now();
   let cfg = loadConfig(root);
+  let lastCodeCheck = Date.now(), codeReason = '';
   let child = null, stopping = false, stopReason = '', beat = null, lastPublish = 0, lastPublished = null, lastCheckpoint = 0, lastSize = 0, lastHealth = 0;
   const prev = readJSON(P.worker, null);
   const w = {
@@ -231,9 +232,17 @@ export function createWorker({ root = stateDir(), env = process.env, log = (s) =
       save();
       await afterStep({ changed: kind === 'cycle' && !!rec && loadRegistry(root).production !== before.production });
       if (once) break;
+      // a host that runs the worker in sessions: when newer code was pushed, end this session between two steps, so
+      // that the next session runs it (a fix does not have to wait for the session's time to run out)
+      if (newerCode && !stopping && Date.now() - lastCodeCheck > cfg.worker.codeCheckMinutes * 60_000) {
+        lastCodeCheck = Date.now();
+        let head = null;
+        try { head = await newerCode(); } catch { /* the question could not be answered: carry on */ }
+        if (head) { codeReason = `newer code is available (${String(head).slice(0, 7)}): this session ends so that the next one runs it`; say(codeReason); break; }
+      }
       if (pause && !stopping) await wait(pause, 'waiting', pauseWhy);
     }
-    return shutdown(stopping ? stopReason : expired() ? `the session's time (${maxRuntime} s) is used up` : 'done');
+    return shutdown(stopping ? stopReason : codeReason ? codeReason : expired() ? `the session's time (${maxRuntime} s) is used up` : 'done');
   }
 
   async function shutdown(reason) {
@@ -272,6 +281,8 @@ if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.me
   const archive = process.env.INFINI_STATE_ARCHIVE || '';                 // hosts without a permanent disk: keep an archive of the state up to date
   const worker = createWorker({
     root, maxRuntime: Number(flag('max-runtime', process.env.INFINI_WORKER_MAX_RUNTIME || 0)) || 0, once: argv.includes('--once'), seed: !argv.includes('--no-seed'),
+    newerCode: process.env.INFINI_WORKER_CODE_REPO && process.env.INFINI_WORKER_CODE_REF && process.env.INFINI_WORKER_CODE_SHA
+      ? async () => { const { newerCommit } = await import('./publish.mjs'); return newerCommit({ repo: process.env.INFINI_WORKER_CODE_REPO, ref: process.env.INFINI_WORKER_CODE_REF, sha: process.env.INFINI_WORKER_CODE_SHA }); } : null,
     onCheckpoint: process.env.INFINI_STATE_GITHUB ? async (r) => { const { pushState } = await import('./publish.mjs'); const p = await pushState(r); return { where: `${p.repo} release ${p.tag}`, bytes: p.bytes }; }
       : archive ? async (r) => { const p = packState(r, path.resolve(archive)); return { where: path.basename(p.file), bytes: p.bytes }; } : null,
   });

@@ -75,6 +75,7 @@ export const DEFAULTS = {
     backoffMaxSeconds: 900,
     stallMinutes: 30,            // a child process that reports nothing for this long is killed and the step repeated
     publishSeconds: 120,         // how often the status is published while nothing else changes
+    codeCheckMinutes: 10,        // hosts that run the worker in sessions: how often to ask whether newer code was pushed
     keepModels: 6,               // model versions kept with weights and checkpoint (production and its predecessor always are)
     keepDatasets: 2, keepRuns: 3,
   },

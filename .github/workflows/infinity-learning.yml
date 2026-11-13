@@ -58,6 +58,9 @@ jobs:
       INFINI_PUBLISH_TAG: infinity-model
       INFINI_PUBLISH_TARGET: ${{ github.sha }}
       INFINI_WORKER_SESSION: ${{ github.run_id }}
+      INFINI_WORKER_CODE_REPO: ${{ github.repository }}       # a session ends early when newer code was pushed to its branch,
+      INFINI_WORKER_CODE_REF: ${{ github.ref_name }}          # so that the next session runs it
+      INFINI_WORKER_CODE_SHA: ${{ github.sha }}
       INFINI_WORKER_WHERE: GitHub Actions (${{ github.ref_name }})
       INFINI_CONTACT: https://github.com/${{ github.repository }}
       ACTION: ${{ inputs.action || 'learn' }}

@@ -15,7 +15,7 @@ export function loadSeen(root) { const s = readJSON(paths(root).seen, null) || {
 /** Which side of the train/validation split a document is on: decided by its content hash, so it never changes. */
 export const splitOf = (contentHash) => (parseInt(contentHash.slice(0, 8), 16) % 10 === 0 ? 'val' : 'train');
 
-export async function acquire({ engine, cfg, root, cycle, signal = null, env = process.env, note = () => {}, maxDocs = cfg.cycle.maxNewDocs }) {
+export async function acquire({ engine, cfg, root, cycle, signal = null, env = process.env, note = () => {}, maxDocs = cfg.cycle.maxNewDocs, collectImpl = collect }) {
   const P = paths(root);
   fs.mkdirSync(P.corpus, { recursive: true });
   const st = loadSeen(root);
@@ -31,10 +31,20 @@ export async function acquire({ engine, cfg, root, cycle, signal = null, env = p
   };
   const pending = [];
   let left = maxDocs;
-  for (const src of cfg.sources.filter((s) => s.enabled !== false)) {
+  // Every source gets a share of the round in proportion to its own limit, and the source that goes first changes from
+  // round to round. (Taking them in a fixed order let the first source use up a whole discovery round by itself.)
+  // What a source does not deliver is passed on to the ones after it.
+  const enabled = cfg.sources.filter((s) => s.enabled !== false);
+  const turn = enabled.length ? (parseInt(String(cycle || '').replace(/\D+/g, ''), 10) || 0) % enabled.length : 0;
+  const order = [...enabled.slice(turn), ...enabled.slice(0, turn)];
+  const weight = (s) => Math.max(1, s.perCycle || maxDocs);
+  let weightLeft = order.reduce((a, s) => a + weight(s), 0);
+  for (const src of order) {
     if (left <= 0 || (signal && signal.aborted)) break;
+    const share = Math.max(1, Math.min(left, weight(src), Math.ceil(left * weight(src) / weightLeft)));
+    weightLeft -= weight(src);
     let got = [];
-    try { got = await collect(engine, src, st, Math.min(left, src.perCycle || left), { env, signal, note }); }
+    try { got = await collectImpl(engine, src, st, share, { env, signal, note }); }
     catch (e) { const msg = `${src.id}: ${String(e && e.message).slice(0, 200)}`; report.errors.push(msg); note(`source unavailable — ${msg}`); continue; }
     left -= got.length;
     for (const c of got) {

@@ -28,8 +28,9 @@ import { paths, readJSON, writeJSON, readLines, DEFAULTS, REPO, nowISO } from '.
 import { loadRegistry, registerModel, promote, rollback, modelDir } from '../learning/registry.mjs';
 import { loadBenchmark, benchmarkSentences, isBenchmarkSentence, runBenchmark, memorizationProbe, BENCHMARK_FILE } from '../learning/benchmark.mjs';
 import { promotionGate } from '../learning/evalsuite.mjs';
+import { acquire } from '../learning/corpus.mjs';
 import { packState, restoreState, healthCheck, seedFromPublished, pruneState } from '../learning/persist.mjs';
-import { buildChannel, publishDir, publishGithub, fetchGithubAsset, publishAll, withoutPaths, statusNotes } from '../learning/publish.mjs';
+import { buildChannel, publishDir, publishGithub, fetchGithubAsset, publishAll, withoutPaths, statusNotes, newerCommit } from '../learning/publish.mjs';
 import { collectMediawiki } from '../learning/sources.mjs';
 import { createManager } from '../learning/manager.mjs';
 import { snapshot, pendingInfo } from '../learning/cycle.mjs';
@@ -228,6 +229,34 @@ test('worker: a session with a time limit ends by itself and the next session co
   assert.equal(second.recoveries, 0);
   assert.ok(second.totals.discoveryRounds > first.totals.discoveryRounds);
   assert.equal(second.firstStarted, first.firstStarted);
+});
+
+test('worker: a session ends between two steps when newer code was pushed, and not otherwise', async () => {
+  const root = state({ docsPerRound: 1 }, { worker: { ...FAST.worker, codeCheckMinutes: 0 } });
+  let asked = 0;
+  const lines = [];
+  const w = createWorker({ root, env: { PATH: process.env.PATH }, cli: FAKE, seed: false, log: (s) => lines.push(s), newerCode: async () => { asked++; return asked >= 3 ? 'abcdef0123456789abcdef0123456789abcdef01' : null; } });
+  const code = await w.run();                                                // ends by itself: nobody calls stop()
+  assert.equal(code, 0);
+  assert.equal(asked, 3);
+  assert.equal(readLines(path.join(root, 'discovery.jsonl')).length, 3, 'three whole steps ran; none was cut short');
+  assert.equal(w.record().state, 'stopped');
+  assert.match(lines.join('\n'), /newer code is available \(abcdef0\): this session ends so that the next one runs it/);
+  assert.equal(fs.existsSync(paths(root).supervisor), false, 'the lock is released for the next session');
+
+  // the question itself: same commit → no; another commit → its id; no answer → no (a session never ends because GitHub was unreachable)
+  const sha = 'a'.repeat(40), other = 'b'.repeat(40);
+  const calls = [];
+  const answer = (status, body) => async (url, init) => { calls.push({ url, auth: init.headers.authorization }); return new Response(body, { status }); };
+  const q = { repo: 'o/r', ref: 'feature/x', sha, env: { GITHUB_TOKEN: 'secret-token', INFINI_GITHUB_API: 'https://api.test' } };
+  assert.equal(await newerCommit({ ...q, fetchImpl: answer(200, sha + '\n') }), null);
+  assert.equal(await newerCommit({ ...q, fetchImpl: answer(200, other) }), other);
+  assert.equal(await newerCommit({ ...q, fetchImpl: answer(500, 'oops') }), null);
+  assert.equal(await newerCommit({ ...q, fetchImpl: answer(200, '<html>not a commit</html>') }), null);
+  assert.equal(await newerCommit({ ...q, fetchImpl: async () => { throw new Error('offline'); } }), null);
+  assert.equal(await newerCommit({ ...q, sha: '', fetchImpl: answer(200, other) }), null);
+  assert.equal(calls[0].url, 'https://api.test/repos/o/r/commits/feature%2Fx');
+  assert.equal(calls[0].auth, 'Bearer secret-token');
 });
 
 test('worker: a production model that turns out damaged is rolled back at once, and the rollback is published', async () => {
@@ -712,6 +741,46 @@ test('discovery: the MediaWiki collector reads random articles, skips stubs and 
 
 // ---------------------------------------------------------------- deployment files
 
+test('discovery: every source gets its share of a round, the first place rotates, and what one source cannot deliver goes to the others', async () => {
+  const sources = [
+    { id: 'web', type: 'web', perCycle: 40 }, { id: 'simplewiki', type: 'mediawiki', perCycle: 30 }, { id: 'wikibooks', type: 'mediawiki', perCycle: 10 },
+    { id: 'wikivoyage', type: 'mediawiki', perCycle: 10 }, { id: 'factbook', type: 'github', perCycle: 30 }, { id: 'openstax', type: 'github', perCycle: 40 },
+    { id: 'switched-off', type: 'github', perCycle: 40, enabled: false },
+  ];
+  const cfg = { ...DEFAULTS, sources };
+  const ask = async (cycle, maxDocs, down = []) => {
+    const asked = [];
+    const collectImpl = async (engine, src, st, budget) => {
+      asked.push([src.id, budget]);
+      if (down.includes(src.id)) throw new Error('unreachable');
+      return Array.from({ length: budget }, (_, i) => ({ source: src.id, url: `https://${src.id}.test/${cycle}/${i}`, error: 'not fetched in this test', collectedAt: nowISO() }));
+    };
+    const r = await acquire({ engine: null, cfg, root: tmp('shares'), cycle, maxDocs, collectImpl });
+    return { asked, report: r.report };
+  };
+  // a discovery round of 40 with six sources whose limits add up to 160: nobody takes the round alone
+  const a = await ask('r00006', 40);
+  assert.deepEqual(a.asked, [['web', 10], ['simplewiki', 8], ['wikibooks', 3], ['wikivoyage', 3], ['factbook', 7], ['openstax', 9]]);
+  assert.equal(a.report.collected, 40);
+  assert.deepEqual(Object.keys(a.report.bySource).sort(), ['factbook', 'openstax', 'simplewiki', 'web', 'wikibooks', 'wikivoyage']);
+  // the next round starts with the next source
+  const b = await ask('r00007', 40);
+  assert.equal(b.asked[0][0], 'simplewiki');
+  assert.equal(b.asked[b.asked.length - 1][0], 'web');
+  assert.equal(b.asked.reduce((n, x) => n + x[1], 0), 40);
+  // three sources are down: their share goes to the ones that answer, and the failures are recorded
+  const c = await ask('r00006', 40, ['simplewiki', 'wikibooks', 'wikivoyage']);
+  assert.deepEqual(c.asked.filter((x) => !['simplewiki', 'wikibooks', 'wikivoyage'].includes(x[0])), [['web', 10], ['factbook', 13], ['openstax', 17]]);
+  assert.equal(c.report.collected, 40);
+  assert.equal(c.report.errors.length, 3);
+  // a full cycle (budget as large as all limits together): every source may deliver up to its own limit, never more
+  const d = await ask('c0009', 160);
+  assert.deepEqual(Object.fromEntries(d.asked), { web: 40, simplewiki: 30, wikibooks: 10, wikivoyage: 10, factbook: 30, openstax: 40 });
+  const e = await ask('c0009', 1000);
+  assert.deepEqual(Object.fromEntries(e.asked), { web: 40, simplewiki: 30, wikibooks: 10, wikivoyage: 10, factbook: 30, openstax: 40 });
+  assert.ok(!a.asked.concat(b.asked, c.asked, d.asked).some((x) => x[0] === 'switched-off'));
+});
+
 test('deployment: the workflow, the container and the service unit run the same worker and keep its state', () => {
   const wf = fs.readFileSync(path.join(REPO, '.github', 'workflows', 'infinity-learning.yml'), 'utf8');
   assert.match(wf, /node learning\/worker\.mjs --max-runtime "\$SESSION_SECONDS"/);
@@ -724,6 +793,7 @@ test('deployment: the workflow, the container and the service unit run the same 
   assert.match(wf, /vars\.INFINITY_LEARNING != 'off'/, 'there is a switch to stop the chain');
   assert.match(wf, /timeout-minutes: 340/);
   assert.doesNotMatch(wf, /secrets\.(?!GITHUB_TOKEN)/, 'no secret beyond the token GitHub provides');
+  assert.match(wf, /INFINI_WORKER_CODE_SHA: \$\{\{ github\.sha \}\}/, 'a session knows which commit it runs, and ends early when a newer one was pushed');
   const df = fs.readFileSync(path.join(REPO, 'Dockerfile.worker'), 'utf8');
   assert.match(df, /torch/); assert.match(df, /VOLUME \/data/); assert.match(df, /HEALTHCHECK .*cli\.mjs alive/); assert.match(df, /CMD \["node", .*"learning\/worker\.mjs"\]/); assert.match(df, /USER node/);
   const dc = fs.readFileSync(path.join(REPO, 'docker-compose.yml'), 'utf8');
