@@ -306,6 +306,7 @@ export function createHttpClient(cfg = {}) {
     let u = trusted ? new URL(rawUrl) : validateUrl(rawUrl, { allowPorts: conf.allowPorts });
     const firstOrigin = u.origin;
     const started = Date.now();
+    let pacedMs = 0;                    // time spent waiting for a turn at an API with a per-second limit: not the service being slow
     const redirects = [];
     for (let hop = 0; hop <= conf.maxRedirects; hop++) {
       const host = u.hostname;
@@ -318,8 +319,10 @@ export function createHttpClient(cfg = {}) {
       await sem.acquire(); await globalSem.acquire();
       let res;
       try {
+        const p0 = Date.now();
         await paced(u);
-        const remaining = Math.max(500, o.timeoutMs - (Date.now() - started));
+        pacedMs += Date.now() - p0;
+        const remaining = Math.max(500, o.timeoutMs - (Date.now() - started - pacedMs));
         stats.requests++;
         const request = {
           ...addr, timeoutMs: remaining, maxBytes: o.maxBytes, signal: o.signal,
@@ -375,7 +378,10 @@ export function createHttpClient(cfg = {}) {
     const res = await get(url, opts);
     if (res.status >= 400 || (res.status === 202 && !opts.accept202) || res.status === 204) {
       const hint = res.status === 403 || res.status === 401 ? ' (the site refused automated access)' : res.status === 429 ? ' (rate limited)' : res.status === 202 ? ' (challenge / not ready)' : '';
-      throw Object.assign(new HttpError(`HTTP ${res.status}${hint}`, 'http_' + res.status, res.status), { retryAfter: Math.max(0, Number(res.headers['retry-after']) || 0) });
+      // the start of the body stays with the error for the caller's own use (an API says there which of its limits was hit); it is never part of the message
+      let bodyText = '';
+      try { bodyText = res.body ? res.body.subarray(0, 400).toString('utf8') : ''; } catch { /* not text */ }
+      throw Object.assign(new HttpError(`HTTP ${res.status}${hint}`, 'http_' + res.status, res.status), { retryAfter: Math.max(0, Number(res.headers['retry-after']) || 0), bodyText });
     }
     const ct = res.headers['content-type'].toLowerCase().trim();
     const accept = ACCEPT[opts.accept || 'html'];

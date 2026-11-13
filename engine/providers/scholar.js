@@ -16,13 +16,29 @@ const opts = (ctx, extra) => ({ signal: ctx.signal, timeoutMs: ctx.timeoutMs || 
 const cleanDoi = (d) => String(d || '').replace(/^https?:\/\/(dx\.)?doi\.org\//i, '').trim().toLowerCase();
 const yearOf = (d) => (String(d || '').match(/^(\d{4})/) || [])[1] || '';
 
+/**
+ * Text a publisher deposited is sometimes marked up twice over: "&lt;div&gt; The research finds … &lt;span&gt;" inside the
+ * abstract. Decode and take the markup out until nothing changes. Only real element names are removed, so "a<b" and
+ * "p < 0.05" keep their sign.
+ */
+const MARKUP = /<\/?(?:div|span|p|br|b|i|u|em|strong|sub|sup|a|ul|ol|li|h[1-6]|font|table|tbody|thead|tr|td|th|img|hr|small|blockquote|section|article|label|title|italic|bold|sec|abstract|jats:[a-z-]+|mml:[a-z-]+)(?:\s[^<>]{0,300})?\/?>/gi;
+export function plainText(s) {
+  let t = String(s == null ? '' : s);
+  for (let i = 0; i < 3; i++) {
+    const next = decodeEntities(t).replace(MARKUP, ' ');
+    if (next === t) break;
+    t = next;
+  }
+  return squash(t);
+}
+
 /** OpenAlex stores abstracts as an inverted index (word → positions); this puts the words back in order. */
 export function invertedToText(inv) {
   if (!inv || typeof inv !== 'object') return '';
   const words = [];
   let n = 0;
   for (const [w, pos] of Object.entries(inv)) { if (!Array.isArray(pos)) continue; for (const p of pos) { if (Number.isInteger(p) && p >= 0 && p < 4000) { words[p] = w; n++; } } if (n > 4000) break; }
-  return squash(words.filter(Boolean).join(' '));
+  return plainText(words.filter(Boolean).join(' '));
 }
 
 // Publication types as the indexes report them → the study designs shown in the evidence overview.
@@ -39,7 +55,7 @@ export function studyFromTypes(types) {
 
 function oaWork(w) {
   const abstract = invertedToText(w.abstract_inverted_index);
-  const title = squash(stripTags(decodeEntities(String(w.title || w.display_name || ''))));
+  const title = plainText(stripTags(decodeEntities(String(w.title || w.display_name || ''))));
   const doi = cleanDoi(w.doi);
   const loc = w.primary_location || {};
   const venue = squash((loc.source && loc.source.display_name) || '');
@@ -86,12 +102,12 @@ export const openalex = {
 export function jatsAbstractToText(xml) {
   let t = String(xml || '');
   t = t.replace(/<jats:title[^>]*>\s*abstract\s*<\/jats:title>/gi, ' ').replace(/<jats:title[^>]*>([^<]{1,60})<\/jats:title>/gi, ' $1: ').replace(/<\/jats:(?:p|sec|list-item)>/gi, ' ');
-  t = squash(decodeEntities(stripTags(t))).replace(/^(?:abstract|summary)[\s:.]+/i, '').replace(/:\s*:/g, ':');
+  t = plainText(decodeEntities(stripTags(t))).replace(/^(?:abstract|summary)[\s:.]+/i, '').replace(/:\s*:/g, ':');
   return t;
 }
 const CR_TYPE = { 'journal-article': 'article', 'posted-content': 'preprint', 'proceedings-article': 'article', 'book-chapter': 'book-chapter', book: 'book', monograph: 'book', 'reference-entry': 'reference-entry', dissertation: 'dissertation', report: 'report', 'peer-review': 'peer-review', dataset: 'dataset' };
 function crWork(w) {
-  const title = squash(stripTags(decodeEntities(String((Array.isArray(w.title) ? w.title[0] : w.title) || ''))));
+  const title = plainText(stripTags(decodeEntities(String((Array.isArray(w.title) ? w.title[0] : w.title) || ''))));
   const doi = cleanDoi(w.DOI);
   if (!title || !/^10\.\d{4,9}\/\S+$/.test(doi)) return null;
   const abstract = jatsAbstractToText(w.abstract);
@@ -137,7 +153,7 @@ export const crossref = {
 function epmcWork(r) {
   const title = squash(stripTags(decodeEntities(String(r.title || '')))).replace(/\.$/, '');
   if (!title || !r.id || !r.source) return null;
-  const abstract = squash(stripTags(decodeEntities(String(r.abstractText || '').replace(/<h4>([^<]{1,40})<\/h4>/gi, ' $1: '))));
+  const abstract = plainText(stripTags(decodeEntities(String(r.abstractText || '').replace(/<h4>([^<]{1,40})<\/h4>/gi, ' $1: '))));
   const doi = cleanDoi(r.doi);
   const types = (r.pubTypeList && r.pubTypeList.pubType) || [];
   const venue = squash((r.journalInfo && r.journalInfo.journal && r.journalInfo.journal.title) || r.journalTitle || (r.bookOrReportDetails && r.bookOrReportDetails.publisher) || '');

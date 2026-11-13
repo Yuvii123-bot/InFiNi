@@ -145,7 +145,7 @@ const LEAD = new Set('now so then also and but well please ok hey hi hello alrig
 const DEVICE_KIN = /^(?:my |the )?(?:mom|mum|mother|dad|father|papa|mama|brother|sister|wife|husband|friend|boss|girlfriend|boyfriend|uncle|aunt|grandma|grandpa|son|daughter|teacher|doctor|police|ambulance|office|home|him|her|them|me|someone|\d+)\b/;
 
 export function createBrain(opts = {}) {
-  const persona = { version: opts.version || '3.0.0', creator: opts.creator || 'an independent developer', born: '2026-11', maxPages: Number(opts.maxPages) || 1500 };
+  const persona = { version: opts.version || '3.1.0', creator: opts.creator || 'Nepal369', born: '2026-11', maxPages: Number(opts.maxPages) || 1500 };
 
   /** Pick one reply of an intent that fits the situation; returns {text, expect} or null when none fits. */
   function chooseReply(c, intent, vars = {}) {

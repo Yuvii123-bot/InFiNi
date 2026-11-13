@@ -25,20 +25,22 @@ export const RESEARCH_BUDGET = {
 };
 // How many times one question may call each search service during the loop (on top of the first round).
 const CALLS = {
-  widen: { tavily: 1, firecrawl: 2, ddg_html: 1, mwmbl: 3, marginalia: 1, searxng: 4, brave: 2, wikipedia: 4, openalex: 1, crossref: 1, europepmc: 1, hackernews: 1 },
-  deep: { tavily: 2, firecrawl: 3, ddg_html: 2, mwmbl: 5, marginalia: 2, searxng: 6, brave: 4, wikipedia: 8, openalex: 2, crossref: 2, europepmc: 1, hackernews: 2 },
-  research: { tavily: 5, firecrawl: 8, ddg_html: 4, mwmbl: 16, marginalia: 4, searxng: 20, brave: 10, wikipedia: 30, openalex: 14, crossref: 14, europepmc: 10, hackernews: 4 },
+  widen: { langsearch: 2, tavily: 1, firecrawl: 2, ddg_html: 1, mwmbl: 3, marginalia: 1, searxng: 4, brave: 2, wikipedia: 4, openalex: 1, crossref: 1, europepmc: 1, hackernews: 1 },
+  deep: { langsearch: 4, tavily: 2, firecrawl: 3, ddg_html: 2, mwmbl: 5, marginalia: 2, searxng: 6, brave: 4, wikipedia: 8, openalex: 2, crossref: 2, europepmc: 1, hackernews: 2 },
+  research: { langsearch: 12, tavily: 5, firecrawl: 8, ddg_html: 4, mwmbl: 16, marginalia: 4, searxng: 20, brave: 10, wikipedia: 30, openalex: 14, crossref: 14, europepmc: 10, hackernews: 4 },
 };
 // words of research prose that name no sub-topic by themselves
 const VAGUE_SINGLE = new Set('outcome outcomes result results finding findings level levels change changes factor factors measure measures parameter parameters evidence analysis issue issues aspect aspects condition conditions strategy strategies approach approaches intervention interventions implication implications mechanism mechanisms process processes pattern patterns trend trends variable variables context contexts setting settings characteristic characteristics component components difference differences relationship relationships association associations influence influences response responses function functions status rate rates risk type types'.split(' '));
 // "Reduce", "Increase", "Cause": what the sources say happens is a verb, not the name of a sub-topic
 const VERB_SINGLE = new Set('reduce increase decrease cause affect improve induce impair alter promote inhibit enhance lead result include show suggest indicate associate link contribute disrupt trigger exacerbate prevent mitigate elicit accumulate remain occur become provide require involve pose raise lower limit allow enable ensure address assess examine explore understand identify determine evaluate investigate compare demonstrate reveal highlight report find make take give need help exist appear depend vary differ change develop support maintain achieve offer create produce release enter reach exceed compromise undermine boost hinder foster drive shape expose absorb ingest inhale'.split(' '));
 const PARTICIPANT = new Set('employee employees employer employers worker workers manager managers staff user users people person persons patient patients consumer consumers customer customers student students teacher teachers researcher researchers scientist scientists participant participants respondent respondents individual individuals company companies firm firms organization organizations organisation organisations business businesses country countries government governments institution institutions population populations community communities household households adult adults children child women woman men human humans author authors expert experts member members group groups team teams family families citizen citizens resident residents organism organisms species animal animals mammal mammals subject subjects'.split(' '));
+// as stems, for headings: a heading that adds only such a word to the question's own words names no sub-topic
+const NOT_ALONE = new Set([...PARTICIPANT, ...VAGUE_SINGLE].flatMap((w) => stemsOf(w)));
 const ADJECTIVE = /(?:ive|ory|ic|ous|ular|[a-z]{5}al|[a-z]{4}ary)$|^(?:immune|acute|severe|adverse|renal|fetal|foetal|neural|dental|mental|viral|fatal|social|legal|moral|rural|urban|human)$/;
 const NOUN_AL = new Set('chemical material animal metal potential individual hospital capital removal survival disposal proposal approval arrival journal signal mineral criminal professional official festival cereal terminal tribunal interval manual trial denial burial mammal portal crystal withdrawal renewal refusal rehearsal appraisal dismissal plastic traffic music logic topic magic fabric clinic critic public republic statistic characteristic antibiotic probiotic pandemic epidemic mechanic arsenic garlic panic picnic relic tonic tunic directive objective perspective initiative alternative representative executive incentive narrative adjective detective memory history theory category territory factory laboratory inventory victory summary library boundary dictionary glossary salary anniversary'.split(' '));
 const API_HOST = /(^|\.)(wikipedia\.org|europepmc\.org)$/;       // read through documented APIs with their own request budgets
-const FULL_INDEX = new Set(['tavily', 'firecrawl', 'ddg_html', 'searxng', 'brave']);          // services backed by a full web index: their top results are trusted leads
-const WEB = ['searxng', 'tavily', 'brave', 'firecrawl', 'ddg_html', 'mwmbl', 'marginalia'];
+const FULL_INDEX = new Set(['langsearch', 'tavily', 'firecrawl', 'ddg_html', 'searxng', 'brave']);          // services backed by a full web index: their top results are trusted leads
+const WEB = ['searxng', 'langsearch', 'tavily', 'brave', 'firecrawl', 'ddg_html', 'mwmbl', 'marginalia'];
 const BIOMED = /\b(health|disease|diseases|medical|medicine|clinical|patients?|symptoms?|treatments?|therap(y|ies)|drugs?|vaccines?|cancer|diabetes|diet|nutrition|obesity|exercise|sleep|mental|depression|anxiety|brain|heart|blood|infection|virus|bacteria|immune|genetic|genes?|protein|cells?|toxic|toxicity|exposure|pregnan\w+|mortality|epidemi\w+|pandemic|covid|fasting|supplements?|vitamins?|alcohol|smoking|pollution|microplastics?|antibiotics?|surgery|pain|aging|ageing|longevity|fertility|hormones?|inflammation|allerg\w+|asthma|stroke|dementia|alzheimer\w*|autism|adhd)\b/i;
 const TECHY = /\b(ai|artificial intelligence|software|programming|developer|startup|llm|machine learning|open source|linux|javascript|python|rust|database|cloud|chip|gpu|semiconductor|crypto|bitcoin|blockchain|cyber|security|hack|browser|api|framework|kubernetes|docker|quantum|robot\w*|agents?)\b/i;
 // Angles tried for a topic when the material itself suggests too few sub-topics (queries only — a report section needs evidence of its own).
@@ -59,6 +61,7 @@ export async function runResearch(x) {
   const calls = { ...CALLS[mode] };
   // searches on services with a paid or metered key (Tavily, Brave) are few by default, to spare a monthly quota; the operator can allow more
   if (mode === 'research' && x.cfg.research && x.cfg.research.keyedSearches) { calls.tavily = x.cfg.research.keyedSearches; calls.brave = Math.max(calls.brave, x.cfg.research.keyedSearches); }
+  if (mode === 'research' && x.cfg.research && Number.isFinite(x.cfg.research.langsearchSearches)) calls.langsearch = x.cfg.research.langsearchSearches;
   const main = parts[0];
   // What further searches are built around: everything the question names except the relation it asks about —
   // "the impact of remote work on productivity" → "remote work productivity"; "health effects of microplastics" → "microplastics".
@@ -146,7 +149,7 @@ export async function runResearch(x) {
       if (!can(id)) continue;
       if (id === 'mwmbl' && x.http.remaining('mwmbl') <= 0) continue;      // its per-minute allowance is used up: keep the call for a later round
       spend(id);
-      jobs.push(runProvider(id, query, ctxFor({ limit: id === 'mwmbl' ? 30 : 20, fresh, timeoutMs: 8000 }), x.logSearch).then((res) => (res ? frontier.addResults(res, { weight: FULL_INDEX.has(id) ? 1.15 : 0.8, aspect, trust: FULL_INDEX.has(id) }) : 0)));
+      jobs.push(runProvider(id, query, ctxFor({ limit: id === 'mwmbl' ? 30 : id === 'langsearch' ? 50 : 20, fresh, timeoutMs: 8000 }), x.logSearch).then((res) => (res ? frontier.addResults(res, { weight: FULL_INDEX.has(id) ? 1.15 : 0.8, aspect, trust: FULL_INDEX.has(id) }) : 0)));
     }
     if (wiki && can('wikipedia') && x.http.remaining('wikimedia-api') > 12) {
       spend('wikipedia');
@@ -316,9 +319,9 @@ export async function runResearch(x) {
       aspects.filter((a) => a.searched),                                                         // sub-topics already researched keep their place
       dedicated ? articleSections(dedicated.d, qStems, new Set(), { max: B.aspects, evidence: evidenceIn(dedicated.d) }) : [],
       articleSections(entityDoc && !entityDoc.wrongSense ? entityDoc : null, qStems, attributeStems, { max: B.aspects, evidence: attributeStems.size ? null : evidenceIn(entityDoc) }),
-      sharedHeadings(x.docs, qStems, { max: B.aspects, minOrigins: independent >= 40 ? 3 : 2, keys: keys ? keys.terms : null }),
+      sharedHeadings(x.docs, qStems, { max: B.aspects, minOrigins: independent >= 40 ? 3 : 2, keys: keys ? keys.terms : null, notAlone: NOT_ALONE }),
       fromVocabulary,
-    ], { max: B.aspects });
+    ], { max: B.aspects, ignore: NOT_ALONE });
     aspects = found.map((a) => { const old = aspects.find((o) => o.label === a.label); return old || { ...a, searched: false }; });
     // leads about a sub-topic pass the screen even when they do not repeat the whole question
     const extra = new Map();

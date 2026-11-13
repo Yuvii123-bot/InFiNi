@@ -109,9 +109,17 @@ export function composeReport(part, env, { aspects = [], budget, mode, docs }) {
   });
   sections.sort((x, y) => y.origins - x.origins || y.cands.length - x.cands.length);
   for (const sec of sections.slice(0, budget.sections)) {
-    const picks = mmr(sec.cands.map((s) => s).sort((x, y) => y.score * (1 + 0.08 * ((y.support || 1) - 1)) - x.score * (1 + 0.08 * ((x.support || 1) - 1))), budget.perSection + 2, { maxPerDoc: 1, dupSim: 0.5, filter: (s) => !env.used.has(`${s.pi}:${s.si}`) });
+    // A sentence that is quoted already, or stands word for word on another site, is not quoted again. Where there is a
+    // choice, neither is one that repeats an earlier statement in other words, nor a second one from a source already quoted.
+    const sorted = sec.cands.map((s) => s).sort((x, y) => y.score * (1 + 0.08 * ((y.support || 1) - 1)) - x.score * (1 + 0.08 * ((x.support || 1) - 1)));
+    const free = (s) => !env.taken(s);
+    const novel = (s) => free(s) && !env.quoted.some((q) => q.di === s.di) && !env.repeats(s);
+    const picks = mmr(sorted, budget.perSection + 2, { maxPerDoc: 1, dupSim: 0.5, filter: novel, same: env.sameFinding });
+    if (picks.length < budget.perSection) for (const s of mmr(sorted, budget.perSection + 2, { maxPerDoc: 1, dupSim: 0.5, filter: free })) if (!picks.includes(s)) picks.push(s);
     const items = [];
-    for (const s of picks) { if (items.length >= budget.perSection) break; const sp = env.quote(s); if (sp) items.push({ spans: [sp] }); }
+    const add = (s) => { const sp = env.quote(s); if (sp) items.push({ spans: [sp] }); };
+    for (const s of picks) { if (items.length >= budget.perSection) break; if (novel(s)) add(s); }
+    for (const s of picks) { if (items.length >= budget.perSection) break; if (free(s)) add(s); }
     if (items.length < 2) continue;
     out.blocks.push({ type: 'heading', text: sec.a.label, level: 2, subtopic: true }, { type: 'list', ordered: false, items });
     out.sections.push({ label: sec.a.label, statements: items.length, origins: sec.origins, index: sec.index, from: sec.a.source });

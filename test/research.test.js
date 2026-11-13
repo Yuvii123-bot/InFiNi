@@ -249,10 +249,23 @@ function syntheticWeb() {
     const topic = TOPICS[i % TOPICS.length];
     return { DOI: `10.5555/mp.${i + 1}`, title: [`Microplastics and ${topic.toLowerCase()}: a ${i % 5 === 0 ? 'systematic review' : 'study'} (${i + 1})`], abstract: `<jats:p>In this cohort, microplastics ${FINDINGS[topic][i % 2]}. The health effects of microplastics were assessed in ${200 + i} adults, and exposure was associated with ${topic.toLowerCase()} in the exposed group number ${i + 1}.</jats:p>`, published: { 'date-parts': [[2015 + (i % 12), 3, 1]] }, 'container-title': ['Journal of Synthetic Tests'], type: 'journal-article', 'is-referenced-by-count': i };
   });
-  const stats = { searches: 0, crossref: 0, pages: 0, other: 0, privateRequests: 0 };
+  // ten further sites that only the keyed search service knows
+  const lsSites = Array.from({ length: 10 }, (_, i) => `synthetic-ls-${i + 1}.org`);
+  lsSites.forEach((host, i) => {
+    const topic = TOPICS[i % TOPICS.length];
+    pages.set(`https://${host}/article`, `<html><head><title>Microplastics and ${topic.toLowerCase()}: what is known (${i + 1})</title></head><body><article><h1>Microplastics and ${topic.toLowerCase()}</h1><p>The health effects of microplastics include ${topic.toLowerCase()}, the review by institute ${i + 1} finds after reading the published studies of people.</p><p>Microplastics ${FINDINGS[topic][i % 2]}, the same review reports, and it adds that exposure through food and air is common in every country studied so far.</p></article></body></html>`);
+  });
+  const oaWorks = Array.from({ length: 12 }, (_, i) => {
+    const topic = TOPICS[i % TOPICS.length];
+    const words = `In this study of ${300 + i} adults microplastics ${FINDINGS[topic][i % 2]} and the health effects of microplastics were followed for ${2 + i} years in the cohort number ${i + 1} with repeated measurements`.split(' ');
+    const inv = {}; words.forEach((w, k) => { (inv[w] = inv[w] || []).push(k); });
+    return { id: `https://openalex.org/W9${i}`, doi: `https://doi.org/10.7777/oa.${i + 1}`, title: `Microplastics and ${topic.toLowerCase()} in adults: cohort ${i + 1}`, publication_year: 2020 + (i % 6), publication_date: `${2020 + (i % 6)}-03-0${1 + (i % 9)}`, type: 'article', cited_by_count: i, abstract_inverted_index: inv, primary_location: { source: { display_name: 'Synthetic Journal of Health' } }, open_access: { is_oa: false } };
+  });
+  const stats = { searches: 0, crossref: 0, pages: 0, other: 0, privateRequests: 0, langsearch: 0, openalex: 0, lsPages: 0 };
+  const seen = { langsearchAuth: '', langsearchBody: null, openalexKey: '' };
   const web = { delayMs: 0 };                                                    // a test can slow page delivery down to hold a run open
   const json = (o) => ({ status: 200, headers: { 'content-type': 'application/json' }, body: Buffer.from(JSON.stringify(o)), truncated: false });
-  const transport = async (u) => {
+  const transport = async (u, request) => {
     if (/^(127\.|10\.|169\.254\.|192\.168\.)|\.local$|^localhost$/.test(u.hostname)) stats.privateRequests++;
     if (u.pathname === '/robots.txt') return { status: 404, headers: {}, body: Buffer.alloc(0), truncated: false };
     if (u.hostname === 'api.mwmbl.org') {
@@ -262,14 +275,23 @@ function syntheticWeb() {
       return json([...hit.map((x) => ({ url: `https://${x.h}/article`, title: [{ value: `Health effects of microplastics: ${x.topic} (${x.i + 1})` }], extract: [{ value: 'microplastics health effects' }] })), { url: 'https://synthetic-blocked.org/article', title: [{ value: 'Health effects of microplastics (blocked site)' }], extract: [{ value: 'microplastics health effects' }] }]);
     }
     if (u.hostname === 'api.crossref.org') { stats.crossref++; return json({ message: { 'total-results': works.length, items: works } }); }
+    if (u.hostname === 'api.langsearch.com') {
+      stats.langsearch++;
+      const h = (request && request.headers) || {};
+      seen.langsearchAuth = h.Authorization || h.authorization || '';
+      try { seen.langsearchBody = JSON.parse(String(request.body)); } catch { seen.langsearchBody = null; }
+      return json({ code: 200, data: { webPages: { value: [...lsSites.map((host, i) => ({ name: `Microplastics and ${TOPICS[i % TOPICS.length].toLowerCase()}: what is known (${i + 1})`, url: `https://${host}/article`, text: 'The health effects of microplastics, reviewed.', datePublished: '2026-10-01T00:00:00.000Z' })), ...sites.slice(0, 5).map((host, i) => ({ name: `Health effects of microplastics (${i + 1})`, url: `https://${host}/article`, text: 'microplastics health effects' }))] } }, usage: { input_tokens: 6, output_tokens: 900 } });
+    }
+    if (u.hostname === 'api.openalex.org') { stats.openalex++; seen.openalexKey = u.searchParams.get('api_key') || ''; return json({ meta: { count: oaWorks.length }, results: oaWorks }); }
+    if (/^synthetic-ls-/.test(u.hostname)) stats.lsPages++;
     const key = u.origin + u.pathname;
     if (pages.has(key)) { stats.pages++; if (web.delayMs) await new Promise((r) => setTimeout(r, web.delayMs)); const body = pages.get(key); return body == null ? { status: 403, headers: {}, body: Buffer.from('forbidden'), truncated: false } : { status: 200, headers: { 'content-type': 'text/html; charset=utf-8' }, body: Buffer.from(body), truncated: false }; }
     stats.other++;
     return { status: 404, headers: {}, body: Buffer.alloc(0), truncated: false };
   };
-  return Object.assign(web, { transport, stats, sites });
+  return Object.assign(web, { transport, stats, sites, seen });
 }
-const ONLY = ['wikipedia', 'ddg_instant', 'searxng', 'tavily', 'brave', 'ddg_html', 'firecrawl', 'marginalia', 'wiby', 'stackexchange', 'mdn', 'arxiv', 'openalex', 'europepmc', 'hackernews', 'feeds', 'gdelt', 'wikidata'].join(',');
+const ONLY = ['wikipedia', 'ddg_instant', 'searxng', 'langsearch', 'tavily', 'brave', 'ddg_html', 'firecrawl', 'marginalia', 'wiby', 'stackexchange', 'mdn', 'arxiv', 'openalex', 'europepmc', 'hackernews', 'feeds', 'gdelt', 'wikidata'].join(',');
 function syntheticConfig(extra = {}) {
   const web = syntheticWeb();
   const cfg = loadConfig({ DISABLE_PROVIDERS: ONLY, LOG_LEVEL: 'silent', RATE_LIMIT_PER_MIN: '600', RATE_LIMIT_BURST: '200', ...extra });
@@ -326,6 +348,35 @@ test('research run, end to end on a synthetic web: rounds, counters, drafts, rep
   for (const b of r.answer.blocks) if (b.type === 'list') for (const it of b.items) assert.ok(it.spans.some((sp) => sp.cites && sp.cites.length), 'a statement without a citation');
   assert.ok(r.sources.length >= 10 && r.confidence.level !== 'insufficient');
   assert.match(blocksToText(r.answer.blocks), /microplastics/i);
+});
+
+test('keyed services in a run: LangSearch supplies leads, OpenAlex abstracts; pages are read by the engine itself; no key is ever shown', async () => {
+  resetCooling();
+  const { cfg, web } = syntheticConfig({ DISABLE_PROVIDERS: ONLY.split(',').filter((id) => id !== 'openalex' && id !== 'langsearch').join(','), LANGSEARCH_API_KEY: 'ls-SECRET-key', OPENALEX_API_KEY: 'oa-SECRET-key' });
+  const engine = createEngine(cfg);
+  const events = [];
+  const r = await engine.ask({ question: 'What are the health effects of microplastics?', settings: { depth: 'deep' } }, { onEvent: (ev) => events.push(ev) });
+  const status = engine.status();
+  engine.close();
+  assert.equal(r.kind, 'retrieval');
+  assert.equal(r.run.mode, 'deep');
+  // the keyed search service was asked a few times (its budget at this depth is 4 searches, after the first round's one) with the designed request
+  assert.ok(web.stats.langsearch >= 1 && web.stats.langsearch <= 5, `LangSearch requests: ${web.stats.langsearch}`);
+  assert.equal(web.seen.langsearchAuth, 'Bearer ls-SECRET-key');
+  assert.deepEqual(web.seen.langsearchBody.contents, { text: { maxCharacters: 320 } });
+  assert.ok(web.seen.langsearchBody.count >= 8 && web.seen.langsearchBody.count <= 50);
+  assert.ok(r.research.searches.some((s) => s.provider === 'langsearch' && s.ok && s.results >= 10));
+  // its leads were read by the engine's own reader: the pages of sites only it knows were requested, and count as pages read
+  assert.ok(web.stats.lsPages >= 5, `pages of sites only LangSearch knows: ${web.stats.lsPages}`);
+  assert.ok(r.run.pages >= 20 && r.run.pages <= web.stats.pages + web.stats.lsPages);
+  // the scholarly index was asked with its key, and its works are abstracts, never pages
+  assert.ok(web.stats.openalex >= 1);
+  assert.equal(web.seen.openalexKey, 'oa-SECRET-key');
+  assert.ok(r.run.abstracts >= 10, `abstracts: ${r.run.abstracts}`);
+  // tokens used are counted for the operator; nothing sent to the client or kept in the result contains a key
+  assert.ok(status.langsearch && status.langsearch.requests >= 1 && status.langsearch.tokens >= 900, JSON.stringify(status.langsearch));
+  const everything = JSON.stringify(events) + JSON.stringify(r) + JSON.stringify(status);
+  assert.ok(!/SECRET|api_key|Bearer /.test(everything), 'a key, or the way it is sent, appears in what the client receives');
 });
 
 test('research runs are limited: per instance, per hour, and by the caller; the answer then says so', async () => {

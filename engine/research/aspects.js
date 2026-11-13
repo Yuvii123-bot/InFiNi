@@ -13,6 +13,7 @@ const WEAK = new Set(('also many much however according including include includ
   'year years time times day days today now recent recently current currently important significant major main common different several numerous within across among around due per made make makes making take takes taken get gets getting got see seen need needs needed help helps helped lead leads led cause causes caused ' +
   'high higher low lower large larger small smaller long short great good better best more most less least very really quite rather further another other others every each both either neither whether while although though because since therefore thus hence ' +
   'potential possible potentially possibly likely unlikely overall general specific particular certain various key similar related associated increased decreased reduced growing rising emerging existing available present previous future early late later prior total whole entire additional further direct indirect ' +
+  'improved enhanced fewer greater stronger weaker bigger faster slower easier harder boosted heightened diminished ' +
   'http https www com org html click read share subscribe copyright rights reserved privacy policy terms cookie cookies menu home search login sign').split(/\s+/));
 // a phrase that opens with a verb in the third person ("improves employee", "reduces stress") is a piece of a sentence
 const NOT_FIRST = new Set('improves increases reduces decreases causes leads affects helps makes shows provides offers allows enables requires includes remains becomes enhances boosts lowers raises prevents promotes contributes creates gives keeps brings means suggests indicates finds reveals appears seems tends occurs exists involves depends varies plays takes gets has have had can may might could should would will is are was were been being does did do using used use'.split(' '));
@@ -74,6 +75,12 @@ export function keyPhrases(sentences, docs, qStems, { max = 12, minOrigins = 2, 
   return out;
 }
 
+// "Remote Employees Are Working Less", "Hybrid Work Boosts Output": a heading that states something is a headline, not the name of a sub-topic
+const HEADLINE_AUX = /\s(?:is|are|was|were|isn['’]t|aren['’]t|wasn['’]t|has|have|had|hasn['’]t|do|does|did|don['’]t|doesn['’]t|can|can['’]t|cannot|could|will|won['’]t|would|should|may|might|must)\s/i;
+const HEADLINE_VERB = /\s(?:improves|increases|reduces|decreases|causes|leads|affects|helps|makes|shows|provides|offers|allows|enables|requires|remains|becomes|enhances|boosts|lowers|raises|prevents|promotes|creates|gives|keeps|brings|suggests|indicates|finds|reveals|appears|seems|tends|depends|varies|wins|beats|hurts|kills|saves|drives|matters|works|fails)\s+(?!of\b|and\b|or\b|&)\S/i;
+export const isHeadline = (text) => HEADLINE_AUX.test(` ${text}`) || HEADLINE_VERB.test(` ${text}`);      // (a last word is a noun: "Free will", "Common causes")
+// "Better Work-Life Balance", "Enhanced Productivity", "The Hybrid Model": the name of the sub-topic is what follows the praise or the article
+const neutralHeading = (t) => String(t || '').replace(/^(?:(?:the|a|an)\s+)?(?:(?:much|far|significantly|greatly)\s+)?(?:(?:no|zero|better|improved|enhanced|increased|greater|higher|lower|reduced|decreased|fewer|more|less|stronger|weaker|bigger|faster|slower|easier|harder|boosted|heightened|diminished)\s+)?(?=\S)/i, '');
 const cleanHeading = (t) => squash(String(t || '')).replace(/^\s*(?:\d{1,2}(?:\.\d{1,2}){0,3}[.):]?\s+|[ivx]{1,4}[.)]\s+|step \d+[:.]?\s*|part \d+[:.]?\s*|chapter \d+[:.]?\s*)/i, '').replace(/[:?!.…]+$/, '').trim();
 // the standard parts of a scientific paper: every article has them, so sharing them says nothing about the topic
 const PAPER_PART = /^(?:(?:the |our )?(?:stud(?:y|ies)|materials?|methods?|methodology|materials? and methods?|methods? and materials?|patients? and methods?|subjects? and methods?|experimental(?: (?:section|design|procedures?|setup|methods?))?|study (?:design|area|population|selection|characteristics|limitations|participants)|participants|sample (?:collection|preparation|size)|sampling|data (?:collection|extraction|analysis|synthesis|sources?|availability(?: statement)?|sharing)|associated data|statistical analys[ei]s|statistics|analys[ei]s|results? and discussions?|results|findings|main (?:results|findings)|(?:primary |secondary |main |key |clinical |study |other )?outcomes?(?: measures?| and measures)?|outcome measures?|discussions?|general discussion|conclusions?(?: and (?:future )?(?:perspectives?|outlook|directions?|recommendations?|prospects?))?|concluding remarks|(?:future )?(?:perspectives?|outlook|directions?|prospects?|work|research(?: directions?)?)|recommendations?|limitations?|strengths? and limitations?|(?:literature )?search(?: strategy| methods?)?|literature review|(?:inclusion|exclusion|eligibility)(?: and exclusion)? criteria|quality assessment|risk of bias(?: assessment)?|ethic(?:s|al)(?: \w+){0,2}|supplementary (?:\w+ ?){1,2}|supporting information|appendix(?: \w)?|acknowledge?ments?|funding(?: \w+)?|author(?:s|s[’'])?(?: \w+){1,2}|conflicts? of interests?|competing interests?|declarations?(?: of \w+(?: \w+)?)?|abbreviations?|nomenclature|keywords?|highlights?|graphical abstract|abstract|introduction|background|objectives?|aims?(?: and objectives?)?|purpose|rationale|scope|summary|overview|footnotes?|notes?|references?|publisher[’']?s note|key (?:points?|messages?|findings)|significance(?: statement)?|practical implications|implications|case (?:presentation|report|description)|contributor information|article information|related (?:\w+ ?){1,2}|similar articles|cited by(?: other articles)?|links to \w+ databases|publication types|mesh terms|substances|grants? and funding|linkout(?: .*)?|full text (?:links|sources)|actions|share|page navigation|resources|permalink|copyright(?: .*)?)\s*)$/i;
@@ -81,7 +88,7 @@ const PAPER_PART = /^(?:(?:the |our )?(?:stud(?:y|ies)|materials?|methods?|metho
 const RELATION_WORD = new Set('challenge advantage disadvantage benefit drawback limitation risk danger hazard application cause consequence symptom treatment complication criticism controversy safety cost price side-effect prevention diagnosis'.split(' ').map((w) => stemsOf(w)[0]).filter(Boolean));
 
 /** Headings that pages from several independent sites share. docs: [{outline:[{text, level}], origin, offTopic}] */
-export function sharedHeadings(docs, qStems, { max = 10, minOrigins = 2, taken = [], keys = null } = {}) {
+export function sharedHeadings(docs, qStems, { max = 10, minOrigins = 2, taken = [], keys = null, notAlone = null } = {}) {
   const found = new Map();
   for (const d of docs) {
     if (d.offTopic || d.wrongSense || !d.outline) continue;
@@ -89,10 +96,12 @@ export function sharedHeadings(docs, qStems, { max = 10, minOrigins = 2, taken =
     for (const h of d.outline) {
       // a heading phrased as a question ("What are the benefits of …?", "How productive are remote workers") belongs to a FAQ, it does not name a sub-topic
       if (/\?\s*$/.test(String(h.text || '')) || /^\s*(?:\d+[.)]\s*)?(?:what|why|how|who|whom|whose|when|where|which|is|are|was|were|can|could|does|do|did|should|will|would)\b/i.test(String(h.text || ''))) continue;
-      const text = cleanHeading(h.text);
+      if (isHeadline(cleanHeading(h.text))) continue;
+      const text = neutralHeading(cleanHeading(h.text));
       if (text.length < 4 || text.length > 60 || text.split(/\s+/).length > 7 || GENERIC_HEADING.test(text) || SKIP_SECTION.test(text) || PAPER_PART.test(text)) continue;
       const stems = [...new Set(stemsOf(text))].filter((st) => !qStems.has(st) && !WEAK.has(st));
       if (!stems.length || stems.length > 4) continue;
+      if (notAlone && stems.every((st) => notAlone.has(st))) continue;                // "Employee Productivity" when productivity was asked about: what is new names only who was studied
       if (keys && !stems.some((st) => (keys.get(st) || 0) >= 0.2)) continue;          // with the answers' vocabulary known: a heading must speak it
       const key = [...stems].sort().join(' ');
       if (seen.has(key)) continue;
@@ -100,7 +109,13 @@ export function sharedHeadings(docs, qStems, { max = 10, minOrigins = 2, taken =
       let e = found.get(key);
       if (!e) { e = { key, stems, origins: new Set(), forms: new Map() }; found.set(key, e); }
       e.origins.add(d.origin || d.url);
-      e.forms.set(text, (e.forms.get(text) || 0) + 1);
+      // "Remote Autonomy" when remote work was asked about: the question's own words in front of the new word are not part of the name
+      const ws = text.split(/\s+/);
+      let lead = 0;
+      while (lead < ws.length - 1 && stemsOf(ws[lead]).length && stemsOf(ws[lead]).every((st) => qStems.has(st))) lead++;
+      const lastNew = stemsOf(ws[ws.length - 1]).some((st) => !qStems.has(st));
+      const form = lead > 0 && lastNew ? ws.slice(lead).join(' ') : text;
+      e.forms.set(form, (e.forms.get(form) || 0) + 1);
     }
   }
   const out = [], used = taken.map((t) => new Set(t));
@@ -178,10 +193,18 @@ export function aspectMatcher(aspect) {
 // "Immune function" and "Immune system", "Reproductive health" and "Reproductive disorders": one describing word with two general
 // nouns names one sub-topic, not two. ("Energy density" and "Energy storage" stay apart: neither noun is general.)
 const GENERAL_HEAD = new Set(stemsOf('system systems function functions response responses process processes activity health effect effects impact impacts issue issues problem problems disorder disorders disease diseases condition conditions level levels change changes mechanism mechanisms outcome outcomes damage'));
+// "Uses" and "Applications", "Advantages" and "Benefits": two general words for one section of a report
+const SAME_WORD = new Map();
+for (const group of ['use uses usage application applications', 'advantage advantages benefit benefits strength strengths pros', 'disadvantage disadvantages drawback drawbacks downside downsides weakness weaknesses cons', 'challenge challenges obstacle obstacles barrier barriers difficulty difficulties', 'cause causes reason reasons', 'risk risks danger dangers hazard hazards', 'symptom symptoms sign signs', 'consequence consequences effect effects impact impacts'])
+  for (const st of stemsOf(group)) SAME_WORD.set(st, group.split(' ')[0]);
+const word = (st) => SAME_WORD.get(st) || st;
 // "inflammation" and "inflammatory", "respiration" and "respiratory": one word family that the stemmer leaves apart
-const family = (x, y) => x === y || (x.length >= 5 && y.startsWith(x) && /^(?:atori|ori|i|at|al)$/.test(y.slice(x.length))) || (y.length >= 5 && x.startsWith(y) && /^(?:atori|ori|i|at|al)$/.test(x.slice(y.length)));
-const sameThing = (a, o) => {
-  if (a.stems.every((st) => o.stems.some((x) => family(x, st))) || o.stems.every((st) => a.stems.some((x) => family(x, st)))) return true;
+const family = (x, y) => x === y || word(x) === word(y) || (x.length >= 5 && y.startsWith(x) && /^(?:atori|ori|i|at|al)$/.test(y.slice(x.length))) || (y.length >= 5 && x.startsWith(y) && /^(?:atori|ori|i|at|al)$/.test(x.slice(y.length)));
+const sameThing = (a, o, ignore = null) => {
+  // "Job satisfaction" and "Employee satisfaction": a word that only names who was studied does not make a second sub-topic
+  const core = (x) => { const c = ignore ? x.stems.filter((st) => !ignore.has(st)) : x.stems; return c.length ? c : x.stems; };
+  const A = core(a), O = core(o);
+  if (A.every((st) => o.stems.some((x) => family(x, st))) || O.every((st) => a.stems.some((x) => family(x, st)))) return true;
   if (a.stems.length !== 2 || o.stems.length !== 2) return false;
   const shared = a.stems.filter((st) => o.stems.includes(st));
   if (shared.length !== 1) return false;
@@ -189,11 +212,11 @@ const sameThing = (a, o) => {
   return !GENERAL_HEAD.has(shared[0]) && GENERAL_HEAD.has(restA) && GENERAL_HEAD.has(restO);
 };
 
-export function mergeAspects(lists, { max = 10 } = {}) {
+export function mergeAspects(lists, { max = 10, ignore = null } = {}) {
   const out = [];
   for (const list of lists) for (const a of list || []) {
     if (out.length >= max) return out;
-    if (out.some((o) => sameThing(a, o))) continue;
+    if (out.some((o) => sameThing(a, o, ignore))) continue;
     out.push({ ...a, stems: [...a.stems] });
   }
   return out;

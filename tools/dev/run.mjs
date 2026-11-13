@@ -15,6 +15,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import crypto from 'node:crypto';
 import { fileURLToPath } from 'node:url';
+const noKey = (u) => u.toString().replace(/([?&](?:api_key|apikey|key|token)=)[^&]+/gi, '$1(removed)');
 
 const root = path.join(path.dirname(fileURLToPath(import.meta.url)), '..', '..');
 const { createEngine, loadConfig } = await import(path.join(root, 'engine', 'index.js'));
@@ -34,10 +35,10 @@ export function replayTransport(dir) {
     stats.misses++;
     try {
       const res = await send();
-      fs.writeFileSync(f, JSON.stringify({ url: u.toString(), status: res.status, headers: res.headers, body: res.body.toString('base64'), truncated: !!res.truncated }));
+      fs.writeFileSync(f, JSON.stringify({ url: noKey(u), status: res.status, headers: res.headers, body: res.body.toString('base64'), truncated: !!res.truncated }));
       return res;
     } catch (e) {
-      if (e && e.code !== 'aborted') fs.writeFileSync(f, JSON.stringify({ url: u.toString(), error: { message: e.message, code: e.code, name: e.name } }));
+      if (e && e.code !== 'aborted') fs.writeFileSync(f, JSON.stringify({ url: noKey(u), error: { message: e.message, code: e.code, name: e.name } }));
       throw e;
     }
   };

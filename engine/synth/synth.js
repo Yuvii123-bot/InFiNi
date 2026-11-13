@@ -16,6 +16,11 @@ export function figuresAgree(a, b) {
   const clash = (x, y) => [...x].some((v) => !y.has(v)) && [...y].some((v) => !x.has(v));      // each side states a figure the other lacks
   return !(clash(A.years, B.years) || (A.years.size === 0 && B.years.size === 0 && clash(A.nums, B.nums)));
 }
+// words of reporting and of the subject in general: two sentences that share only these do not yet say the same thing
+const REPORTING = new Set(stemsOf('finding findings result results study studies research researcher researchers show shows showed shown indicate indicates indicated suggest suggests suggested reveal reveals revealed find finds found report reports reported demonstrate demonstrates demonstrated conclude concludes concluded evidence analysis paper article survey surveyed review data also several many both including include includes such can may might could however while although whereas well various among across within overall generally often'));
+const UPWARD = /\b(?:increas|improv|enhanc|boost|higher|rais|gain|grow|grew|positiv|benefi|better|more productive|rise|rose)\w*/i;
+const DOWNWARD = /\b(?:decreas|declin|lower|wors|hinder|harm|negativ|drop|fall|fell|loss|lose|losing|less productive|reduction in|detriment|undermin|impair)\w*/i;
+const NEGATED = /\b(?:not|no|never|neither|nor|without|cannot|fail(?:s|ed)? to|lack(?:s|ed)? of)\b|n['’]t\b/i;
 const span = (text, cites = [], extra = {}) => ({ text, cites: uniq(cites).slice(0, 4), ...extra });
 /** A statement supported by more sources than fit beside it: the first few are shown, the rest are listed on request. */
 const wideSpan = (text, cites, extra) => { const all = uniq(cites); return { text, cites: all.slice(0, 3), ...(all.length > 3 ? { more: all.slice(3, 15) } : {}), ...(all.length > 1 ? { support: all.length } : {}), ...extra }; };
@@ -57,13 +62,40 @@ function makeEnv(part, docs, ctx) {
     ranked.sentences.sort((a, b) => b.score - a.score);
   }
   const used = new Set(), claims = [];
+  // The same sentence stands on several sites (a press release, a syndicated article): it is quoted once.
+  const usedText = new Set(), quoted = [];
+  const textKey = (t) => String(t).toLowerCase().replace(/[^\p{L}\p{N}]+/gu, ' ').trim();
+  // Two sentences that report one finding in other words ("… enhances productivity by reducing commuting time and providing
+  // flexibility …" / "… can enhance productivity through increased flexibility and reduced commuting time"): what they say
+  // beyond the question's own words and beyond the phrases of reporting is mostly shared. Opposite directions, a negation on
+  // one side or different figures keep two statements apart: those are two findings.
+  const plainStems = new Set([...qm.terms.keys(), ...qm.focus, ...REPORTING]);
+  const infoOf = new Map();
+  const info = (s) => { let v = infoOf.get(s); if (!v) { v = new Set(); for (const st of s.stems) if (!plainStems.has(st)) v.add(st); infoOf.set(s, v); } return v; };
+  const lean = (t) => { const up = UPWARD.test(t), down = DOWNWARD.test(t); return up === down ? 0 : up ? 1 : -1; };
+  const sameFinding = (a, b) => {
+    if (a === b) return true;
+    const A = info(a), B = info(b), small = Math.min(A.size, B.size);
+    if (small < 3) return false;
+    let n = 0;
+    for (const st of A) if (B.has(st)) n++;
+    if (n < 3 || n / small < 0.4) return false;
+    return lean(a.text) * lean(b.text) >= 0 && NEGATED.test(a.text) === NEGATED.test(b.text) && figuresAgree(a.text, b.text);
+  };
   const env = {
     part, docs, ctx, style, qm, ranked, claims, used, top: ranked.sentences[0] || null, corroborated: 0, disputes: [],
+    quoted, sameFinding,
+    /** Has this sentence, or the same sentence on another site, been quoted already? */
+    taken: (s) => used.has(`${s.pi}:${s.si}`) || usedText.has(textKey(s.text)),
+    /** After many pages have been read: does this sentence only repeat, in other words, a finding that is already quoted? */
+    repeats: (s) => quoted.some((q) => sameFinding(q, s)),
     cite: (di) => ctx.cite(di),
     /** Quote a ranked sentence: returns a span (with corroborating citations) and records the claim, or null. */
     quote(s, { prefix = '', allowDangling = false, record = true } = {}) {
       const key = `${s.pi}:${s.si}`;
       if (used.has(key)) return null;
+      const tk = textKey(s.text);
+      if (tk.length >= 40 && usedText.has(tk)) return null;
       let text = s.text;
       if (s.dangling && s.type === 'p') {
         const prev = s.si > 0 ? ranked.passages[s.pi].sentences[s.si - 1] : null;
@@ -71,6 +103,8 @@ function makeEnv(part, docs, ctx) {
         else if (!(prev && used.has(`${s.pi}:${s.si - 1}`)) && !allowDangling) return null;
       }
       used.add(key);
+      usedText.add(tk);
+      quoted.push(s);
       const doc = docs[s.di];
       // after many pages have been read, a statement may be echoed by many independent sources: all of them are found, the best few are cited beside it
       const wide = !!ctx.wide;
@@ -102,7 +136,17 @@ function insufficient(env, why) {
   if (related.length) { blocks.push({ type: 'heading', text: 'Closest related information (does not answer the question directly)' }); blocks.push({ type: 'list', ordered: false, items: related.map((sp) => ({ spans: [sp] })) }); }
   return { blocks, claims: [], stats: { insufficient: true, directness: top ? top.cov * 0.5 : 0, keyClaims: 0, corroborated: 0 }, lead: NOT_VERIFIED };
 }
-const isWeak = (env) => !env.top || (env.top.directCov < 0.34 && env.top.cov < 0.5) || env.top.cov < 0.34 || !env.ranked.sentences.slice(0, 12).some((s) => s.predCov >= 0.5 && s.score >= env.top.score * 0.4);
+// "the phone number of the owner of the blue house on Elm Street in Springfield": what is asked about is given by a description.
+// A sentence that shares two of its words (a church on Elm Street) is about something else. Most of the description must stand in
+// the sentence, its heading or the title of its page; otherwise nothing found answers the question.
+const describedMiss = (env) => {
+  const f = [...new Set(stemsOf(env.part.focus || ''))];
+  if (env.part.answerType !== 'attribute' || f.length < 4 || !env.top) return false;
+  const d = env.docs[env.top.di] || {};
+  const around = new Set([...env.top.stems, ...stemsOf(`${env.top.heading || ''} ${d.title || ''}`)]);
+  return f.filter((st) => around.has(st)).length / f.length < 0.6;
+};
+const isWeak = (env) => !env.top || (env.top.directCov < 0.34 && env.top.cov < 0.5) || env.top.cov < 0.34 || !env.ranked.sentences.slice(0, 12).some((s) => s.predCov >= 0.5 && s.score >= env.top.score * 0.4) || describedMiss(env);
 
 /** Lead sentence(s) + key points. The workhorse for definitions, explanations, reasons and mechanisms. */
 function composeExtractive(env, { leadFilter = null, bullets = null, heading = 'Key points', attribute = false, minRel = 0.5, bulletFilter = null, requireLead = false, openFirst = false } = {}) {
@@ -163,11 +207,13 @@ function composeExtractive(env, { leadFilter = null, bullets = null, heading = '
     // some other thing and never names the topic is background from a neighbouring field, not a point about the topic
     const definesOther = (s) => wide && topicStems.length > 0 && !namesTopic(s) && /^[A-Z][\w’'-]*(?:\s+[\w’'-]+){0,4}?(?:\s+\([A-Za-z]{2,8}\))?\s+(?:is|are|refers? to|means)\s+(?:an?\s|the\s|[a-z]+ly\s|one of\s)/.test(s.text);
     const ok = (s) => !env.used.has(`${s.pi}:${s.si}`) && s.type !== 'table' && keyed(s) && !definesOther(s) && simSets(s.stems, lead.stems) < 0.6 && (s.directCov >= lead.directCov * 0.6 || s.pi === lead.pi || (wide && !!s.gov && s.directCov >= 0.3)) && !(wide && s.otherEntity) && (s.predCov >= 0.5 || s.pi === lead.pi || part.answerType === 'definition' || part.explain) && (!bulletFilter || bulletFilter(s)) && !aboutOther(s);
-    let picks = mmr(cands, nB + 4, { maxPerDoc: wide ? 1 : Math.max(2, Math.ceil(nB / 2)), filter: ok });
+    // after a research run there are hundreds of sentences to choose from: one that repeats the opening or an earlier point in other words is left out
+    const fresh = wide ? (s) => ok(s) && !env.taken(s) && !env.repeats(s) : ok;
+    let picks = mmr(cands, nB + 4, { maxPerDoc: wide ? 1 : Math.max(2, Math.ceil(nB / 2)), filter: fresh, same: wide ? env.sameFinding : null });
     // after a research run each source gets one statement — unless that leaves the list short while one thorough source has more to say
-    if (wide && picks.length < nB) { const more = mmr(cands, nB + 4, { maxPerDoc: 3, filter: ok }); picks = [...picks, ...more.filter((s) => !picks.includes(s))].slice(0, nB + 4).sort((a, b) => b.score - a.score); }
+    if (wide && picks.length < nB) { const more = mmr(cands, nB + 4, { maxPerDoc: 3, filter: fresh, same: env.sameFinding }); picks = [...picks, ...more.filter((s) => !picks.includes(s))].slice(0, nB + 4).sort((a, b) => b.score - a.score); }
     const items = [];
-    for (const s of picks) { if (items.length >= nB) break; const sp = env.quote(s, { prefix: pre(s) }); if (sp) items.push({ spans: [sp] }); }
+    for (const s of picks) { if (items.length >= nB) break; if (wide && env.repeats(s)) continue; const sp = env.quote(s, { prefix: pre(s) }); if (sp) items.push({ spans: [sp] }); }
     if (items.length) { blocks.push({ type: 'heading', text: heading }); blocks.push({ type: 'list', ordered: false, items }); }
   }
   const directness = clamp((0.25 + 0.75 * Math.min(1, lead.cov)) * (lead.cueHit || lead.defHit || !CUES[part.answerType] ? 1 : 0.8));
@@ -189,19 +235,39 @@ function extractCandidates(env) {
   const type = part.answerType;
   const qWords = new Set(tokenize(part.text));
   const cueStems = new Set([...(part.verb ? [stem(part.verb.lemma)] : []), ...stemsOf(part.attribute || '')]);
+  // "Who is the author of …": the word that names the relation, and the other ways of saying it ("wrote", "written"), are cues too
+  const focusSt = new Set(stemsOf(part.focus || ''));
+  for (const e of part.expansions || []) { const of = stemsOf(e.of || '')[0]; if (of && !focusSt.has(of)) { cueStems.add(of); if (e.stem) cueStems.add(e.stem); } }
+  const focusWords = tokenize(part.focus || '').filter((w) => w.length > 3);
   const lemma = part.verb ? part.verb.lemma : '';
   const life = /^(born|die)$/.test(lemma) || /\b(birth|death|born|died)\b/i.test(part.attribute || '') ? (/(die|death|died)/.test(lemma + ' ' + part.attribute) ? 'death' : 'birth') : null;
   const map = new Map();
   const add = (norm, value, w, s) => {
     if (!norm || w <= 0) return;
-    const c = map.get(norm) || { norm, value, score: 0, sentences: [], origins: new Set(), precision: 0 };
-    c.score += w; if (!c.sentences.includes(s)) c.sentences.push(s); c.origins.add(docs[s.di].origin);
+    const c = map.get(norm) || { norm, value, score: 0, sentences: [], origins: new Set(), precision: 0, texts: new Set() };
+    // the same sentence found on another site is a copy, not a second witness: it adds little and does not count as agreement
+    const key = s.text.toLowerCase().replace(/[^\p{L}\p{N}]+/gu, ' ').trim().slice(0, 240);
+    const copy = c.texts.has(key);
+    c.texts.add(key);
+    c.score += copy ? w * 0.15 : w;
+    if (!copy) { if (!c.sentences.includes(s)) c.sentences.push(s); c.origins.add(docs[s.di].origin); }
     if (value.length > c.value.length && c.sentences.length <= 3) c.value = value;
     map.set(norm, c);
   };
   const pool = ranked.sentences.filter((s) => s.cov >= 0.38).slice(0, 30);
   for (const s of pool) {
     const text = s.text;
+    // 'Walter Scott wrote in his journal, "… Miss Austen's very finely written novel of Pride and Prejudice."': when what the question
+    // is about stands only inside a quotation, a name outside it is the one speaking, not the one asked for
+    const quotes = [];
+    { const qre = /["“]([^"”]{12,})["”]/g; let qm; while ((qm = qre.exec(text))) quotes.push([qm.index, qm.index + qm[0].length]); }
+    const inQuote = (i) => quotes.some(([a, b]) => i >= a && i < b);
+    let speakerOnly = false;
+    if (quotes.length && focusWords.length) {
+      const low = text.toLowerCase(); const at = [];
+      for (const w of focusWords) { let i = -1; while ((i = low.indexOf(w, i + 1)) >= 0) at.push(i); }
+      speakerOnly = at.length > 0 && at.every(inQuote);
+    }
     if (type === 'time') {
       const range = life && text.match(/\(([^()]*?\b\d{3,4})\s*[–—-]\s*([^()]*?\b\d{3,4}[^()]*?)\)/);
       if (range) for (const d of findDates(life === 'birth' ? range[1] : range[2]).slice(0, 1)) if (d.year != null) add(String(d.year), d.iso && d.precision !== 'century' ? formatDate(d.iso) : d.text, s.score * 1.6, s);
@@ -218,7 +284,7 @@ function extractCandidates(env) {
       while ((m = re.exec(text))) {
         let name = m[1].replace(/[.,;:'’]+$/, '').replace(/'s$/, '');
         const toks = name.split(/\s+/);
-        while (toks.length && NOT_NAME.has(toks[0])) toks.shift();
+        while (toks.length && (NOT_NAME.has(toks[0]) || /^(?:Mr|Mrs|Ms|Miss|Dr|Sir|Lady|Lord|Prof|Professor)\.?$/.test(toks[0]))) toks.shift();      // "Miss Austen" is Austen
         if (!toks.length) continue;
         name = toks.join(' ');
         if (name.length < 3 || toks.every((t) => qWords.has(t.toLowerCase())) || toks.some((t) => qWords.has(t.toLowerCase())) && type !== 'place') continue;
@@ -227,6 +293,7 @@ function extractCandidates(env) {
         let w = s.score * nearestCue(text, m.index, cueStems);
         if (type === 'person') { if (toks.length < 2) w *= 0.25; if (ORG_WORDS.test(name)) w *= 0.15; if (locative) w *= 0.4; if (/\b(by|inventor|founder|author|scientist|engineer|president|minister|king|queen|director|credited|named|professor|physicist|chemist)\s+$/.test(before)) w *= 1.3; }
         if (type === 'place') { if (!locative) w *= 0.3; }
+        if (speakerOnly && type === 'person' && !inQuote(m.index)) w *= 0.3;
         add(name.toLowerCase(), name, w, s);
       }
     } else if (type === 'quantity') {

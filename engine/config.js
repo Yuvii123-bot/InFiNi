@@ -1,6 +1,6 @@
 // INFINI AI — configuration (environment-driven; every value has a safe default; no key is required).
 
-export const VERSION = '3.0.0';
+export const VERSION = '3.1.0';
 
 const WIKIMEDIA_HOST = /(^|\.)(wikipedia|wikidata|wikimedia|mediawiki|wiktionary|wikinews|wikibooks|wikiquote|wikivoyage|wikiversity|wikisource)\.org$/;
 const WIKIMEDIA_API_PATH = /^\/(w\/api\.php|w\/rest\.php|api\/rest_v1|core\/v1)/;
@@ -22,10 +22,10 @@ export function loadConfig(env = (typeof process !== 'undefined' ? process.env :
   return {
     version: VERSION,
     contact, userAgent,
-    creator: String(env.INFINI_CREATOR || '').trim().slice(0, 60).replace(/[^\p{L}\p{N} .,'&-]/gu, '') || 'an independent developer',
+    creator: String(env.INFINI_CREATOR || '').trim().slice(0, 60).replace(/[^\p{L}\p{N} .,'&-]/gu, '') || 'Nepal369',
     port: num(env.PORT, 8787, 1, 65535),
     host: env.HOST || '0.0.0.0',
-    keys: { brave: env.BRAVE_API_KEY || '', marginalia: env.MARGINALIA_API_KEY || '', stackexchange: env.STACKEXCHANGE_KEY || '', tavily: env.TAVILY_API_KEY || '', firecrawl: env.FIRECRAWL_API_KEY || '', openalex: env.OPENALEX_API_KEY || '' },
+    keys: { brave: env.BRAVE_API_KEY || '', marginalia: env.MARGINALIA_API_KEY || '', stackexchange: env.STACKEXCHANGE_KEY || '', tavily: env.TAVILY_API_KEY || '', langsearch: env.LANGSEARCH_API_KEY || '', firecrawl: env.FIRECRAWL_API_KEY || '', openalex: env.OPENALEX_API_KEY || '' },
     searxngUrl,
     disabled: new Set(list(env.DISABLE_PROVIDERS)),
     extraFeeds: list(env.EXTRA_FEEDS),
@@ -44,6 +44,7 @@ export function loadConfig(env = (typeof process !== 'undefined' ? process.env :
       perHour: num(env.RESEARCH_PER_HOUR, 12, 1, 1000),
       perClientPerHour: num(env.RESEARCH_PER_CLIENT_PER_HOUR, 6, 1, 1000),
       keyedSearches: num(env.RESEARCH_KEYED_SEARCHES, 5, 1, 40),          // searches per research run on services with a metered key (Tavily, Brave)
+      langsearchSearches: num(env.RESEARCH_LANGSEARCH_SEARCHES, 12, 0, 40), // searches per research run on LangSearch (free; its allowance is counted in tokens of returned text and renews daily)
     },
     http: {
       userAgent,
@@ -67,6 +68,8 @@ export function loadConfig(env = (typeof process !== 'undefined' ? process.env :
         { id: 'crossref', label: 'Crossref API', perMin: 100, gapMs: num(env.CROSSREF_GAP_MS, 380, 0, 5000), test: (u) => u.hostname === 'api.crossref.org' },
         { id: 'europepmc', label: 'Europe PMC API', perMin: 120, test: (u) => u.hostname === 'www.ebi.ac.uk' },
         { id: 'mwmbl', label: 'Mwmbl', perMin: 30, test: (u) => u.hostname === 'api.mwmbl.org' },
+        // LangSearch allows 5 requests per second on a new account (docs, November 2026): starts are spaced 250 ms apart
+        { id: 'langsearch', label: 'LangSearch API', perMin: 120, gapMs: num(env.LANGSEARCH_GAP_MS, 250, 0, 5000), test: (u) => u.hostname === 'api.langsearch.com' },
       ],
     },
   };

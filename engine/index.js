@@ -8,6 +8,7 @@ import { createHttpClient } from './net/http.js';
 import { analyze } from './nlp/analyze.js';
 import { buildPlan, reformulate } from './plan/plan.js';
 import { PROVIDERS, runProvider, webSearch, fuse, isEnabled, listProviders, resetCooling, providerCooling, WEB_CHAIN } from './providers/index.js';
+import { langsearchUsage } from './providers/searchapis.js';
 import { createBrain, sanitizeState as sanitizeBrain, noteWeb } from './brain/index.js';
 import wikipedia from './providers/wikipedia.js';
 import ddgInstant from './providers/ddg_instant.js';
@@ -926,7 +927,7 @@ export function createEngine(userCfg) {
     ask, preview, config: cfg,
     providers: (offList = []) => listProviders(cfg, new Set(offList)),
     brain,
-    status: () => ({ version: VERSION, uptimeS: Math.round((Date.now() - totals.startedAt) / 1000), totals: { ...totals }, research: { enabled: !!cfg.research.enabled, running: researchLoad.running, startedLastHour: researchLoad.starts.filter((t) => Date.now() - t < 3600_000).length, maxConcurrent: cfg.research.maxConcurrent, perHour: cfg.research.perHour, maxPages: cfg.research.maxPages, maxSeconds: cfg.research.maxSeconds }, brain: brain.stats(), http: http.stats(), wikimediaBudget: http.remaining('wikimedia-api'), contactConfigured: !!cfg.contact }),
+    status: () => ({ version: VERSION, uptimeS: Math.round((Date.now() - totals.startedAt) / 1000), totals: { ...totals }, research: { enabled: !!cfg.research.enabled, running: researchLoad.running, startedLastHour: researchLoad.starts.filter((t) => Date.now() - t < 3600_000).length, maxConcurrent: cfg.research.maxConcurrent, perHour: cfg.research.perHour, maxPages: cfg.research.maxPages, maxSeconds: cfg.research.maxSeconds }, brain: brain.stats(), http: http.stats(), wikimediaBudget: http.remaining('wikimedia-api'), contactConfigured: !!cfg.contact, ...(cfg.keys.langsearch ? { langsearch: langsearchUsage() } : {}) }),
     clearCaches: () => { http.clearCache(); resetCooling(); },
     close: () => http.close(),
   };

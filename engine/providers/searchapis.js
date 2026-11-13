@@ -58,3 +58,50 @@ export const tavily = {
     return ((res.json && res.json.results) || []).filter((r) => r && isWebUrl(r.url)).map((r) => lead('tavily', r.title, r.url, r.content, r.published_date));
   },
 };
+
+// LangSearch (https://docs.langsearch.com): a free web search API. Its allowance is counted in tokens of the text it
+// returns and renews every day at 00:00 UTC. Only links and a short piece of each page's text are requested — as much as
+// the screening of a lead reads (see lead()). The pages themselves are read by INFINI AI's own reader, which honours
+// robots.txt and a page's opt-out from excerpts; text from the index is never quoted. Asking for 320 characters of text
+// costs about a fifth of the default snippets (measured: 893 against 4,664 tokens for the same 12 results).
+// Its "datePublished" is mostly the date a page was last changed (7 of 9 pages checked against their own metadata), so it
+// is not passed on as a publication date.
+const LS_TEXT = 320;
+const lsState = { day: '', requests: 0, tokens: 0, strikes: 0 };
+const utcDay = (t = Date.now()) => new Date(t).toISOString().slice(0, 10);
+const lsCount = (tokens) => { const day = utcDay(); if (lsState.day !== day) { lsState.day = day; lsState.requests = 0; lsState.tokens = 0; } lsState.requests++; lsState.tokens += tokens; };
+/** What this process has used of the LangSearch allowance since 00:00 UTC. (The allowance itself is shown only in the LangSearch dashboard.) */
+export const langsearchUsage = () => (lsState.day === utcDay() ? { day: lsState.day, requests: lsState.requests, tokens: lsState.tokens } : { day: utcDay(), requests: 0, tokens: 0 });
+
+export const langsearch = {
+  id: 'langsearch', label: 'LangSearch', kind: 'web', keyless: false, documented: true, defaultOn: true, cooldownMs: 60_000,
+  note: 'Needs LANGSEARCH_API_KEY — a free key without a payment method (a daily allowance counted in tokens of returned text). Only result links and a short piece of text for screening are requested; the pages are read by INFINI AI itself.',
+  available: (cfg) => !!(cfg.keys && cfg.keys.langsearch),
+  async search(query, ctx) {
+    const body = { query, count: Math.max(1, Math.min(Math.round(ctx.limit || 10), 50)), contents: { text: { maxCharacters: LS_TEXT } } };
+    const fresh = { day: 'oneDay', week: 'oneWeek', month: 'oneMonth', year: 'oneYear' }[ctx.fresh];
+    if (fresh) body.freshness = fresh;
+    let res;
+    try { res = await ctx.http.postJSON('https://api.langsearch.com/v1/web-search', body, request(ctx, { headers: { Authorization: `Bearer ${keyOf(ctx, 'langsearch')}` } })); }
+    catch (e) {
+      if (e.status === 401 || e.status === 403) throw new ProviderError('LangSearch did not accept the key', 'refused');
+      if (e.status === 429) {
+        // one status for four limits (requests per second, requests at a time, tokens per minute, tokens per day); the body says which.
+        // A spent daily allowance rests until the reset; anything else rests a minute, and longer each time it happens again.
+        const daily = /\b(?:daily|per day|tpd|day'?s? (?:token|quota|allowance|limit))\b/i.test(String(e.bodyText || ''));
+        lsState.strikes++;
+        const now = ctx.now || Date.now(), d = new Date(now);
+        const untilReset = Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate() + 1) - now + 60_000;
+        const pause = daily ? untilReset : Math.min(3600_000, Math.max((Number(e.retryAfter) || 0) * 1000, 60_000 * 2 ** Math.min(lsState.strikes - 1, 6)));
+        throw Object.assign(new ProviderError(daily ? 'LangSearch’s daily allowance for this key is used up (it renews at 00:00 UTC) — the other search providers take over' : 'LangSearch asked for a pause (its rate or per-minute allowance) — the other search providers take over', 'rate_limited'), { retryAfterMs: pause });
+      }
+      throw e;
+    }
+    const j = res.json || {};
+    const list = j.data && j.data.webPages && Array.isArray(j.data.webPages.value) ? j.data.webPages.value : null;
+    if (!list) throw new ProviderError(`LangSearch answered without a result list (code ${String(j.code == null ? 'none' : j.code).replace(/[^\w-]/g, '').slice(0, 12)})`, 'bad_response');
+    lsState.strikes = 0;
+    if (!res.fromCache) lsCount((Number(j.usage && j.usage.input_tokens) || 0) + (Number(j.usage && j.usage.output_tokens) || 0));
+    return list.filter((r) => r && isWebUrl(r.url)).map((r) => lead('langsearch', r.name, r.url, r.text || r.snippet || r.summary, ''));
+  },
+};

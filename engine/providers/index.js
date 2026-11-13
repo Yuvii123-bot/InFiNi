@@ -6,17 +6,21 @@ import { mwmbl, marginalia, wiby, brave, searxng } from './openweb.js';
 import { stackexchange, mdn, arxiv, hackernews, gdelt } from './verticals.js';
 import ddgInstant from './ddg_instant.js';
 import feeds from './feeds.js';
-import { firecrawl, tavily } from './searchapis.js';
+import { firecrawl, tavily, langsearch } from './searchapis.js';
 import { openalex, europepmc, crossref } from './scholar.js';
 import { canonicalUrl, domainOf } from '../util/text.js';
 
-export const PROVIDERS = { wikipedia, ddg_instant: ddgInstant, searxng, tavily, brave, ddg_html: ddg, firecrawl, mwmbl, marginalia, wiby, stackexchange, mdn, arxiv, openalex, crossref, europepmc, hackernews, feeds, gdelt };
+export const PROVIDERS = { wikipedia, ddg_instant: ddgInstant, searxng, langsearch, tavily, brave, ddg_html: ddg, firecrawl, mwmbl, marginalia, wiby, stackexchange, mdn, arxiv, openalex, crossref, europepmc, hackernews, feeds, gdelt };
 
 // Order of preference for general web search. The first provider that returns enough results wins;
 // if it fails (error, rate limit, human check) the next one is tried.
 // What the operator configured comes first (own SearXNG, then keyed APIs); the keyless services follow.
 // The best-effort services after Firecrawl are re-ordered by how well they worked for the user (see webSearch).
-export const WEB_CHAIN = ['searxng', 'tavily', 'brave', 'firecrawl', 'ddg_html', 'mwmbl', 'marginalia', 'wiby'];
+// LangSearch stands ahead of Tavily. Measured on the 36-question benchmark (docs/EVALUATION.md): with either one first all
+// 36 answers pass, but of the pages LangSearch points to 94% could be read (Tavily: 81%); and its allowance renews every
+// day, Tavily's once a month. Tavily takes over when LangSearch rests or its day's allowance is spent. In a deep search or
+// research run both are asked.
+export const WEB_CHAIN = ['searxng', 'langsearch', 'tavily', 'brave', 'firecrawl', 'ddg_html', 'mwmbl', 'marginalia', 'wiby'];
 
 export function listProviders(cfg, disabled = new Set()) {
   return Object.values(PROVIDERS).map((p) => ({

@@ -33,6 +33,8 @@ function stemRank(st) {
   return STEM_RANK.get(st) || 0;
 }
 /** 0.15 (an everyday word) … 1 (not among the 31,000 most frequent everyday words). */
+const OPENS_WITH_GAP = /^(?:however,? |yet,? |but,? |still,? |to date,? |so far,? |at present,? |currently,? )?(?:(?:very |relatively |comparatively |surprisingly )?(?:little|less|not much|nothing) is (?:\w+ly |yet |still )?known|it (?:is|remains) (?:still |yet |currently |largely |also )?(?:unclear|unknown|uncertain|not (?:yet |well |fully |currently )?(?:known|clear|understood))|there (?:is|are|remains?|has been|have been) (?:still |currently |only |very )?(?:limited|little|scarce|scant|insufficient|no|few|a lack of|a paucity of) )/i;
+
 export function rarity(st) {
   const r = stemRank(st);
   if (!r) return 1;
@@ -178,7 +180,9 @@ export function applySalience(ranked, docs, qm, opts) {
     ws.sort((a, b) => b - a);
     const sal = ws.length ? Math.min(1, ws.slice(0, 5).reduce((a, b) => a + b, 0) / keys.norm) : 0;
     s.sal = sal;
-    s.gapOnly = !!s.gap && !(s.rel && sal >= 0.3);          // "… linked to respiratory disease and inflammation, but it is not known whether …" still reports findings
+    // "… linked to respiratory disease and inflammation, but it is not known whether …" still reports findings;
+    // "Little is presently known about the benefits and the challenges of …" does not, however many of the answers' words follow
+    s.gapOnly = !!s.gap && (OPENS_WITH_GAP.test(s.text) || !(s.rel && sal >= 0.3));
     s.score *= (sal > 0 ? 1 + 0.6 * sal : 0.8) * fit[s.di] * (s.intro ? 0.55 : 1);          // none of the answers' vocabulary at all: probably about something else; "… has attracted growing attention" opens a text and reports nothing
     if (s.rel && sal >= 0.25 && s.predCov < 0.6) s.predCov = 0.6;
   }

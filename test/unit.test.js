@@ -6,7 +6,7 @@ import { stem, splitSentences, canonicalUrl, domainOf } from '../engine/util/tex
 import { parseDate, findDates } from '../engine/util/dates.js';
 import { validateUrl, isBlockedAddress } from '../engine/net/guard.js';
 import { createHttpClient, parseRobots, robotsPathAllowed, requestHeaders, HttpError } from '../engine/net/http.js';
-import { firecrawl, tavily } from '../engine/providers/searchapis.js';
+import { firecrawl, tavily, langsearch, langsearchUsage } from '../engine/providers/searchapis.js';
 import { webSearch, resetCooling, providerCooling, WEB_CHAIN, PROVIDERS } from '../engine/providers/index.js';
 import { parseHTML, textOf, findAll } from '../engine/extract/html.js';
 import { extractPage } from '../engine/extract/readable.js';
@@ -152,6 +152,60 @@ test('search APIs without a payment method: Firecrawl (keyless or free key) and 
   assert.equal(log[0].code, 'cooling');
   resetCooling();
   assert.ok(WEB_CHAIN.indexOf('tavily') < WEB_CHAIN.indexOf('firecrawl') && WEB_CHAIN.indexOf('firecrawl') < WEB_CHAIN.indexOf('ddg_html') && !WEB_CHAIN.includes('google_cse'));
+});
+
+test('LangSearch (free key): links and a short piece of text only, its limits respected, its tokens counted', async () => {
+  const calls = [];
+  const fake = (reply) => ({ postJSON: async (url, body, opts) => { calls.push({ url, body, opts }); if (reply instanceof Error) throw reply; return reply; } });
+  assert.equal(langsearch.available(loadConfig({})), false);
+  const cfg = loadConfig({ LANGSEARCH_API_KEY: 'ls-test' });
+  assert.equal(langsearch.available(cfg), true);
+  const before = langsearchUsage().tokens;
+  const ok = { json: { code: 200, data: { webPages: { value: [
+    { name: ' Remote  work study ', url: 'https://example.org/a', text: 'Remote workers were as productive.', datePublished: '2026-05-26T02:11:21.000Z' },
+    { name: 'x', url: 'javascript:alert(1)', text: 'bad' },
+    { name: 'Old style', url: 'https://example.org/b', snippet: 'Snippet text', summary: 'A longer text' },
+  ] } }, usage: { input_tokens: 6, output_tokens: 150 } } };
+  const out = await langsearch.search('remote work productivity', { http: fake(ok), cfg, limit: 80, fresh: 'week' });
+  // the date the index reports is mostly the date a page was last changed: it is not passed on as a publication date
+  assert.deepEqual(out, [
+    { title: 'Remote work study', url: 'https://example.org/a', snippet: 'Remote workers were as productive.', date: '', provider: 'langsearch', kind: 'web' },
+    { title: 'Old style', url: 'https://example.org/b', snippet: 'Snippet text', date: '', provider: 'langsearch', kind: 'web' },
+  ]);
+  assert.equal(calls[0].url, 'https://api.langsearch.com/v1/web-search');
+  assert.deepEqual(calls[0].body, { query: 'remote work productivity', count: 50, contents: { text: { maxCharacters: 320 } }, freshness: 'oneWeek' });
+  assert.equal(calls[0].opts.headers.Authorization, 'Bearer ls-test');
+  assert.equal(langsearchUsage().tokens - before, 156);
+  await langsearch.search('q', { http: fake({ ...ok, fromCache: true }), cfg });               // an answer from the cache costs nothing
+  assert.equal(langsearchUsage().tokens - before, 156);
+  assert.deepEqual([calls[1].body.count, calls[1].body.freshness], [10, undefined]);
+  await assert.rejects(langsearch.search('q', { http: fake(new HttpError('HTTP 401', 'http_401', 401)), cfg }), (e) => e.code === 'refused' && /key/.test(e.message) && !/ls-test/.test(e.message));
+  const burst = Object.assign(new HttpError('HTTP 429', 'http_429', 429), { retryAfter: 0, bodyText: '{"code":"429","message":"rate limit exceeded"}' });
+  await assert.rejects(langsearch.search('q', { http: fake(burst), cfg }), (e) => e.code === 'rate_limited' && e.retryAfterMs >= 60000 && e.retryAfterMs <= 3600000 && /pause/.test(e.message));
+  const daily = Object.assign(new HttpError('HTTP 429', 'http_429', 429), { bodyText: '{"code":"429","message":"Daily token allowance exceeded"}' });
+  await assert.rejects(langsearch.search('q', { http: fake(daily), cfg, now: Date.parse('2026-11-13T20:00:00Z') }), (e) => e.code === 'rate_limited' && Math.abs(e.retryAfterMs - (4 * 3600000 + 60000)) < 1000 && /daily/.test(e.message));
+  await assert.rejects(langsearch.search('q', { http: fake({ json: { code: '500', message: 'boom <b>' } }), cfg }), (e) => e.code === 'bad_response' && !/boom/.test(e.message));
+  assert.ok(!JSON.stringify(Object.values(PROVIDERS).map((p) => [p.id, p.note])).includes('ls-test'));
+  // in the chain it stands ahead of Tavily (its allowance renews daily, Tavily's monthly); Tavily takes over when its day's allowance is spent
+  assert.ok(WEB_CHAIN.indexOf('langsearch') < WEB_CHAIN.indexOf('tavily') && WEB_CHAIN.indexOf('tavily') < WEB_CHAIN.indexOf('firecrawl'));
+  resetCooling();
+  const three = { code: 200, data: { webPages: { value: [1, 2, 3].map((i) => ({ name: `t${i}`, url: `https://site${i}.org/`, text: 'c' })) } }, usage: { input_tokens: 1, output_tokens: 3 } };
+  const tavilyOk = { results: [1, 2, 3].map((i) => ({ title: `t${i}`, url: `https://site${i}.org/`, content: 'c' })) };
+  let asked = 0;
+  const net = { postJSON: async (url) => { if (url.includes('langsearch')) { asked++; throw Object.assign(new HttpError('HTTP 429', 'http_429', 429), { bodyText: '{"code":"429","message":"daily token quota exceeded"}' }); } return { json: tavilyOk }; } };
+  const log = [];
+  const cfg2 = loadConfig({ LANGSEARCH_API_KEY: 'ls-spent', TAVILY_API_KEY: 'tv-ok', DISABLE_PROVIDERS: 'firecrawl,ddg_html,mwmbl,marginalia,wiby' });
+  const res = await webSearch('q', { http: net, cfg: cfg2 }, (e) => log.push(e));
+  assert.equal(res.length, 3);
+  assert.deepEqual(log.map((e) => [e.provider, e.ok]), [['langsearch', false], ['tavily', true]]);
+  // … and LangSearch is then left alone until its allowance is renewed: the next question goes straight to Tavily
+  assert.ok(providerCooling('langsearch'));
+  assert.equal(asked, 1);
+  const log2 = [];
+  await webSearch('q2', { http: net, cfg: cfg2 }, (e) => log2.push(e));
+  assert.deepEqual(log2.filter((e) => e.provider === 'tavily').map((e) => e.ok), [true]);
+  assert.equal(asked, 1);
+  resetCooling();
 });
 
 test('HTML parser tolerates invalid markup', () => {
@@ -346,6 +400,20 @@ test('ranking: what was asked must stand in the statement, not in a concession; 
   assert.equal(t(/is absent/).gap, true);
   assert.ok(!t(/^If inhaled/).proc, 'an ordinary condition is not paper talk');
   assert.match(talk.sentences[0].text, /^If inhaled/);
+  // what a text covers, how its writer went about it, an advertisement, a study's method: none of them is a finding
+  const more = rankEvidence([
+    doc('A', 'https://a.example.org/2', ['The impact of remote work on productivity, employee satisfaction, communication and leadership is considered.'], { kind: 'web' }),
+    doc('B', 'https://b.example.org/2', ['I looked at various sources such as academic journals and reports to gather information on the impact of remote work on productivity.'], { kind: 'web' }),
+    doc('C', 'https://c.example.org/2', ['Boost productivity with remote work best practices that improve communication and help you manage remote teams more effectively.'], { kind: 'web' }),
+    doc('D', 'https://d.example.org/2', ['Key themes include the impact of remote work on productivity, employee well-being and organizational culture.'], { kind: 'web' }),
+    doc('E', 'https://e.example.org/2', ['Little is presently known about the impact of remote work on productivity in small firms.'], { kind: 'web' }),
+    doc('F', 'https://f.example.org/2', ['Remote work raised productivity in the trial, and the impact was largest for experienced staff.'], { kind: 'web' }),
+    doc('G', 'https://g.example.org/2', ['This research also assesses the impact of remote work on the productivity of students.'], { kind: 'web' }),
+  ], queryModel(part('What is the impact of remote work on productivity?')));
+  const m = (re) => more.sentences.find((x) => re.test(x.text));
+  for (const re of [/is considered\.$/, /^I looked at/, /^Boost productivity/, /^Key themes include/, /^This research also assesses/]) assert.equal(m(re).proc, true, String(re));
+  assert.equal(m(/presently known/).gap, true);
+  assert.ok(!m(/raised productivity/).proc && !m(/raised productivity/).gap);
 });
 
 test('ranking: predicate match beats name coincidence; aspect is required', () => {
@@ -408,6 +476,36 @@ test('synthesis: cites every quoted sentence, refuses without evidence, flags co
   assert.match(JSON.stringify(c.blocks), /1932/);
   assert.match(JSON.stringify(c.blocks), /1937/);
   assert.ok((c.stats.conflicts || 0) >= 1, 'the disagreement is reported, not hidden');
+});
+
+test('synthesis: a sentence copied from site to site is one witness; a description must be matched, not two of its words', () => {
+  // three mirrors carry the same sentence about a reader of the novel; two differently worded pages name the author
+  const scott = 'Walter Scott wrote in his journal, "Read again and for the third time at least, Miss Austen\'s very finely written novel of Pride and Prejudice."';
+  const docs = [
+    doc('Pride and Prejudice', 'https://mirror-one.example/pp', [scott, 'The novel was published in 1813 and has never been out of print.']),
+    doc('Pride and Prejudice (novel)', 'https://mirror-two.example/pp', [scott]),
+    doc('Pride and Prejudice - reference', 'https://mirror-three.example/pp', [scott]),
+    doc('Pride and Prejudice', 'https://books.example.org/pp', ['Pride and Prejudice is a novel written by the English author Jane Austen.']),
+    doc('Jane Austen', 'https://library.example.org/austen', ['Jane Austen is the author of Pride and Prejudice, which she wrote between 1796 and 1797.']),
+  ];
+  const who = answerPart(part('Who is the author of Pride and Prejudice?'), docs, mkCtx());
+  const whoText = JSON.stringify(who.blocks);
+  assert.match(whoText, /this name: "[^}]*\{"text":"Jane Austen"|"text":"Jane Austen"/, whoText.slice(0, 400));
+  assert.doesNotMatch(whoText, /agree on this name: "\},\{"text":"Walter Scott"/);
+  // even one page with that sentence must not outvote one plain statement of who the author is: the name outside the quotation is the reader
+  const two = answerPart(part('Who is the author of Pride and Prejudice?'), [docs[0], docs[3]], mkCtx());
+  assert.match(JSON.stringify(two.blocks), /"text":"Jane Austen"/);
+  assert.doesNotMatch(JSON.stringify(two.blocks), /disagree|"text":"Walter Scott"/);
+  // the question describes a private house; a church in a street of the same name is not an answer
+  const church = [doc('Elm Street Christian Church - Springfield', 'https://churches.example.org/listing', ['The phone number for Elm Street Christian Church is: (217) 544-5351.', 'Elm Street Christian Church is located in Springfield and holds services on Sunday.'])];
+  const phone = answerPart(part('What is the phone number of the owner of the blue house on Elm Street in Springfield?'), church, mkCtx());
+  assert.ok(phone.stats.insufficient, JSON.stringify(phone.blocks).slice(0, 300));
+  assert.match(JSON.stringify(phone.blocks[0]), /I could not verify this/);              // (the church's number may still be listed below, marked as not answering the question)
+  // a description that is matched still answers
+  const everest = [doc('Mount Everest', 'https://geo.example.org/everest', ['At the top of Mount Everest the boiling point of water is about 71 °C, because the air pressure is a third of that at sea level.'])];
+  const boil = answerPart(part('What is the boiling point of water at the top of Mount Everest?'), everest, mkCtx());
+  assert.ok(!boil.stats.insufficient);
+  assert.match(JSON.stringify(boil.blocks), /71/);
 });
 
 test('engine answers locally without the network when no retrieval is needed', async () => {
@@ -514,4 +612,41 @@ test('ranking: keyword tag lines are not treated as statements', async () => {
     assert.equal(isAside(t), true, t);
   for (const t of ['A quantum computer is a computer that represents and processes information using quantum states.', 'This article of the constitution guarantees equality.', 'Notes are stored on the device (and nowhere else).', '(Mount Everest) is the highest mountain on Earth.', 'Updated models use qubits made of trapped ions.'])
     assert.equal(isAside(t), false, t);
+});
+
+test('abstracts that are marked up twice over come out as plain text', async () => {
+  const { plainText, jatsAbstractToText, invertedToText } = await import('../engine/providers/scholar.js');
+  const dep = '<jats:p>&lt;div&gt;\n Conceptual frameworks provide context by integrating findings with existing&amp;nbsp;&lt;span&gt;literature, while grounded theory helps.&lt;/span&gt;\n&lt;/div&gt;\n&lt;div&gt;\n &lt;br&gt;\n&lt;/div&gt;\n&lt;div&gt;\n The research finds that remote work improves productivity (p &amp;lt; 0.05).&lt;/div&gt;</jats:p>';
+  const out = jatsAbstractToText(dep);
+  assert.equal(out, 'Conceptual frameworks provide context by integrating findings with existing literature, while grounded theory helps. The research finds that remote work improves productivity (p < 0.05).');
+  assert.doesNotMatch(out, /<\/?(?:div|span|br)|&lt;|&nbsp;|&amp;/);
+  assert.equal(plainText('Values of a<b and x < 5 stay; <i>italic</i> and &lt;sub&gt;2&lt;/sub&gt; go'), 'Values of a<b and x < 5 stay; italic and 2 go');
+  assert.equal(invertedToText({ '<p>Remote': [0], 'work</p>': [1], 'helps.': [2] }), 'Remote work helps.');
+});
+
+test('sub-topics: a headline is not a section; praise is taken off a heading; "Uses" and "Applications" are one section', async () => {
+  const { sharedHeadings, mergeAspects, isHeadline } = await import('../engine/research/aspects.js');
+  for (const h of ['Remote Employees Are Working Less', 'Hybrid Work Boosts Output', 'Productivity Is Up', 'Why Flexibility Matters Most', 'Remote work can hurt careers']) assert.ok(isHeadline(h), h);
+  for (const h of ['Work-Life Balance', 'Common causes of burnout', 'Causes and effects', 'Job satisfaction', 'Free will', 'Common causes', 'Health effects', 'Thin-film solid-state batteries', 'Uses']) assert.ok(!isHeadline(h), h);
+  const mk = (origin, heads) => ({ origin, url: `https://${origin}/a`, outline: heads.map((text) => ({ text, level: 2 })) });
+  const docs = [
+    mk('a.example', ['Remote Employees Are Working Less', 'Better Work-Life Balance', 'Enhanced Productivity', 'The Hybrid Model', 'Fewer Distractions']),
+    mk('b.example', ['Remote Employees Are Working Less', 'Improved work-life balance', 'Enhanced Productivity', 'The hybrid model', 'Fewer distractions']),
+    mk('c.example', ['Work-life balance', 'Hybrid model']),
+  ];
+  const q = new Set(['remot', 'work', 'product', 'impact']);
+  const labels = sharedHeadings(docs, q, { max: 10 }).map((a) => a.label);
+  assert.ok(labels.some((l) => /^work-life balance$/i.test(l)), labels.join(' | '));
+  assert.ok(labels.some((l) => /^hybrid model$/i.test(l)), labels.join(' | '));
+  assert.ok(labels.some((l) => /^distractions$/i.test(l)), labels.join(' | '));
+  assert.ok(!labels.some((l) => /working less|better|improved|enhanced|fewer|^the /i.test(l)), labels.join(' | '));
+  // the question's own words in front of the new word are not part of the name; a heading that adds only who was studied names nothing
+  const docs2 = [mk('a.example', ['Remote Autonomy', 'Employee Productivity', 'Remote Work Flexibility']), mk('b.example', ['Remote Autonomy', 'Employee Productivity', 'Remote work flexibility'])];
+  const labels2 = sharedHeadings(docs2, q, { max: 10, notAlone: new Set(['employe']) }).map((a) => a.label);
+  assert.deepEqual(labels2.map((l) => l.toLowerCase()).sort(), ['autonomy', 'flexibility']);
+  const merged = mergeAspects([[{ label: 'Applications', stems: ['applic'] }, { label: 'Challenges', stems: ['challeng'] }, { label: 'Advantages', stems: ['advantag'] }], [{ label: 'Uses', stems: ['us'] }, { label: 'Benefits', stems: ['benefit'] }, { label: 'Materials', stems: ['materi'] }]]).map((a) => a.label);
+  assert.deepEqual(merged, ['Applications', 'Challenges', 'Advantages', 'Materials']);
+  const people = new Set(['employe']);
+  assert.deepEqual(mergeAspects([[{ label: 'Job satisfaction', stems: ['job', 'satisfact'] }], [{ label: 'Employee satisfaction', stems: ['employe', 'satisfact'] }, { label: 'Job security', stems: ['job', 'secur'] }]], { ignore: people }).map((a) => a.label), ['Job satisfaction', 'Job security']);
+  assert.deepEqual(sharedHeadings([mk('a.example', ['No commute']), mk('b.example', ['No Commute'])], q).map((a) => a.label.toLowerCase()), ['commute']);
 });
