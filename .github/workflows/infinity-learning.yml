@@ -1,9 +1,26 @@
-# Infinity LLM: learning worker session (filled in by the next commit).
+# Infinity LLM: learning worker session (probe of the runner; replaced by the real session in the next commit).
 name: Infinity LLM learning
 on:
   workflow_dispatch:
+  push:
+    branches: ['arena/d395ec3b-infini']
+    paths: ['.github/workflows/infinity-learning.yml']
+permissions:
+  contents: write
 jobs:
-  placeholder:
+  probe:
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
-      - run: echo "placeholder"
+      - uses: actions/checkout@v4
+      - name: Runner
+        run: |
+          nproc; free -m | head -2; df -h . | tail -1; node -v; python3 --version
+          curl -s -o /dev/null -w "wikipedia %{http_code}\n" "https://en.wikipedia.org/w/api.php?action=query&list=random&rnnamespace=0&rnlimit=1&format=json"
+          curl -s -o /dev/null -w "simple %{http_code}\n" "https://simple.wikipedia.org/api/rest_v1/page/random/summary" -L
+      - name: Token
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release list --repo "$GITHUB_REPOSITORY" | head -5 || true
+          gh api "repos/$GITHUB_REPOSITORY" --jq '.permissions' || true
