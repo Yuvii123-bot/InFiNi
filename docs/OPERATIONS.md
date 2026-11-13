@@ -45,6 +45,7 @@ Depths: `auto` (default: a quick round, widened by itself when the first pages d
 | `MAX_CONCURRENT_RESEARCH` | `2` | Research runs in progress at once per process. A further request is answered at depth `deep`, with a note saying why. |
 | `RESEARCH_PER_HOUR` | `12` | Research runs one process starts per hour. |
 | `RESEARCH_PER_CLIENT_PER_HOUR` | `6` | Research runs one client address may start per hour. |
+| `CROSSREF_GAP_MS` | `380` | Least time between the starts of two requests to Crossref, whose public pool allows three requests per second. `0` switches the spacing off (not advised: a refusal pauses the service for 20 s). |
 | `EXTRA_FEEDS` | empty | Extra RSS/Atom URLs used for news questions. |
 | `RATE_LIMIT_PER_MIN`, `RATE_LIMIT_BURST` | `20`, `8` | Per-client-address token bucket for `/api/ask` and `/api/preview`. A request at depth `deep` counts twice, one at depth `research` four times. |
 | `MAX_CONCURRENT_ASKS` | `4` | Questions processed at once per process (others get 503 + Retry-After). |

@@ -4,22 +4,30 @@
 
 Version 3.0.0 adds the loop described in `docs/ARCHITECTURE.md`, section 3a: searches in rounds, hundreds of pages and
 abstracts read for one question, everything classified, a report as the answer. Full account: `docs/REPORT.md`.
-All figures were measured on 12 November 2026 in the build sandbox (2 CPUs, 2 GB RAM, Node 20).
+All figures were measured on 12 and 13 November 2026 (by the sandbox's clock, UTC) in the build sandbox (2 CPUs, 2 GB RAM,
+Node 20). The tables below are from the released code.
 
 **Automated checks**
 
 | Check | Result |
 |---|---|
-| Unit tests (`npm test`) | 58 of 58: 25 engine tests, 20 brain tests, 13 tests for deep search and research runs |
+| Unit tests (`npm test`) | 62 of 62: 26 engine tests, 20 brain tests, 16 tests for deep search and research runs |
 | of which: a complete research run on a synthetic web of 40 sites and 60 papers, no network | rounds, counters, drafts, report sections, classification totals, “never more pages reported than requested”, links to private addresses never requested |
 | of which: the limits | per process at once, per process per hour, per client per hour; the cost of a request by depth; research switched off |
 | Interface smoke test, real client against a local server with live retrieval (`npm run test:ui`) | 49 of 49, including a deep search, a research run with live counters and drafts, the explorer, and stopping a run |
 | Security audit (`npm run audit:security`) | 21 of 21 |
 | Chromium at 390 and 1280 px, light and dark | no console errors; screenshots in `docs/screenshots/` |
 
-**Research benchmark (`npm run bench:research`, live, with a free Tavily key as on the live site)**
+**Research benchmark (`npm run bench:research`, live, with a free Tavily key as on the live site; five runs one after
+another in one process)**
 
-<!-- research-table -->
+| Question | Depth | Time | First draft | Pages read | Not readable | Abstracts | Documents kept | Sites | Results screened | Sources cited | Confidence | Peak memory |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| Health effects of microplastics | research | 45.3 s | 7.7 s | 293 | 166 | 705 | 994 | 102 | 5,850 | 24 | High confidence 80% | 351 MB |
+| Impact of remote work on productivity | research | 54.7 s | 5.7 s | 499 | 199 | 520 | 1,005 | 125 | 6,821 | 37 | High confidence 80% | 369 MB |
+| Solid-state batteries | research | 48.8 s | 1.6 s | 315 | 133 | 591 | 906 | 113 | 5,127 | 51 | High confidence 86% | 388 MB |
+| Is intermittent fasting good for weight loss? | deep | 22.3 s | 6.8 s | 70 | 41 | 48 | 119 | 35 | 757 | 13 | High confidence 90% | 387 MB |
+| Why did the Roman Empire fall? | deep | 15.6 s | 1 s | 70 | 44 | 39 | 113 | 29 | 1,229 | 12 | Medium confidence 74% | 309 MB |
 
 Every figure is counted by the engine. “Pages read” are pages whose text was fetched and read. An abstract delivered by
 an index is counted as an abstract. “Not readable” are pages that refused automated access, needed JavaScript, were
@@ -30,14 +38,18 @@ services that answered, the failure counts and the report sections are in `bench
 Three things to know when reading the table:
 
 1. **The budget of 1,500 pages was never reached.** Each research run ended because “new searches were no longer
-   bringing new material”: the queue of relevant, readable leads was empty after 260 to 480 pages. More searches on a
+   bringing new material”: the queue of relevant, readable leads was empty after 293 to 499 pages. More searches on a
    metered service (`RESEARCH_KEYED_SEARCHES`) bring more leads; the default spares the monthly quota of a free key.
-2. **Roughly one page in three could not be read** (133 to 185 per research run). Nothing is done to get around a
+2. **Roughly one page in three could not be read** (133 to 199 per research run). Nothing is done to get around a
    refusal.
-3. **The numbers move from run to run and from day to day.** On the day of the measurement OpenAlex answered
-   “anonymous search is paused” for part of the time and Europe PMC's search timed out repeatedly; Crossref carried the
-   abstracts. Without any key, from the sandbox address, the same microplastics question read 170 to 290 pages and 370
-   to 800 abstracts in 34 to 86 s in six live runs.
+3. **The numbers move from run to run and from day to day.** The free scholarly indexes answer in 0.3 s at one hour and
+   in 11 s at another; OpenAlex refused anonymous searches for most of the two days (a free key ends that). Earlier runs
+   of the same benchmark on the same day read 262 to 576 pages and 383 to 800 abstracts per research run. Without any
+   key, from the sandbox address, the microplastics question read 170 to 290 pages and 200 to 800 abstracts in 34 to
+   86 s in a dozen runs; one run, before the indexes were given more time, got no abstracts at all.
+4. **Runs close together share allowances.** The request budgets for the free services are per minute and per
+   process. A research run started within a minute of another on the same process finds less (127 pages against 214
+   in one check). The benchmark's runs are 15 to 55 s apart, as on a small server.
 
 **What the reports are like** (read by hand; these are judgements, not measurements)
 
@@ -45,16 +57,19 @@ Three things to know when reading the table:
   experiments with human cells and in vivo data generated with mice showed that microplastics elicit adverse health
   effects mainly by causing inflammation, oxidative stress …, lipid metabolism disturbances, gut microbiota dysbiosis,
   and neurotoxicity.”
-* Sub-topic sections are mostly sensible: *Reproductive effects · Oxidative stress · Inflammation · Metabolic effects ·
-  Respiratory effects* (microplastics); *Benefits · Commuting · Job satisfaction · Isolation · Flexibility and autonomy ·
-  Retention* (remote work); *Energy density · Challenges · Advantages · Thin-film solid-state batteries · Materials ·
-  Uses* (solid-state batteries). A weak label still gets through now and then (“Pollution” for the health question in
-  one run).
-* The yes-or-no count for intermittent fasting read 51 yes, 3 no, 1 qualified of 55 independent sources. Reading the
+* Sub-topic sections are mostly sensible: *Reproductive effects · Oxidative stress · Metabolism · Endocrine disruption ·
+  Respiratory effects · Inflammatory responses* (microplastics); *Employee productivity · Flexibility · Work-life balance ·
+  Job satisfaction · Stress levels · Organizational culture* (remote work); *Lithium ion batteries · Challenges ·
+  Advantages · Thin-film solid-state batteries · Uses · Materials* (solid-state batteries). Weak labels still get
+  through: “Employee productivity” is the question again, not a part of it.
+* The yes-or-no count for intermittent fasting read 45 yes, 3 no, 1 qualified of 49 independent sources. Reading the
   listed statements by hand, most are classed correctly; a sentence that only mentions the topic favourably can be
   counted as “yes” although it is not a finding.
-* The why-question (Roman Empire) gets explanations attributed to named historians, and no sub-topic sections — the
-  rules found none with enough independent support, and none is better than a forced one.
+* The why-question (Roman Empire) gets explanations attributed to named historians (Gibbon, Ferrill, Goldsworthy,
+  Ward-Perkins), which is the useful part. The three sections it adds are weak: “Fall of Rome”, “Roman emperor”,
+  “Fall of Constantinople” are neighbours of the question, not parts of its answer.
+* When every statement in the opening and the key points rests on abstracts, confidence is capped at 62 % and the app
+  says why. This happened for the remote-work question in two earlier runs.
 * “Figures the sources report” is the weakest section: the figures are real and cited, but which four are shown is not
   a judgement of importance.
 
@@ -72,6 +87,12 @@ Three things to know when reading the table:
 | Key points about method (“we searched PubMed”, “articles … were included”, “this review aims to”) | abstracts are full of such sentences | recognised by pattern and kept out |
 | “Leans no” for “weight loss occurs if intake is not sufficient to compensate” | a negation inside a condition | conditions and relative clauses are set aside before the reading |
 | “1300 — … 1300 mA h cm⁻³ …” in the dated statements | a quantity taken for a year | a number counts as a year only in a date-like context |
+| A whole run without abstracts on a slow day | the scholarly indexes were given 9 s, and a search that waits its turn loses part of that | their searches run beside the reading and may take 16 s |
+| No abstracts for two minutes after a burst of searches | Crossref allows three requests a second; the burst was answered with “429”, and a refusal paused the service for two minutes | requests to it start at least 380 ms apart; a refusal pauses it for 20 s |
+| A question about productivity opened with a sentence about well-being | “the impact of X on Y” was read as “impact” and “X” | a statement must name Y |
+| “Although the adverse effects … are well documented, the legal system in India does not address …” as a key point | what was asked stood in the concession | it must stand in the clause that makes the statement |
+| “Immune function” and “Immune system”, “Inflammation” and “Inflammatory responses” as separate sections; “Flexibility autonomy” as a label | no notion of two labels for one thing; phrases were built across commas | merged by rule; a phrase stops at a comma |
+| “Leans no” for “… results in weight loss but with no large effects on other parameters” | the negation is about something else | a contrast about “other …” is set aside |
 | A mouse study as the first statement on a question about people | no notion of who a health question is about | findings in animals rank below statements about people, unless the question asks about animals |
 
 **Web benchmark on 3.0.0 (same 36 items, depth Auto, Tavily enabled, one run)**
@@ -79,12 +100,15 @@ Three things to know when reading the table:
 | Run | Expected fact in the opening | Hallucination avoidance | Citation validity | Median latency | Answered by the brain |
 |---|---|---|---|---|---|
 | 2.0.0 as released (depth Balanced) | 36 / 36 (100%) | 100% | 98% | 2.7 s | 1 of 36 |
-| 3.0.0 (depth Auto, the new default) | 36 / 36 (100%) | 100% | 98% | 2.7 s | 1 of 36 |
+| 3.0.0 (depth Auto, the new default) | 36 / 36 (100%) | 100% | 98% | 2.4 s | 1 of 36 |
 
-Ordinary questions behave as before. The average rose from 2.8 s to 3.1 s because the three unanswerable items now
+Ordinary questions behave as before. The average rose from 2.8 s to 3.0 s because the three unanswerable items now
 widen the search before giving up (the invented-name item took 11 s and still, correctly, ended with “I could not verify
-this”). As before, this benchmark is a regression set, not an accuracy estimate. It was run before the last rule changes
-of the release, which concern long runs; the unit, interface and security tests were run again on the final code.
+this”). As before, this benchmark is a regression set, not an accuracy estimate. Both benchmarks were run on the code of
+the release, with one exception: three small rules were added after them (key points after a long run must come from a
+sentence or a document that names the topic; a verb is not a sub-topic; two more patterns for sentences in which a paper
+describes itself). The first two apply only after a long run; the patterns apply to every answer and lower the rank of
+such sentences. None of them changes the counts. The unit, interface and security tests were run on the final code.
 
 **Resources (`npm run bench:resources` and `bench:research`)**
 
@@ -93,11 +117,11 @@ of the release, which concern long runs; the unit, interface and security tests 
 | Engine cold start | 52 ms | 85 ms |
 | Server memory idle | 53 MB | 54 MB |
 | Server memory after 6 ordinary web questions | 134 MB | 150 MB |
-| Process memory during a research run (peak, whole process) | not applicable | 283 to 392 MB over three runs in one process |
-| Time of a research run | not applicable | 47 to 66 s (budget 170 s) |
-| Time to the first draft of a long run | not applicable | 1.5 to 7.7 s |
-| Data read in a research run | not applicable | 52 to 115 MB |
-| Size of a research result as sent to the browser | not applicable | 370 to 400 kB (drafts: about 25 kB, then about 95 kB each) |
+| Process memory during a research run (peak, whole process) | not applicable | 351 to 388 MB over three runs in one process |
+| Time of a research run | not applicable | 45 to 55 s (budget 170 s); earlier runs took up to 94 s |
+| Time to the first draft of a long run | not applicable | 1 to 7.7 s |
+| Data read in a research run | not applicable | 70 to 113 MB |
+| Size of a research result as sent to the browser | not applicable | 358 to 372 kB (drafts: about 25 kB, then about 95 kB each) |
 | Code and data | engine 660 kB in 35 files, plus 4,037 kB of brain data | engine 885 kB in 44 files, plus 4,045 kB of brain data |
 | Client | 52 kB JS + 31 kB CSS | 73 kB JS + 40 kB CSS |
 

@@ -152,7 +152,13 @@ function composeExtractive(env, { leadFilter = null, bullets = null, heading = '
     };
     // after a research run: a point must share some of the vocabulary the sources use when they answer; before that vocabulary
     // is known (the first draft), it must name the topic itself
-    const keyed = wide && ranked.salience ? (s) => s.sal >= 0.1 || s.pi === lead.pi || !!s.gov : wide ? (s) => namesTopic(s) || s.pi === lead.pi : () => true;
+    // … and it must be about the topic: the sentence names it, or stands in the opening's paragraph, or comes from a document whose
+    // title names it ("Health effects of human exposure to MPs include …" in a paper on microplastics). A sentence on the effects
+    // of particulate matter, from a page about air pollution, shares the vocabulary and is about something else.
+    const titleNames = new Map();
+    const fromTopicDoc = (s) => { let v = titleNames.get(s.di); if (v === undefined) { const d = docs[s.di]; const st = new Set(stemsOf((d && d.title) || '')); v = !!d && (!!d.entity || topicStems.every((f) => st.has(f))); titleNames.set(s.di, v); } return v; };
+    const onTopic = (s) => namesTopic(s) || s.pi === lead.pi || fromTopicDoc(s);
+    const keyed = wide && ranked.salience ? (s) => (s.sal >= 0.1 || s.pi === lead.pi || !!s.gov) && onTopic(s) : wide ? (s) => namesTopic(s) || s.pi === lead.pi : () => true;
     // "Endocrine-disrupting chemicals (EDCs) are hormonally active compounds …": after a research run, a sentence that defines
     // some other thing and never names the topic is background from a neighbouring field, not a point about the topic
     const definesOther = (s) => wide && topicStems.length > 0 && !namesTopic(s) && /^[A-Z][\w’'-]*(?:\s+[\w’'-]+){0,4}?(?:\s+\([A-Za-z]{2,8}\))?\s+(?:is|are|refers? to|means)\s+(?:an?\s|the\s|[a-z]+ly\s|one of\s)/.test(s.text);
