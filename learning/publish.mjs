@@ -11,7 +11,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import crypto from 'node:crypto';
-import { paths, readJSON, writeJSON, nowISO, loadConfig } from './store.mjs';
+import { paths, readJSON, writeJSON, readLines, nowISO, loadConfig } from './store.mjs';
 import { loadRegistry, modelDir } from './registry.mjs';
 import { snapshot } from './cycle.mjs';
 
@@ -117,6 +117,9 @@ export async function fetchGithubAsset({ repo, tag, name, token, api, fetchImpl,
   return { file: to, bytes: fs.statSync(to).size, updated: asset.updated_at };
 }
 
+function sourceSummary(root) {
+  try { const src = (snapshot(root).corpus || {}).sources || {}; return Object.fromEntries(Object.entries(src).map(([k, v]) => [k, { accepted: v.accepted, rejected: v.rejected, domains: v.domains, last: v.last }])); } catch { return null; }
+}
 /** A short human-readable status (shown as the text of the release, and readable through the API). */
 export function statusNotes(root) {
   const P = paths(root), reg = loadRegistry(root), w = readJSON(P.worker, null) || {}, st = readJSON(P.state, {}) || {};
@@ -127,7 +130,7 @@ export function statusNotes(root) {
     `- held-out loss: ${card.val_loss ?? 'n/a'}; fixed benchmark: ${card.benchmark ? card.benchmark.score : 'n/a'}`,
     `- worker: ${w.state || 'unknown'}, ${w.activity || ''}; heartbeat ${w.heartbeat || 'n/a'}; session ${w.session || 'n/a'}; starts ${w.starts ?? 'n/a'}`,
     `- last cycle: ${st.lastCycle ? `${st.lastCycle.id} ${st.lastCycle.outcome} at ${st.lastCycle.finished}` : 'none yet'}`,
-    `- ${st.message || ''}`, '', '```json', JSON.stringify({ t: nowISO(), production: reg.production, previous: reg.previous, worker: { state: w.state, activity: w.activity, heartbeat: w.heartbeat, uptimeSeconds: w.uptimeSeconds, starts: w.starts, recoveries: w.recoveries, childFailures: w.childFailures, totals: w.totals, lastError: (w.errors || []).slice(-1)[0] || null }, lastCycle: st.lastCycle || null, lastDiscovery: st.lastDiscovery || null, history: reg.history.slice(-8) }), '```',
+    `- ${st.message || ''}`, '', '```json', JSON.stringify({ t: nowISO(), production: reg.production, previous: reg.previous, worker: { state: w.state, activity: w.activity, heartbeat: w.heartbeat, uptimeSeconds: w.uptimeSeconds, starts: w.starts, recoveries: w.recoveries, childFailures: w.childFailures, totals: w.totals, lastError: (w.errors || []).slice(-1)[0] || null }, lastCycle: st.lastCycle || null, lastDiscovery: st.lastDiscovery || null, caution: st.caution || 0, lastRecovery: w.lastRecovery || null, resources: w.resources || null, lastStep: w.lastStep || null, sources: sourceSummary(root), discovery: readLines(path.join(root, 'discovery.jsonl'), { last: 2 }).map((r) => ({ round: r.round, collected: r.collected, accepted: r.accepted, rejected: r.rejected, bySource: r.bySource, errors: r.errors })), cycles: readLines(P.cycles, { last: 4 }).map((c) => ({ id: c.id, outcome: c.outcome, seconds: c.seconds, plan: c.plan || null, message: String(c.message || '').slice(0, 400) })), history: reg.history.slice(-8) }), '```',
   ];
   return lines.join('\n');
 }
