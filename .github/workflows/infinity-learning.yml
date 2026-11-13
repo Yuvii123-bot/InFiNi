@@ -2,25 +2,37 @@
 name: Infinity LLM learning
 on:
   workflow_dispatch:
+    inputs:
+      hop:
+        description: 'chain hop'
+        default: '0'
   push:
     branches: ['arena/d395ec3b-infini']
     paths: ['.github/workflows/infinity-learning.yml']
 permissions:
   contents: write
+  actions: write
 jobs:
   probe:
     runs-on: ubuntu-latest
     timeout-minutes: 10
+    env:
+      GH_TOKEN: ${{ github.token }}
+      HOP: ${{ inputs.hop || '0' }}
     steps:
       - uses: actions/checkout@v4
-      - name: Runner
+      - name: Probe
         run: |
-          nproc; free -m | head -2; df -h . | tail -1; node -v; python3 --version
-          curl -s -o /dev/null -w "wikipedia %{http_code}\n" "https://en.wikipedia.org/w/api.php?action=query&list=random&rnnamespace=0&rnlimit=1&format=json"
-          curl -s -o /dev/null -w "simple %{http_code}\n" "https://simple.wikipedia.org/api/rest_v1/page/random/summary" -L
-      - name: Token
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          gh release list --repo "$GITHUB_REPOSITORY" | head -5 || true
-          gh api "repos/$GITHUB_REPOSITORY" --jq '.permissions' || true
+          {
+            echo "event=$GITHUB_EVENT_NAME ref=$GITHUB_REF_NAME hop=$HOP"
+            echo "cores=$(nproc) mem=$(free -m | awk 'NR==2{print $2}')MB disk=$(df -h . | awk 'NR==2{print $4}') node=$(node -v) python=$(python3 --version)"
+            for u in "https://en.wikipedia.org/w/api.php?action=query&list=random&rnnamespace=0&rnlimit=1&format=json" "https://simple.wikipedia.org/wiki/Special:Random" "https://www.gutenberg.org/robots.txt" "https://en.wikibooks.org/robots.txt" "https://api.github.com/zen" "https://www.nasa.gov/robots.txt" "https://github.com/Yuvii123-bot/InFiNi/releases/download/infinity-probe/hello.txt"; do
+              echo "$(curl -s -L -o /dev/null -m 20 -A 'InfinityLLM-learning/4.1 (+https://github.com/Yuvii123-bot/InFiNi)' -w '%{http_code}' "$u") $u"
+            done
+          } > probe.txt 2>&1
+          cat probe.txt
+          echo "hello $(date -u +%FT%TZ) hop=$HOP" > hello.txt
+          gh release view infinity-probe >/dev/null 2>&1 || gh release create infinity-probe --title "probe" --notes "probe" --prerelease --target "$GITHUB_SHA" >> probe.txt 2>&1 || true
+          gh release upload infinity-probe hello.txt --clobber >> probe.txt 2>&1 || true
+          if [ "$HOP" = "0" ]; then gh workflow run infinity-learning.yml --ref "$GITHUB_REF_NAME" -f hop=1 >> probe.txt 2>&1 || echo "dispatch failed" >> probe.txt; fi
+          gh release edit infinity-probe --notes-file probe.txt || true
