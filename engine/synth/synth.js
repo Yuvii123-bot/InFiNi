@@ -168,7 +168,10 @@ function composeExtractive(env, { leadFilter = null, bullets = null, heading = '
   // not only the property asked about ("… these adverse health effects will continue …")
   const topicStems = wide ? [...new Set(stemsOf(part.focus || ''))] : [];
   const namesTopic = (s) => !topicStems.length || topicStems.every((f) => s.stems.has(f));
-  let lead = strict || (wide && cands.find((s) => namesTopic(s) && !s.dangling && s.predCov >= 0.5)) || cands.find((s) => (!s.dangling || s.si > 0) && s.predCov >= 0.5) || cands.find((s) => !s.dangling || s.si > 0) || cands[0];
+  // … and it is a sentence of running text: the row of a table ("Health effects; Microplastics: may pose …; Nanoplastics: …") or an
+  // item of a list reads badly as the first line of a report
+  const opens = (s) => namesTopic(s) && !s.dangling && s.predCov >= 0.5;
+  let lead = strict || (wide && (cands.find((s) => s.type === 'p' && opens(s)) || cands.find((s) => s.type !== 'table' && opens(s)))) || cands.find((s) => (!s.dangling || s.si > 0) && s.predCov >= 0.5 && !(wide && s.type === 'table')) || cands.find((s) => (!s.dangling || s.si > 0) && s.predCov >= 0.5) || cands.find((s) => !s.dangling || s.si > 0) || cands[0];
   const blocks = [], leadSpans = [];
   const pre = (s) => (attribute ? `${docs[s.di].site || docs[s.di].domain}${docs[s.di].published ? ` (${String(docs[s.di].published).slice(0, 10)})` : ''}: ` : '');
   const first = env.quote(lead, { allowDangling: true, prefix: pre(lead) });

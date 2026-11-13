@@ -655,3 +655,17 @@ test('sub-topics: a headline is not a section; praise is taken off a heading; "U
   assert.deepEqual(mergeAspects([[{ label: 'Job satisfaction', stems: ['job', 'satisfact'] }], [{ label: 'Employee satisfaction', stems: ['employe', 'satisfact'] }, { label: 'Job security', stems: ['job', 'secur'] }]], { ignore: people }).map((a) => a.label), ['Job satisfaction', 'Job security']);
   assert.deepEqual(sharedHeadings([mk('a.example', ['No commute']), mk('b.example', ['No Commute'])], q).map((a) => a.label.toLowerCase()), ['commute']);
 });
+
+test('after a research run the report opens with a sentence of running text, not with the row of a table', () => {
+  const table = { type: 'table', header: ['', 'Microplastics', 'Nanoplastics'], rows: [['Health Effects', 'May pose health risks and health effects to humans and animals when ingested or inhaled, as microplastics can contain toxic chemicals.', 'Due to their small size, they may penetrate cells and tissues.'], ['Size', 'Smaller than 5 mm.', 'Smaller than 1 micrometre.']], caption: '', heading: 'Health effects of microplastics' };
+  const docs = [
+    doc('Health effects of microplastics', 'https://a.example.org/table', [table]),
+    doc('Health effects of microplastics: a table', 'https://d.example.org/table', [table]),
+    doc('Plastic particles in the body', 'https://b.example.org/review', ['Among the health effects that laboratory studies attribute to microplastics are inflammation and oxidative stress.']),
+    doc('Small plastics', 'https://c.example.org/overview', ['The health effects of microplastics on the gut are still being studied.']),
+  ];
+  const out = answerPart(part('What are the health effects of microplastics?'), docs, mkCtx({ wide: true }));
+  const text = (out.blocks[0].spans || []).map((x) => x.text).join(' ');
+  assert.doesNotMatch(text, /Nanoplastics: Due to their small size/, text);
+  assert.match(text, /inflammation and oxidative stress|still being studied/, text);
+});
