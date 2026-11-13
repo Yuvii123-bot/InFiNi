@@ -143,6 +143,19 @@ export function createHttpClient(cfg = {}) {
     }
     return key;
   }
+  /**
+   * Some APIs state a limit per second ("3 requests per second"). For a rate class with `gapMs`, the starts of two requests
+   * are at least that far apart: a burst of searches is spread out instead of being answered with 429.
+   */
+  const nextStart = new Map();          // rate class id -> epoch ms at which the next request may start
+  async function paced(u) {
+    const rc = rateKey(u);
+    if (!rc || !rc.gapMs) return;
+    const now = Date.now();
+    const at = Math.max(now, nextStart.get(rc.id) || 0);
+    nextStart.set(rc.id, at + rc.gapMs);
+    if (at > now) await new Promise((resolve) => setTimeout(resolve, at - now));      // (not unref'd: a request is waiting on it)
+  }
   /** Remaining requests this minute for a rate class (Infinity when unlimited, 0 while backing off). */
   function remaining(id) {
     const rc = conf.rateClasses.find((r) => r.id === id);
@@ -305,6 +318,7 @@ export function createHttpClient(cfg = {}) {
       await sem.acquire(); await globalSem.acquire();
       let res;
       try {
+        await paced(u);
         const remaining = Math.max(500, o.timeoutMs - (Date.now() - started));
         stats.requests++;
         const request = {

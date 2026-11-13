@@ -142,6 +142,7 @@ export async function runResearch(x) {
     const jobs = [];
     for (const id of WEB) {
       if (!can(id)) continue;
+      if (id === 'mwmbl' && x.http.remaining('mwmbl') <= 0) continue;      // its per-minute allowance is used up: keep the call for a later round
       spend(id);
       jobs.push(runProvider(id, query, ctxFor({ limit: id === 'mwmbl' ? 30 : 20, fresh, timeoutMs: 8000 }), x.logSearch).then((res) => (res ? frontier.addResults(res, { weight: FULL_INDEX.has(id) ? 1.15 : 0.8, aspect, trust: FULL_INDEX.has(id) }) : 0)));
     }

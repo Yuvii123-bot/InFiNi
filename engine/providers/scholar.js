@@ -109,7 +109,7 @@ function crWork(w) {
 }
 
 export const crossref = {
-  id: 'crossref', label: 'Crossref', kind: 'academic', keyless: true, documented: true, defaultOn: true,
+  id: 'crossref', label: 'Crossref', kind: 'academic', keyless: true, documented: true, defaultOn: true, cooldownMs: 20_000,      // its limit is per second: a short pause is enough
   note: 'The DOI registry: metadata of scholarly works in every field, with the abstract where the publisher deposited one. Keyless.',
   available: () => true,
   async search(query, ctx) {

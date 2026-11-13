@@ -170,6 +170,21 @@ test('HTTP client: a failing search endpoint does not block the rest of its host
   hc.close();
 });
 
+test('HTTP client: an API with a per-second limit gets its requests spaced out', async () => {
+  const starts = [];
+  const hc = createHttpClient({
+    lookup: async () => [{ address: '93.184.216.34', family: 4 }], respectRobots: false,
+    rateClasses: [{ id: 'paced', label: 'Paced API', perMin: 100, gapMs: 90, test: (u) => u.hostname === 'api.example.org' }],
+    transport: async () => { starts.push(Date.now()); return { status: 200, headers: { 'content-type': 'text/plain' }, body: Buffer.from('ok'), truncated: false }; },
+  });
+  await Promise.all([1, 2, 3, 4].map((i) => hc.get('https://api.example.org/works?q=' + i, { accept: 'any', cache: false })));
+  await hc.get('https://other.example.org/x', { accept: 'any', cache: false });      // other hosts are not slowed down
+  const gaps = starts.slice(1, 4).map((t, i) => t - starts[i]);
+  assert.ok(gaps.every((g) => g >= 75), `gaps between the starts: ${gaps.join(', ')} ms`);
+  assert.ok(starts[4] - starts[3] < 60, 'a host without a per-second limit starts at once');
+  hc.close();
+});
+
 test('classification: kinds, study designs, stance and counted facets', () => {
   const now = Date.parse('2026-11-12');
   const mk = (o) => ({ blocks: [{ type: 'p', text: 'x'.repeat(400) }], quality: 0.7, rel: 0.8, origin: o.url, ...o });

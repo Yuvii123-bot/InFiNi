@@ -63,7 +63,8 @@ export function loadConfig(env = (typeof process !== 'undefined' ? process.env :
         { id: 'arxiv', label: 'arXiv API', perMin: 15, test: (u) => u.hostname === 'export.arxiv.org' },
         { id: 'firecrawl', label: 'Firecrawl', perMin: 8, test: (u) => u.hostname === 'api.firecrawl.dev' },
         { id: 'openalex', label: 'OpenAlex API', perMin: 60, test: (u) => u.hostname === 'api.openalex.org' },
-        { id: 'crossref', label: 'Crossref API', perMin: 100, test: (u) => u.hostname === 'api.crossref.org' },
+        // Crossref's public pool states 3 requests per second and 3 at a time (response headers, November 2026): starts are spaced 380 ms apart
+        { id: 'crossref', label: 'Crossref API', perMin: 100, gapMs: num(env.CROSSREF_GAP_MS, 380, 0, 5000), test: (u) => u.hostname === 'api.crossref.org' },
         { id: 'europepmc', label: 'Europe PMC API', perMin: 120, test: (u) => u.hostname === 'www.ebi.ac.uk' },
         { id: 'mwmbl', label: 'Mwmbl', perMin: 30, test: (u) => u.hostname === 'api.mwmbl.org' },
       ],
