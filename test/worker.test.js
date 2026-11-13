@@ -29,7 +29,7 @@ import { loadRegistry, registerModel, promote, rollback, modelDir } from '../lea
 import { loadBenchmark, benchmarkSentences, isBenchmarkSentence, runBenchmark, memorizationProbe, BENCHMARK_FILE } from '../learning/benchmark.mjs';
 import { promotionGate } from '../learning/evalsuite.mjs';
 import { packState, restoreState, healthCheck, seedFromPublished, pruneState } from '../learning/persist.mjs';
-import { buildChannel, publishDir, publishGithub, fetchGithubAsset, publishAll } from '../learning/publish.mjs';
+import { buildChannel, publishDir, publishGithub, fetchGithubAsset, publishAll, withoutPaths, statusNotes } from '../learning/publish.mjs';
 import { collectMediawiki } from '../learning/sources.mjs';
 import { createManager } from '../learning/manager.mjs';
 import { snapshot, pendingInfo } from '../learning/cycle.mjs';
@@ -515,6 +515,44 @@ function promoteCopy(root, id) {
   registerModel(root, { id, status: 'candidate', parent: loadRegistry(root).production, sha256: sha(path.join(to, 'weights.bin')) });
   promote(root, id, { reason: 'test' });
 }
+
+test('publication: the published records name no place on the worker machine, and the short status carries what a remote reader needs', async () => {
+  const root = state({});
+  const there = path.resolve(root) + path.sep;
+  const cleaned = withoutPaths({
+    a: `${there}models/m0005/ckpt.pt`, b: `continued from ${there}models/m0005/ckpt.pt`, c: 'https://github.com/o/r/releases/download/infinity-model/',
+    d: '/home/someone/channel', e: 'loss 6.904 vs 6.713 (allowed +0.05)', f: 'dialogue 0.34 / fresh 0.33', g: '/usr/bin/python3',
+    h: 'C:\\Users\\me\\state\\x.bin', i: 'see https://en.wikipedia.org/wiki/Foo and /api/llm/status', n: 3, list: ['/tmp/x', { deep: '/root/secret/file.txt' }],
+  }, there);
+  assert.deepEqual(cleaned, {
+    a: 'models/m0005/ckpt.pt', b: 'continued from models/m0005/ckpt.pt', c: 'https://github.com/o/r/releases/download/infinity-model/',
+    d: 'channel', e: 'loss 6.904 vs 6.713 (allowed +0.05)', f: 'dialogue 0.34 / fresh 0.33', g: 'python3',
+    h: 'x.bin', i: 'see https://en.wikipedia.org/wiki/Foo and /api/llm/status', n: 3, list: ['x', { deep: 'file.txt' }],
+  });
+
+  // a worker that publishes into a directory: neither the state directory nor the publishing directory appears in the records
+  const dest = tmp('pub');
+  const run = state({ docsPerRound: 3 });
+  await runUntil(run, () => readLines(paths(run).cycles).length >= 1 && (readJSON(path.join(dest, 'channel.json'), {}) || {}).version === 'm0002', { what: 'a promotion published to the directory', env: { INFINI_PUBLISH_DIR: dest } });
+  const text = fs.readFileSync(path.join(dest, 'snapshot.json'), 'utf8');
+  assert.ok(!text.includes(path.resolve(run)), 'the state directory is not named');
+  assert.ok(!text.includes(dest), 'the publishing directory is not named');
+  assert.ok(!text.includes(os.tmpdir() + path.sep), 'no temporary path at all');
+  const snap = JSON.parse(text);
+  assert.equal(snap.host.remoteWorker, true);
+  assert.equal(snap.worker.lastPublish.targets[0].target, 'directory');
+  for (const f of fs.readdirSync(dest)) assert.equal(fs.statSync(path.join(dest, f)).mode & 0o044, 0o044, `${f} is readable by a web server running as another user`);
+
+  // the short status (the text of the release): readable without downloading anything
+  const notes = statusNotes(run);
+  const data = JSON.parse(notes.split('```json\n')[1].split('\n```')[0]);
+  assert.equal(data.production, 'm0002');
+  assert.equal(data.worker.totals.promoted, 1);
+  assert.ok(Array.isArray(data.cycles) && data.cycles.some((c) => c.outcome === 'promoted'));
+  assert.ok(Array.isArray(data.discovery) && data.discovery.length >= 1);
+  assert.ok(data.sources && typeof data.sources === 'object');
+  assert.ok(!notes.includes(path.resolve(run)));
+});
 
 test('channel: the serving side takes a verified model, refuses a damaged one, follows a rollback, and survives an unreachable channel', async () => {
   const root = state({});

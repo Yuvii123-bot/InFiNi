@@ -333,7 +333,7 @@ export function snapshot(root, { curvePoints = 300 } = {}) {
   if (worker) { const age = Math.max(0, Math.round((Date.now() - Date.parse(worker.heartbeat)) / 1000)); worker = { ...worker, heartbeatAgeSeconds: age, alive: worker.state !== 'stopped' && age < 180 && (worker.pid === process.pid || alive(worker.pid) || worker.host !== os.hostname()) }; }
   const pend = fs.existsSync(P.docs) ? pendingInfo(root) : { ids: [], since: null };
   const judged = [...cycles].reverse().find((c) => c.gate && c.model);
-  const benchRows = Object.values(reg.models).filter((m) => m.benchmark).sort((a, b) => (a.id < b.id ? -1 : 1)).map((m) => ({ id: m.id, status: m.status, ...m.benchmark, val_loss: m.val_loss ?? null, evaluatedOn: m.evaluatedOn || null }));
+  const benchRows = Object.values(reg.models).filter((m) => m.benchmark).sort((a, b) => (a.id < b.id ? -1 : 1)).map((m) => ({ ...m.benchmark, benchmark: m.benchmark.id || null, id: m.id, status: m.status, val_loss: m.val_loss ?? null, evaluatedOn: m.evaluatedOn || null }));
   return {
     generated: nowISO(), host: { trainingCapable: true },
     status: { state: isPaused(root) ? 'paused' : running ? 'running' : (st.status === 'running' ? 'idle' : st.status || 'idle'), paused: isPaused(root), phase: running ? st.phase : null, cycle: running ? st.cycle : null, message: st.message || '', training: running ? st.training || null : null, lastCycle: st.lastCycle || null, lastSuccess: st.lastSuccess || null, lastError: st.lastError || null, nextRunAt: st.nextRunAt || null, auto: !!cfg.cycle.auto, lastDiscovery: st.lastDiscovery || null, mode: worker && worker.alive ? 'worker' : cfg.cycle.auto ? 'schedule' : 'manual' },

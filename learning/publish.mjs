@@ -49,7 +49,7 @@ export function buildChannel(root, { model = true } = {}) {
   const worker = readJSON(P.worker, null);
   const abs = path.resolve(root) + path.sep;
   const snap = { ...snapshot(root), host: { trainingCapable: false, remoteWorker: true }, worker, published: nowISO() };
-  writeJSON(path.join(P.channel, 'snapshot.json'), JSON.parse(JSON.stringify(snap).split(JSON.stringify(abs).slice(1, -1)).join('')));
+  writeJSON(path.join(P.channel, 'snapshot.json'), withoutPaths(snap, abs));
   writeJSON(path.join(P.channel, 'status.json'), { published: nowISO(), production: reg.production, previous: reg.previous, worker: worker ? { state: worker.state, activity: worker.activity, heartbeat: worker.heartbeat, started: worker.started, uptimeSeconds: worker.uptimeSeconds, session: worker.session } : null, status: snap.status });
   files.push('snapshot.json', 'status.json');
   if (channel) files.push('channel.json');                       // always last: it is the pointer, the files it names must already be there
@@ -117,6 +117,19 @@ export async function fetchGithubAsset({ repo, tag, name, token, api, fetchImpl,
   return { file: to, bytes: fs.statSync(to).size, updated: asset.updated_at };
 }
 
+/** A copy of the records in which no string names a place on this machine: the state directory is cut out of every
+    string, and any other absolute path (a publishing directory, a Python interpreter) is replaced by its last part. */
+export function withoutPaths(value, stateDir) {
+  const clean = (str) => {
+    let t = stateDir ? str.split(stateDir).join('') : str;
+    if (/^[a-z][a-z0-9+.-]*:\/\//i.test(t)) return t;                     // an address on the web is not a path here
+    t = t.replace(/(^|[\s"'(=:,])((?:\/|[A-Za-z]:\\)(?:[\w.@+~-]+[\/\\])+)([\w.@+~-]*)/g, (m, pre, dirs, last) => (/^([A-Za-z]:\\|\/(home|root|Users|tmp|var|opt|srv|mnt|data|app|workspace|github|runner|etc|usr|private)[\/\\])/.test(dirs) ? `${pre}${last || '…'}` : m));
+    return t;
+  };
+  const walk = (v) => (typeof v === 'string' ? clean(v) : Array.isArray(v) ? v.map(walk) : v && typeof v === 'object' ? Object.fromEntries(Object.entries(v).map(([k, x]) => [k, walk(x)])) : v);
+  return walk(value);
+}
+
 function sourceSummary(root) {
   try { const src = (snapshot(root).corpus || {}).sources || {}; return Object.fromEntries(Object.entries(src).map(([k, v]) => [k, { accepted: v.accepted, rejected: v.rejected, domains: v.domains, last: v.last }])); } catch { return null; }
 }
@@ -130,7 +143,7 @@ export function statusNotes(root) {
     `- held-out loss: ${card.val_loss ?? 'n/a'}; fixed benchmark: ${card.benchmark ? card.benchmark.score : 'n/a'}`,
     `- worker: ${w.state || 'unknown'}, ${w.activity || ''}; heartbeat ${w.heartbeat || 'n/a'}; session ${w.session || 'n/a'}; starts ${w.starts ?? 'n/a'}`,
     `- last cycle: ${st.lastCycle ? `${st.lastCycle.id} ${st.lastCycle.outcome} at ${st.lastCycle.finished}` : 'none yet'}`,
-    `- ${st.message || ''}`, '', '```json', JSON.stringify({ t: nowISO(), production: reg.production, previous: reg.previous, worker: { state: w.state, activity: w.activity, heartbeat: w.heartbeat, uptimeSeconds: w.uptimeSeconds, starts: w.starts, recoveries: w.recoveries, childFailures: w.childFailures, totals: w.totals, lastError: (w.errors || []).slice(-1)[0] || null }, lastCycle: st.lastCycle || null, lastDiscovery: st.lastDiscovery || null, caution: st.caution || 0, lastRecovery: w.lastRecovery || null, resources: w.resources || null, lastStep: w.lastStep || null, sources: sourceSummary(root), discovery: readLines(path.join(root, 'discovery.jsonl'), { last: 2 }).map((r) => ({ round: r.round, collected: r.collected, accepted: r.accepted, rejected: r.rejected, bySource: r.bySource, errors: r.errors })), cycles: readLines(P.cycles, { last: 4 }).map((c) => ({ id: c.id, outcome: c.outcome, seconds: c.seconds, plan: c.plan || null, message: String(c.message || '').slice(0, 400) })), history: reg.history.slice(-8) }), '```',
+    `- ${st.message || ''}`, '', '```json', JSON.stringify({ t: nowISO(), production: reg.production, previous: reg.previous, worker: { state: w.state, activity: w.activity, heartbeat: w.heartbeat, uptimeSeconds: w.uptimeSeconds, starts: w.starts, recoveries: w.recoveries, childFailures: w.childFailures, totals: w.totals, lastError: (w.errors || []).slice(-1)[0] || null }, lastCycle: st.lastCycle || null, lastDiscovery: st.lastDiscovery || null, caution: st.caution || 0, lastRecovery: w.lastRecovery || null, resources: w.resources || null, lastStep: w.lastStep || null, sources: sourceSummary(root), discovery: readLines(path.join(root, 'discovery.jsonl'), { last: 2 }).map((r) => ({ round: r.round, collected: r.collected, accepted: r.accepted, rejected: r.rejected, reasons: r.reasons, bySource: r.bySource, errors: r.errors })), cycles: readLines(P.cycles, { last: 4 }).map((c) => ({ id: c.id, outcome: c.outcome, seconds: c.seconds, plan: c.plan || null, message: String(c.message || '').slice(0, 400) })), history: reg.history.slice(-8) }), '```',
   ];
   return lines.join('\n');
 }

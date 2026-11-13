@@ -83,6 +83,8 @@ test('learning dashboard: worker, discovery, candidate against production and th
     // the fixed benchmark, per version
     assert.match(text, /Fixed benchmark/);
     assert.match(text, /176 items and 16 passages/);
+    for (const m of snap.benchmark.models) assert.match(text, new RegExp(`${m.id}(production|previous|rejected|candidate)${(m.score * 100).toFixed(1)}%`), `benchmark row of ${m.id}`);
+    assert.ok(snap.benchmark.models.length >= 4 && new Set(snap.benchmark.models.map((m) => m.id)).size === snap.benchmark.models.length, 'one row per model version');
 
     // history: refusals with their reasons and the promotion are all there
     assert.match(text, /m0003 rejected.*fixed benchmark text is not read worse/);
@@ -94,7 +96,7 @@ test('learning dashboard: worker, discovery, candidate against production and th
     assert.equal(status.learning.host.remoteWorker, true);
     assert.equal(status.learning.worker.alive, true);
     assert.equal(status.learning.host.channel.version, id);
-    assert.equal(status.llm.version, id);
+    assert.equal(status.model.version, id);
     assert.doesNotMatch(JSON.stringify(status), /\/home\/|data\/llm\//, 'no path of the worker machine reaches a visitor');
   } finally { server.close(); await app.close(); }
 });

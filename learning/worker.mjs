@@ -149,7 +149,7 @@ export function createWorker({ root = stateDir(), env = process.env, log = (s) =
       const errs = r.results.filter((x) => x.error);
       if (errs.length) for (const e of errs) fail(`publish (${e.target})`, e.error);
       else if (model && model !== 'never') lastPublished = r.version;
-      if (r.results.length) w.lastPublish = { t: nowISO(), version: r.version, model: model === true, targets: r.results.map((x) => ({ target: x.target, ok: !x.error, uploaded: x.uploaded, url: x.url || x.dest })) };
+      if (r.results.length) w.lastPublish = { t: nowISO(), version: r.version, model: model === true, targets: r.results.map((x) => ({ target: x.target, ok: !x.error, uploaded: x.uploaded, url: x.url || null })) };
       if (model && model !== 'never' && r.results.length && !errs.length) { logEvent(root, 'published', { model: r.version, targets: r.results.map((x) => x.target) }); say(`published ${r.version} to ${r.results.map((x) => x.target).join(', ')}`); }
     } catch (e) { fail('publish', e && e.message); }
     finally { publishing = false; }
