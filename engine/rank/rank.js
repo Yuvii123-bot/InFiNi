@@ -51,6 +51,9 @@ const PAPER_TALK = /^(?:(?:in this (?:brief |short |present |current )?(?:paper|
 // in the concession, and the sentence itself states something else. Group 1 is the clause after the concession. A clause that goes on
 // with "they / these / it …" still speaks about the same thing and is left alone.
 const CONCESSION = /^(?:although|even though|though|while|whilst|whereas|despite|in spite of|notwithstanding)\b[^,;]{10,240},\s+(?!(?:they|it|these|those|this|such|some|many|most|several|its|their|both|there)\b)(.{20,})$/i;
+// "… are the main topic of this review, which also covers …", "The research not only describes a new way … but also offers …":
+// a text describing itself or being described, in the middle of a sentence
+const SELF_TALK = /\b(?:main |primary |central |principal )?(?:topic|subject|focus|theme|scope|aim|purpose) of (?:this|the present|the current|our) (?:review|paper|article|study|chapter|work|report|survey|research|analysis)\b|\b(?:the|this) (?:review|study|research|work|survey|report|analysis|paper|article) (?:not only |also |then |first |further |briefly )?(?:describes?|covers?|outlines?|discusse?s?|summari[sz]es?|reviews?|introduces?|explores?|examines?|looks at|surveys?|presents?)\b|\bwhich (?:also |then |further )?(?:covers|discusses|reviews|outlines|summari[sz]es) the\b/i;
 // "Given …, we sought to understand how …", "we hypothesised that …": what a study set out to do, wherever it stands in the sentence
 const AIM_TALK = /\bwe (?:therefore |thus |then |also |further |first |next |here )?(?:sought|aimed|set out|wanted|wished|intended|attempted|hypothesi[sz]ed?|aim|seek|intend|attempt) (?:to|that)\b/i;
 // "If the FDA determines … that X harms health, the FDA can take regulatory action": what an authority may do, not a finding (capitals matter)
@@ -160,7 +163,7 @@ function sentenceInfo(p, si) {
   if (dangling) mult *= si === 0 ? 0.9 : 0.72;
   if (/\?\s*$/.test(text)) mult *= 0.3;
   if (JUNK.test(text)) mult *= 0.2;
-  const proc = PAPER_TALK.test(text) || BOOLEAN_QUERY.test(text) || AIM_TALK.test(text) || AUTHORITY_IF.test(text);
+  const proc = PAPER_TALK.test(text) || BOOLEAN_QUERY.test(text) || AIM_TALK.test(text) || AUTHORITY_IF.test(text) || SELF_TALK.test(text);
   if (proc) mult *= 0.35;                              // "In this review we summarise …" describes a paper, not the world
   if (p.type === 'p' && BROKEN_END.test(text)) mult *= 0.25;
   if (!/[a-z]{3,}/i.test(text)) mult *= 0.3;
@@ -213,6 +216,14 @@ export function queryModel(part, extra = []) {
   }
   // each ordinal/superlative of the question must be present too (as itself or a listed synonym)
   const requiredAll = (part.constraints || []).map((c) => { const st = stemsOf(c)[0] || c; const alts = new Set([st]); for (const [k, t] of terms) if (t.of && stemsOf(t.of)[0] === st) alts.add(k); return alts; });
+  // "the impact of remote work on productivity": the thing the impact is on must be named too — a statement about the impact
+  // of remote work on well-being answers another question
+  const asked = String(part.core || part.text || '');
+  const onto = /\b(?:impacts?|effects?|influences?)\s+of\s+.+?\s+(?:on|upon)\s+(.+?)[?.!\s]*$/i.exec(asked) || /\b(?:implications|consequences|significance|importance)\s+of\s+.+?\s+for\s+(.+?)[?.!\s]*$/i.exec(asked);
+  if (onto) {
+    const st = stemsOf(onto[1]).filter((k) => terms.has(k) && terms.get(k).core && !focus.has(k));
+    if (st.length) { const alts = new Set(st); for (const [k, t] of terms) if (t.of && st.includes(stemsOf(t.of)[0])) alts.add(k); requiredAll.push(alts); }
+  }
   const relCue = required.size ? relationCue(part.attribute) : null;
   const relStems = relCue ? relationStems(part.attribute) : new Set();
   return { terms, focus, properStems, required, requiredAll, relCue, relStems, answerType: part.answerType, part };

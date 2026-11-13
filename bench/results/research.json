@@ -1,5 +1,5 @@
 {
-  "date": "2026-11-12T13:20:42.133Z",
+  "date": "2026-11-13T00:43:09.731Z",
   "version": "3.0.0",
   "node": "v20.20.2",
   "searchKeysConfigured": [
@@ -18,71 +18,67 @@
       "asked": "auto",
       "used": "research",
       "limited": "",
-      "seconds": 46.6,
-      "firstDraftSeconds": 7.7,
-      "drafts": 5,
-      "progressEvents": 31,
-      "rounds": 5,
-      "pagesRead": 262,
-      "pagesFailed": 133,
-      "abstracts": 730,
-      "documents": 989,
-      "fullText": 244,
-      "sites": 97,
-      "origins": 826,
-      "screened": 5531,
-      "searches": 109,
-      "megabytes": 52.1,
-      "linksFollowed": 282,
+      "seconds": 60.3,
+      "firstDraftSeconds": 9.5,
+      "drafts": 6,
+      "progressEvents": 44,
+      "rounds": 6,
+      "pagesRead": 317,
+      "pagesFailed": 206,
+      "abstracts": 800,
+      "documents": 1108,
+      "fullText": 296,
+      "sites": 129,
+      "origins": 916,
+      "screened": 6552,
+      "searches": 114,
+      "megabytes": 68.7,
+      "linksFollowed": 338,
       "stopped": "new searches were no longer bringing new material",
-      "confidence": "High confidence 78%",
-      "cited": 27,
-      "statements": 36,
+      "confidence": "High confidence 80%",
+      "cited": 36,
+      "statements": 41,
       "sections": [
-        "Pollution",
-        "Reproductive effects",
         "Oxidative stress",
         "Inflammation",
-        "Metabolic effects",
-        "Respiratory effects"
+        "Respiratory effects",
+        "Endocrine disruption",
+        "Inflammatory responses",
+        "Reproductive problems"
       ],
       "report": {
         "sections": 6,
         "figures": 4,
-        "timeline": 0,
+        "timeline": 5,
         "differences": 0,
         "uncertain": 3
       },
       "tally": null,
       "failures": {
-        "disallowed by the site’s robots.txt": 26,
-        "refused automated access": 39,
-        "page no longer exists": 13,
-        "no readable text (often needs JavaScript)": 38,
-        "rate limited": 2,
-        "other errors": 6,
+        "disallowed by the site’s robots.txt": 32,
+        "refused automated access": 81,
+        "page no longer exists": 18,
+        "no readable text (often needs JavaScript)": 37,
+        "rate limited": 6,
+        "a file, not a web page": 11,
+        "other errors": 9,
         "address not found": 1,
         "address not allowed": 1,
-        "too slow": 6,
+        "too slow": 9,
         "server error": 1
       },
       "providers": {
-        "tavily": {
-          "ok": 7,
-          "failed": 0,
-          "results": 116
-        },
         "wikipedia": {
           "ok": 42,
           "failed": 0,
-          "results": 2369
+          "results": 2180
+        },
+        "tavily": {
+          "ok": 7,
+          "failed": 0,
+          "results": 114
         },
         "ddg_html": {
-          "ok": 0,
-          "failed": 2,
-          "results": 0
-        },
-        "openalex": {
           "ok": 0,
           "failed": 2,
           "results": 0
@@ -97,27 +93,32 @@
           "failed": 2,
           "results": 0
         },
+        "crossref": {
+          "ok": 11,
+          "failed": 1,
+          "results": 1100
+        },
         "mwmbl": {
           "ok": 14,
           "failed": 2,
-          "results": 271
-        },
-        "crossref": {
-          "ok": 26,
-          "failed": 0,
-          "results": 1640
+          "results": 234
         },
         "europepmc": {
-          "ok": 9,
-          "failed": 1,
-          "results": 450
+          "ok": 7,
+          "failed": 3,
+          "results": 350
+        },
+        "openalex": {
+          "ok": 21,
+          "failed": 0,
+          "results": 1558
         }
       },
-      "kinds": "Scholarly journal 641, Preprint server 108, News organisation 70, Encyclopedia 43, Company or commercial site 26, University or research institute 18",
-      "documentsByKind": "Research article 510, Preprint 108, News report 74, Review article 63, Book or chapter 46, Reference entry 43",
-      "studies": "meta-analysis 5, systematic review 17, randomised trial 1, guideline 1, observational study 17, case report 1",
-      "resultKB": 367,
-      "peakRssMB": 283,
+      "kinds": "Scholarly journal 745, News organisation 94, Preprint server 70, Company or commercial site 53, Encyclopedia 42, University or research institute 22",
+      "documentsByKind": "Research article 522, Review article 137, News report 90, Preprint 70, Book or chapter 62, Explainer or analysis 57",
+      "studies": "meta-analysis 4, systematic review 22, randomised trial 2, guideline 1, observational study 14, case report 1",
+      "resultKB": 383,
+      "peakRssMB": 383,
       "lead": "In vitro experiments with human cells and in vivo data generated with mice showed that microplastics elicit adverse health effects mainly by causing inflammation, oxidative stress [increased reactive oxygen species (ROS) production], lipid metabolism disturban"
     },
     {
@@ -126,33 +127,33 @@
       "asked": "auto",
       "used": "research",
       "limited": "",
-      "seconds": 48.5,
-      "firstDraftSeconds": 5.9,
+      "seconds": 63.5,
+      "firstDraftSeconds": 7.5,
       "drafts": 6,
-      "progressEvents": 40,
+      "progressEvents": 51,
       "rounds": 6,
-      "pagesRead": 484,
-      "pagesFailed": 185,
-      "abstracts": 476,
-      "documents": 947,
-      "fullText": 379,
-      "sites": 125,
-      "origins": 600,
-      "screened": 6742,
-      "searches": 84,
-      "megabytes": 115.3,
-      "linksFollowed": 599,
+      "pagesRead": 566,
+      "pagesFailed": 204,
+      "abstracts": 512,
+      "documents": 1059,
+      "fullText": 436,
+      "sites": 202,
+      "origins": 643,
+      "screened": 6990,
+      "searches": 82,
+      "megabytes": 132,
+      "linksFollowed": 835,
       "stopped": "new searches were no longer bringing new material",
-      "confidence": "High confidence 80%",
-      "cited": 43,
+      "confidence": "Medium confidence 62%",
+      "cited": 42,
       "statements": 40,
       "sections": [
-        "Benefits",
-        "Commuting",
+        "Employee Productivity",
+        "Technology",
+        "Collaboration",
         "Job satisfaction",
-        "Isolation",
-        "Flexibility and autonomy",
-        "Retention"
+        "Reducing commuting",
+        "Flexibility autonomy"
       ],
       "report": {
         "sections": 6,
@@ -163,45 +164,45 @@
       },
       "tally": null,
       "failures": {
-        "refused automated access": 85,
-        "disallowed by the site’s robots.txt": 26,
+        "refused automated access": 103,
+        "other errors": 7,
+        "no readable text (often needs JavaScript)": 27,
+        "disallowed by the site’s robots.txt": 28,
+        "page no longer exists": 17,
+        "a file, not a web page": 4,
+        "page opts out of excerpts": 2,
         "address not found": 3,
-        "other errors": 6,
-        "no readable text (often needs JavaScript)": 35,
-        "rate limited": 14,
-        "page no longer exists": 9,
-        "page opts out of excerpts": 1,
-        "a file, not a web page": 1,
-        "too slow": 5
+        "rate limited": 9,
+        "too slow": 4
       },
       "providers": {
         "wikipedia": {
           "ok": 42,
           "failed": 0,
-          "results": 2885
+          "results": 2515
         },
         "tavily": {
           "ok": 7,
           "failed": 0,
-          "results": 116
+          "results": 115
         },
         "mwmbl": {
-          "ok": 1,
-          "failed": 15,
-          "results": 3
+          "ok": 4,
+          "failed": 12,
+          "results": 6
         },
-        "crossref": {
-          "ok": 19,
+        "openalex": {
+          "ok": 17,
           "failed": 0,
-          "results": 1420
+          "results": 1417
         }
       },
-      "kinds": "Scholarly journal 392, Company or commercial site 124, Preprint server 85, Blog or personal site 81, News organisation 69, Encyclopedia 43",
-      "documentsByKind": "Research article 365, Preprint 83, FAQ 79, News report 73, Blog post 51, Reference entry 43",
-      "studies": "meta-analysis 1, systematic review 7, observational study 50, review 7, preprint 83, research article 315",
-      "resultKB": 372,
-      "peakRssMB": 369,
-      "lead": "The findings indicate that even though remote work is flexible resulting in increased job satisfaction, it could lead to some complications such as isolation and barriers in communication. [1] Key points • Findings indicate that while remote work increases fle"
+      "kinds": "Scholarly journal 496, Company or commercial site 135, Blog or personal site 132, News organisation 62, Encyclopedia 48, Data or statistics provider 20",
+      "documentsByKind": "Research article 458, FAQ 99, Blog post 71, News report 69, Reference entry 48, Explainer or analysis 40",
+      "studies": "systematic review 10, randomised trial 1, observational study 39, review 19, preprint 14, commentary 3",
+      "resultKB": 379,
+      "peakRssMB": 406,
+      "lead": "The study concludes that to sustain remote work effectively, organizations must address these challenges by improving communication channels, fostering stronger team connections, and providing support to maintain a balance between flexibility and collaboration"
     },
     {
       "q": "Do deep research on solid-state batteries",
@@ -209,91 +210,91 @@
       "asked": "auto",
       "used": "research",
       "limited": "",
-      "seconds": 65.6,
+      "seconds": 70.5,
       "firstDraftSeconds": 3,
       "drafts": 7,
-      "progressEvents": 47,
+      "progressEvents": 58,
       "rounds": 7,
-      "pagesRead": 366,
-      "pagesFailed": 144,
-      "abstracts": 574,
-      "documents": 937,
-      "fullText": 340,
-      "sites": 136,
-      "origins": 709,
-      "screened": 5310,
-      "searches": 99,
-      "megabytes": 86.5,
-      "linksFollowed": 320,
+      "pagesRead": 389,
+      "pagesFailed": 200,
+      "abstracts": 800,
+      "documents": 1164,
+      "fullText": 355,
+      "sites": 139,
+      "origins": 921,
+      "screened": 6678,
+      "searches": 102,
+      "megabytes": 93.4,
+      "linksFollowed": 311,
       "stopped": "new searches were no longer bringing new material",
-      "confidence": "High confidence 85%",
-      "cited": 66,
-      "statements": 44,
+      "confidence": "High confidence 88%",
+      "cited": 72,
+      "statements": 45,
       "sections": [
-        "Energy density",
+        "Lithium ion batteries",
         "Challenges",
         "Advantages",
         "Thin-film solid-state batteries",
-        "Materials",
-        "Uses"
+        "Uses",
+        "Materials"
       ],
       "report": {
         "sections": 6,
         "figures": 4,
-        "timeline": 7,
+        "timeline": 8,
         "differences": 0,
-        "uncertain": 3
+        "uncertain": 2
       },
       "tally": null,
       "failures": {
-        "page no longer exists": 20,
-        "disallowed by the site’s robots.txt": 19,
-        "refused automated access": 63,
-        "rate limited": 10,
-        "no readable text (often needs JavaScript)": 23,
-        "other errors": 3,
-        "too slow": 4,
-        "a file, not a web page": 1,
+        "disallowed by the site’s robots.txt": 28,
+        "refused automated access": 106,
+        "page no longer exists": 21,
+        "rate limited": 6,
+        "no readable text (often needs JavaScript)": 25,
+        "other errors": 5,
+        "a file, not a web page": 3,
+        "too slow": 5,
         "page opts out of excerpts": 1
       },
       "providers": {
         "wikipedia": {
           "ok": 42,
           "failed": 0,
-          "results": 1936
+          "results": 1946
         },
         "tavily": {
           "ok": 6,
           "failed": 0,
-          "results": 108
+          "results": 107
         },
         "mwmbl": {
-          "ok": 11,
-          "failed": 5,
-          "results": 199
-        },
-        "crossref": {
-          "ok": 20,
+          "ok": 14,
           "failed": 2,
-          "results": 1451
+          "results": 269
         },
         "openalex": {
-          "ok": 0,
-          "failed": 9,
-          "results": 0
+          "ok": 20,
+          "failed": 0,
+          "results": 1535
         },
         "marginalia": {
           "ok": 0,
           "failed": 4,
           "results": 0
+        },
+        "crossref": {
+          "ok": 14,
+          "failed": 0,
+          "results": 1400
         }
       },
-      "kinds": "Scholarly journal 529, News organisation 158, Company or commercial site 87, Preprint server 53, Encyclopedia 41, University or research institute 14",
-      "documentsByKind": "Research article 493, News report 148, Explainer or analysis 55, Preprint 53, Reference entry 41, FAQ 37",
-      "studies": "randomised trial 1, observational study 3, review 29, preprint 53, research article 489",
-      "resultKB": 399,
-      "peakRssMB": 392,
-      "lead": "A solid-state battery (SSB) is an electrical battery that uses a solid electrolyte to conduct ions between the electrodes, instead of the liquid or gel polymer electrolytes found in conventional batteries. [1][2][3] Theoretically, solid-state batteries offer m"
+      "kinds": "Scholarly journal 773, News organisation 145, Company or commercial site 68, Encyclopedia 42, Preprint server 28, Government or official body 24",
+      "documentsByKind": "Research article 650, News report 132, Review article 109, Explainer or analysis 51, Reference entry 42, FAQ 39",
+      "studies": "randomised trial 1, observational study 7, review 110, preprint 27, commentary 5, research article 637",
+      "resultKB": 400,
+      "peakRssMB": 399,
+      "lead": "A solid-state battery (SSB) is an electrical battery that uses a solid electrolyte to conduct ions between the electrodes, instead of the liquid or gel polymer electrolytes found in conventional batteries. [1][2] Theoretically, solid-state batteries offer much"
     },
     {
       "q": "Is intermittent fasting good for weight loss?",
@@ -301,30 +302,30 @@
       "asked": "deep",
       "used": "deep",
       "limited": "",
-      "seconds": 19.6,
-      "firstDraftSeconds": 6.4,
+      "seconds": 30,
+      "firstDraftSeconds": 8.2,
       "drafts": 3,
-      "progressEvents": 13,
+      "progressEvents": 17,
       "rounds": 3,
       "pagesRead": 70,
-      "pagesFailed": 33,
-      "abstracts": 48,
-      "documents": 118,
-      "fullText": 59,
-      "sites": 39,
-      "origins": 86,
-      "screened": 743,
-      "searches": 23,
-      "megabytes": 20,
-      "linksFollowed": 64,
+      "pagesFailed": 36,
+      "abstracts": 60,
+      "documents": 129,
+      "fullText": 60,
+      "sites": 40,
+      "origins": 99,
+      "screened": 799,
+      "searches": 24,
+      "megabytes": 19.2,
+      "linksFollowed": 59,
       "stopped": "page budget used",
       "confidence": "High confidence 91%",
-      "cited": 11,
+      "cited": 12,
       "statements": 12,
       "sections": [
-        "Health benefits of intermittent fasting",
         "Alternate-day fasting",
-        "Energy restriction"
+        "Energy restriction",
+        "Overweight and obese"
       ],
       "report": {
         "sections": 3,
@@ -335,54 +336,60 @@
       },
       "tally": {
         "type": "tally",
-        "sources": 55,
-        "yes": 51,
-        "no": 3,
+        "sources": 57,
+        "yes": 54,
+        "no": 2,
         "qualified": 1
       },
       "failures": {
-        "disallowed by the site’s robots.txt": 2,
-        "refused automated access": 15,
-        "other errors": 1,
-        "rate limited": 1,
+        "disallowed by the site’s robots.txt": 3,
+        "refused automated access": 14,
         "no readable text (often needs JavaScript)": 5,
+        "other errors": 1,
+        "rate limited": 2,
         "page no longer exists": 5,
         "address not found": 1,
-        "too slow": 3
+        "a file, not a web page": 1,
+        "too slow": 4
       },
       "providers": {
         "wikipedia": {
           "ok": 10,
           "failed": 0,
-          "results": 386
+          "results": 377
         },
         "tavily": {
           "ok": 4,
           "failed": 0,
-          "results": 56
+          "results": 54
+        },
+        "crossref": {
+          "ok": 2,
+          "failed": 0,
+          "results": 80
         },
         "mwmbl": {
           "ok": 5,
           "failed": 0,
-          "results": 72
+          "results": 81
+        },
+        "openalex": {
+          "ok": 2,
+          "failed": 0,
+          "results": 80
         },
         "europepmc": {
           "ok": 1,
           "failed": 0,
           "results": 40
-        },
-        "crossref": {
-          "ok": 3,
-          "failed": 0,
-          "results": 109
         }
       },
-      "kinds": "Scholarly journal 45, News organisation 17, Encyclopedia 10, Organisation (.org) 8, Blog or personal site 6, Medical information site 6",
-      "documentsByKind": "Research article 36, FAQ 20, Explainer or analysis 12, Reference entry 12, News report 9, Meta-analysis or systematic review 6",
-      "studies": "meta-analysis 2, systematic review 4, randomised trial 8, clinical trial 1, observational study 2, case report 2",
-      "resultKB": 137,
-      "peakRssMB": 389,
-      "lead": "Most of the sources that address this directly lean yes: of 55 independent sources, 51 lean yes, 3 lean no and 1 qualifies it or calls the evidence unsettled. • Leans yes — Outside of weight loss, intermittent fasting may have an extra advantage on insulin sen"
+      "kinds": "Scholarly journal 61, News organisation 16, Encyclopedia 10, Organisation (.org) 10, Medical information site 6, Preprint server 6",
+      "documentsByKind": "Research article 51, FAQ 18, Reference entry 12, Explainer or analysis 11, News report 9, Preprint 6",
+      "studies": "meta-analysis 1, systematic review 3, randomised trial 12, clinical trial 1, observational study 1, case report 2",
+      "resultKB": 143,
+      "peakRssMB": 386,
+      "lead": "Most of the sources that address this directly lean yes: of 57 independent sources, 54 lean yes, 2 lean no and 1 qualifies it or calls the evidence unsettled. • Leans yes — Outside of weight loss, intermittent fasting may have an extra advantage on insulin sen"
     },
     {
       "q": "Why did the Roman Empire fall?",
@@ -390,29 +397,33 @@
       "asked": "deep",
       "used": "deep",
       "limited": "",
-      "seconds": 12.5,
-      "firstDraftSeconds": 1.5,
+      "seconds": 18.1,
+      "firstDraftSeconds": 3.1,
       "drafts": 3,
-      "progressEvents": 10,
+      "progressEvents": 11,
       "rounds": 3,
-      "pagesRead": 50,
-      "pagesFailed": 37,
-      "abstracts": 39,
-      "documents": 93,
-      "fullText": 44,
-      "sites": 23,
-      "origins": 60,
-      "screened": 616,
-      "searches": 15,
-      "megabytes": 10,
-      "linksFollowed": 21,
-      "stopped": "every relevant lead was read",
-      "confidence": "High confidence 75%",
-      "cited": 9,
-      "statements": 11,
-      "sections": [],
+      "pagesRead": 70,
+      "pagesFailed": 47,
+      "abstracts": 60,
+      "documents": 133,
+      "fullText": 64,
+      "sites": 40,
+      "origins": 89,
+      "screened": 1211,
+      "searches": 23,
+      "megabytes": 14.6,
+      "linksFollowed": 49,
+      "stopped": "page budget used",
+      "confidence": "Medium confidence 74%",
+      "cited": 12,
+      "statements": 17,
+      "sections": [
+        "Fall of rome",
+        "Roman emperor",
+        "Edward gibbon"
+      ],
       "report": {
-        "sections": 0,
+        "sections": 3,
         "figures": 0,
         "timeline": 0,
         "differences": 0,
@@ -420,20 +431,19 @@
       },
       "tally": null,
       "failures": {
-        "disallowed by the site’s robots.txt": 8,
-        "other errors": 1,
-        "refused automated access": 16,
-        "no readable text (often needs JavaScript)": 8,
+        "disallowed by the site’s robots.txt": 6,
+        "refused automated access": 24,
+        "no readable text (often needs JavaScript)": 9,
         "page no longer exists": 1,
-        "server error": 1,
+        "other errors": 4,
         "a file, not a web page": 1,
-        "too slow": 1
+        "too slow": 2
       },
       "providers": {
         "wikipedia": {
-          "ok": 5,
+          "ok": 8,
           "failed": 0,
-          "results": 205
+          "results": 353
         },
         "stackexchange": {
           "ok": 1,
@@ -443,24 +453,29 @@
         "tavily": {
           "ok": 4,
           "failed": 0,
-          "results": 56
-        },
-        "mwmbl": {
-          "ok": 2,
-          "failed": 0,
-          "results": 42
+          "results": 54
         },
         "crossref": {
+          "ok": 2,
+          "failed": 0,
+          "results": 80
+        },
+        "mwmbl": {
+          "ok": 5,
+          "failed": 0,
+          "results": 103
+        },
+        "openalex": {
           "ok": 3,
           "failed": 0,
-          "results": 114
+          "results": 115
         }
       },
-      "kinds": "Scholarly journal 39, Company or commercial site 18, Encyclopedia 17, Community Q&A 4, Organisation (.org) 2, Other website 2",
-      "documentsByKind": "Book or chapter 25, Reference entry 17, Research article 15, Explainer or analysis 10, Web page 5, FAQ 4",
-      "studies": "review 1, research article 15",
-      "resultKB": 103,
-      "peakRssMB": 303,
+      "kinds": "Scholarly journal 59, Company or commercial site 29, Encyclopedia 18, News organisation 7, Community Q&A 4, Organisation (.org) 2",
+      "documentsByKind": "Book or chapter 40, Reference entry 19, Research article 19, Explainer or analysis 13, Web page 11, News report 9",
+      "studies": "observational study 1, review 3, research article 18",
+      "resultKB": 144,
+      "peakRssMB": 318,
       "lead": "The Migration Period, involving large invasions by Germanic peoples and the Huns, led to the decline of the Western Roman Empire. [1] With the fall of Ravenna to the Germanic Herulians and the deposition of Romulus Augustus in 476 by Odoacer, the Western Empir"
     }
   ]

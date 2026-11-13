@@ -167,7 +167,7 @@ export function scoreConfidence(e) {
   const cap = (limit, why) => { if (score > limit) { score = limit; caps.push(why); } };
   if (origins.size === 1) cap(0.7, 'only one independent origin');
   if (e.timeSensitive && !e.freshOk) cap(0.5, 'could not confirm the information is current');
-  if (e.cited.every((c) => c.partial)) cap(0.62, 'only summaries or abstracts were available, not full pages');
+  if (e.cited.every((c) => c.partial)) cap(0.62, 'the statements shown rest on summaries or abstracts, not on pages read in full');
   if (e.directness < 0.4) cap(0.45, 'no passage answers the question directly');
   score = clamp(score);
   const level = score >= 0.74 ? 'high' : score >= 0.54 ? 'medium' : score >= 0.34 ? 'low' : 'insufficient';

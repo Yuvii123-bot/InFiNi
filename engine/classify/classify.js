@@ -207,6 +207,8 @@ export function stanceOf(text, negatedQuestion = false) {
   // "not only … but also", "no doubt", "not just", "no less than", "no longer than" affirm; a negation inside an "although …" clause belongs to the concession, not to the claim
   const main = String(text).replace(/\b(?:not only|not just|not merely|not least|no doubt|no wonder|no less than|no fewer than|no more than|no longer than|not to mention|if not|whether or not|or not)\b/gi, ' ')
     .replace(/[,;]\s*(?:al)?though\b[^.;]*/gi, ' ').replace(/[,;]\s*(?:but|however)\s+(?:it is|this is|that is)?\s*not (?:clear|known|certain)[^.;]*/gi, ' ')
+    // "… results in weight loss but with no significant effects on other parameters": the negation is about something else
+    .replace(/[,;]?\s*\b(?:but|though|while|whereas|yet)\b(?=[^.;]*\b(?:other|another|additional|further|secondary)\b)[^.;]*/gi, ' ')
     // a negation inside a condition ("… occurs if intake is not sufficient to compensate", "unless it is not followed") states when the claim holds, it does not deny it
     .replace(/\b(?:if|when|whenever|unless|provided(?: that)?|as long as|so long as|until|where|in case)\b[^,.;]*/gi, ' ')
     // "without", "regardless of whether or not", "who do not …", "that are not …": the negation describes a group or a circumstance

@@ -7,7 +7,8 @@ import { analyze } from '../engine/nlp/analyze.js';
 import { createHttpClient } from '../engine/net/http.js';
 import { researchDirective } from '../engine/research/directive.js';
 import { createFrontier } from '../engine/research/frontier.js';
-import { sharedHeadings } from '../engine/research/aspects.js';
+import { sharedHeadings, keyPhrases, mergeAspects } from '../engine/research/aspects.js';
+import { rankEvidence, queryModel } from '../engine/rank/rank.js';
 import { classifyDoc, stanceOf, buildClassification } from '../engine/classify/classify.js';
 import { invertedToText, jatsToBlocks, jatsAbstractToText, studyFromTypes, crossref } from '../engine/providers/scholar.js';
 import { yearInContext, figureKeys } from '../engine/synth/report.js';
@@ -88,8 +89,39 @@ test('lead queue: screening, per-site limits, and a busy site never holds up the
 });
 
 test('sub-topics: the standard parts of a paper are never offered as sub-topics', () => {
-  const docs = [1, 2, 3].map((i) => ({ origin: 'o' + i, outline: ['1. Materials', 'Statistical analysis', 'Results and Discussion', 'Associated Data', '2.1 Oxidative stress', 'Routes of exposure', 'Conclusions and future perspectives', 'Author Contributions'].map((t) => ({ text: t, level: 2 })) }));
+  const docs = [1, 2, 3].map((i) => ({ origin: 'o' + i, outline: ['1. Materials', 'Statistical analysis', 'Results and Discussion', 'Associated Data', '2.1 Oxidative stress', 'Routes of exposure', 'Conclusions and future perspectives', 'Author Contributions', 'Outcomes', 'Primary outcome measures'].map((t) => ({ text: t, level: 2 })) }));
   assert.deepEqual(sharedHeadings(docs, new Set(['health', 'effect', 'microplast']), { minOrigins: 2 }).map((a) => a.label), ['Oxidative stress', 'Routes of exposure']);
+});
+
+test('sub-topics: a label does not run across a comma, and two labels for one thing are merged', () => {
+  const docs = [{ origin: 'a' }, { origin: 'b' }, { origin: 'c' }];
+  const S = (text, di) => ({ text, di });
+  const found = keyPhrases([
+    S('Remote work may improve flexibility, autonomy, and retention of staff.', 0), S('It enhances flexibility, autonomy and job satisfaction.', 1),
+    S('Greater flexibility, autonomy, and job satisfaction were reported.', 2), S('Flexibility and autonomy rose while job satisfaction stayed.', 0),
+    S('Flexibility and autonomy matter, as does job satisfaction.', 1),
+  ], docs, new Set(['remot', 'work']), { minOrigins: 2 }).map((x) => x.label);
+  assert.ok(found.includes('Job satisfaction') && found.includes('Flexibility and autonomy'), found.join(' | '));
+  assert.ok(!found.includes('Flexibility autonomy'), 'neighbours in a list are not a phrase');
+  const merged = mergeAspects([[
+    { label: 'Immune function', stems: ['immun', 'function'] }, { label: 'Immune system', stems: ['immun', 'system'] },
+    { label: 'Energy density', stems: ['energi', 'densiti'] }, { label: 'Energy storage', stems: ['energi', 'storag'] },
+    { label: 'Inflammation', stems: ['inflamm'] }, { label: 'Inflammatory responses', stems: ['inflammatori', 'respons'] },
+  ]]).map((a) => a.label);
+  assert.deepEqual(merged, ['Immune function', 'Energy density', 'Energy storage', 'Inflammation']);
+});
+
+test('“the impact of X on Y”: a statement must name Y to count as an answer', () => {
+  const doc = (i, text) => ({ title: `T${i}`, url: `https://s${i}.example.org/x`, origin: `s${i}.example.org`, domain: `s${i}.example.org`, kind: 'web', quality: 0.6, blocks: [{ type: 'p', text, heading: '' }] });
+  const qm = queryModel(part('The impact of remote work on productivity'));
+  assert.deepEqual(qm.requiredAll.map((x) => [...x]), [['product']]);
+  assert.equal(queryModel(part('What are the health effects of microplastics?')).requiredAll.length, 0);
+  const r = rankEvidence([
+    doc(1, 'Many studies have investigated how remote work adaptation and control over scheduling reduced burnout, thus improving the impact of remote work on employee wellbeing.'),
+    doc(2, 'The findings indicate that remote work can enhance productivity through increased flexibility, autonomy, and reduced commuting time.'),
+  ], qm);
+  assert.match(r.sentences[0].text, /enhance productivity/);
+  assert.ok(r.sentences[1].score < r.sentences[0].score * 0.6, 'the statement about wellbeing ranks far below');
 });
 
 test('scholarly indexes: abstracts and article XML become plain text', () => {
@@ -166,6 +198,8 @@ test('classification: kinds, study designs, stance and counted facets', () => {
   assert.equal(stanceOf('Intermittent fasting does not lead to greater weight loss than daily calorie restriction.'), 'contradicts');
   assert.equal(stanceOf('Weight loss occurs over time if energy intake on feeding days is not sufficient to compensate.'), 'supports');
   assert.equal(stanceOf('The diet not only reduces weight but also improves insulin sensitivity.'), 'supports');
+  assert.equal(stanceOf('The study proved that intermittent fasting results in weight loss but with no large significant effects on other body composition parameters.'), 'supports');
+  assert.equal(stanceOf('Fasting did not reduce weight but improved other markers.'), 'contradicts');
   assert.equal(stanceOf('Evidence is mixed and more research is needed.'), 'qualified');
 });
 
