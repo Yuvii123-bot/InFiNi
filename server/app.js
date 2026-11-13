@@ -15,7 +15,9 @@ import { createEngine, loadConfig, VERSION } from '../engine/index.js';
 import { BlockedError } from '../engine/net/guard.js';
 import crypto from 'node:crypto';
 import { createNeural, lean } from '../engine/neural/service.js';
+import { createChannel } from '../engine/neural/channel.js';
 import { createManager } from '../learning/manager.mjs';
+import { BUNDLED as BUNDLED_MODEL } from '../learning/store.mjs';
 
 const ROOT = path.join(path.dirname(fileURLToPath(import.meta.url)), '..', 'public');
 const MIME = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.css': 'text/css; charset=utf-8', '.json': 'application/json; charset=utf-8', '.webmanifest': 'application/manifest+json; charset=utf-8', '.svg': 'image/svg+xml', '.png': 'image/png', '.ico': 'image/x-icon', '.txt': 'text/plain; charset=utf-8' };
@@ -46,10 +48,21 @@ export function createApp(cfg = loadConfig()) {
   // Infinity LLM: the neural model that writes the replies, and the supervisor of its learning cycles. Both are optional:
   // without a trained model (or with INFINI_LLM=0) the application answers exactly as before.
   const llm = cfg.llm || { enabled: false };
-  const neural = llm.enabled ? createNeural({ root: llm.dir, minLogProb: llm.minLogProb, minAgreement: llm.minAgreement, log, bundled: llm.bundled || undefined }) : null;
+  // Models approved by the learning worker arrive through its channel (weights and records only; see engine/neural/channel.js).
+  /** The model that was deployed with this app: when the channel names exactly this one, it is not downloaded again. */
+  let shippedMemo;
+  const shippedModel = () => {
+    if (shippedMemo !== undefined) return shippedMemo;
+    try { const dir = llm.bundled || BUNDLED_MODEL; const snap = JSON.parse(fs.readFileSync(path.join(dir, 'snapshot.json'), 'utf8')); const meta = JSON.parse(fs.readFileSync(path.join(dir, 'current', 'model.json'), 'utf8')); shippedMemo = snap.registry && snap.registry.production && meta.sha256 ? { id: snap.registry.production, sha256: meta.sha256 } : null; } catch { shippedMemo = null; }
+    return shippedMemo;
+  };
+  const channel = llm.enabled && llm.channel ? createChannel({ url: llm.channel, dir: llm.channelDir || '', intervalMs: (llm.channelSeconds || 300) * 1000, log, shipped: shippedModel, ...(cfg.fetchImpl ? { fetchImpl: cfg.fetchImpl } : {}) }) : null;
+  const neural = llm.enabled ? createNeural({ root: llm.dir, minLogProb: llm.minLogProb, minAgreement: llm.minAgreement, log, bundled: llm.bundled || undefined, channel }) : null;
+  /** Look at the channel when the last look is old. The first look of a process is waited for; later ones only briefly. */
+  async function modelSync() { if (!channel || !channel.stale()) return; const changed = await channel.syncWithin(channel.everChecked() ? 2500 : 12000); if (changed && neural) neural.refresh(true); }
   // what the brain says about itself follows what is really loaded
   engine.brain.setModel(() => (neural && neural.ready() ? neural.info() : null));
-  const manager = llm.enabled ? createManager({ root: llm.dir, serverless: llm.serverless, learning: llm.learning, scheduler: llm.scheduler, adminConfigured: !!llm.adminToken, bundled: llm.bundled || undefined, log }) : null;
+  const manager = llm.enabled ? createManager({ root: llm.dir, serverless: llm.serverless, learning: llm.learning, scheduler: llm.scheduler, adminConfigured: !!llm.adminToken, bundled: llm.bundled || undefined, log, channel }) : null;
   const sha = (s) => crypto.createHash('sha256').update(String(s)).digest();
   const isAdmin = (req) => { const m = /^Bearer\s+(.+)$/i.exec(String(req.headers.authorization || '')); return !!(llm.adminToken && m && crypto.timingSafeEqual(sha(m[1].trim()), sha(llm.adminToken))); };
 
@@ -147,7 +160,13 @@ export function createApp(cfg = loadConfig()) {
     catch (e) { return json(res, e instanceof BlockedError ? 403 : 502, { error: e.code || 'fetch_failed', message: e instanceof BlockedError ? `That address is not allowed: ${e.message}` : `The page could not be read: ${String(e.message).split('\n')[0].slice(0, 160)}` }); }
   }
 
-  /** The model alone: no rules, no retrieval. Streams the reply token by token as NDJSON. */
+  /**
+   * Pure neural chat: the reply is whatever Infinity LLM generates, one token at a time, from the conversation so far.
+   * This handler touches nothing but the model. It does not call the engine (no rule-based brain, no skills, no memory
+   * store) and makes no outbound request (no search, no page reading, no outside model). Nothing replaces, edits or
+   * filters the generated text: a reply the model did not finish, or one it was unsure of, is delivered as it is, with a
+   * note. test/pure.test.js holds this to account. Streams NDJSON: start, token…, answer, done.
+   */
   async function llmChat(req, res) {
     const ip = clientIp(req);
     const wait = rateLimit(ip);
@@ -162,11 +181,16 @@ export function createApp(cfg = loadConfig()) {
     res.writeHead(200, { 'Content-Type': 'application/x-ndjson; charset=utf-8', 'Cache-Control': 'no-store, no-transform', 'X-Accel-Buffering': 'no', Connection: 'keep-alive' });
     const send = (ev) => { if (!res.writableEnded && !ac.signal.aborted) res.write(JSON.stringify(ev) + '\n'); };
     const temperature = typeof body.temperature === 'number' && body.temperature >= 0 && body.temperature <= 1.5 ? body.temperature : 0.6;
-    const g = await neural.chat({ user: body.message, history: body.history, temperature, signal: ac.signal, onToken: (text) => send({ type: 'token', text }) });
-    send({ type: 'answer', ok: g.ok, text: g.text || '', reason: g.reason || undefined, model: g.model, tokens: g.tokens, promptTokens: g.promptTokens, contextTurns: g.usedTurns, ms: g.ms, tokensPerSecond: g.tokensPerSecond, meanLogProb: g.meanLogProb, route: g.route });
+    const seed = Number.isInteger(body.seed) && body.seed >= 0 && body.seed <= 0xffffffff ? body.seed : null;
+    const maxNew = Number.isInteger(body.maxTokens) && body.maxTokens >= 8 && body.maxTokens <= 160 ? body.maxTokens : 120;
+    const info = neural.info();
+    send({ type: 'start', mode: 'pure-llm', model: { name: 'Infinity LLM', version: info.version, parameters: info.parameters, context: info.context }, temperature, seed, maxTokens: maxNew });
+    const g = await neural.chat({ user: body.message, history: body.history, temperature, seed, maxNew, signal: ac.signal, onToken: (text) => send({ type: 'token', text }) });
+    const note = g.text === undefined ? (g.reason || 'generation failed') : !g.text ? 'the model produced no text' : g.loop ? 'the model started repeating itself' : !g.ended ? (ac.signal.aborted ? 'stopped' : 'the reply reached the length limit before the model ended it') : '';
+    send({ type: 'answer', mode: 'pure-llm', ok: g.text !== undefined, text: g.text || '', note: note || undefined, finished: !!g.ended, model: g.model, tokens: g.tokens, promptTokens: g.promptTokens, contextTurns: g.usedTurns, contextWindow: g.context, ms: g.ms, tokensPerSecond: g.tokensPerSecond, meanLogProb: g.meanLogProb });
     send({ type: 'done' });
     finished = true; res.end();
-    log({ ev: 'llm_chat', ms: g.ms, tokens: g.tokens, ok: g.ok });
+    log({ ev: 'llm_chat', ms: g.ms, tokens: g.tokens, finished: !!g.ended });
   }
   /** Training controls. Every action needs the admin token; without a configured token the controls do not exist. */
   async function llmAdmin(req, res) {
@@ -225,6 +249,7 @@ export function createApp(cfg = loadConfig()) {
       if (p === '/api/ask') return req.method === 'POST' ? await ask(req, res) : json(res, 405, { error: 'method_not_allowed' }, { Allow: 'POST' });
       if (p === '/api/preview') return req.method === 'POST' ? await preview(req, res) : json(res, 405, { error: 'method_not_allowed' }, { Allow: 'POST' });
       if (p === '/api/health') return json(res, 200, { ok: true, version: VERSION });
+      if (channel && (p.startsWith('/api/llm/') || p === '/api/ask' || p === '/api/status')) { await modelSync(); if (neural) neural.refresh(); }
       if (p === '/api/llm/status') return req.method === 'GET' ? llmStatus(req, res) : json(res, 405, { error: 'method_not_allowed' }, { Allow: 'GET' });
       if (p === '/api/llm/chat') return req.method === 'POST' ? await llmChat(req, res) : json(res, 405, { error: 'method_not_allowed' }, { Allow: 'POST' });
       if (p === '/api/llm/admin') return req.method === 'POST' ? await llmAdmin(req, res) : json(res, 405, { error: 'method_not_allowed' }, { Allow: 'POST' });
@@ -238,5 +263,5 @@ export function createApp(cfg = loadConfig()) {
       return json(res, e.status || 500, { error: e.status ? 'bad_request' : 'internal_error', message: e.status ? e.message : 'Internal error' }, e.status === 413 ? { Connection: 'close' } : {});
     }
   }
-  return { handle, engine, cfg, neural, manager, close: () => { if (manager) manager.close(); return engine.close(); } };
+  return { handle, engine, cfg, neural, manager, channel, close: () => { if (manager) manager.close(); return engine.close(); } };
 }

@@ -1,0 +1,149 @@
+# Infinity LLM — learning worker sessions on GitHub Actions.
+#
+# The worker (learning/worker.mjs) is a long-running process. A hosted runner lives for at most six hours, so here the
+# worker runs as a chain of sessions: each session restores the learning state from the release "infinity-state", runs
+# the worker for up to five hours, stores the state again, and starts the next session. Approved models and the worker's
+# status go to the release "infinity-model", which the serving site reads (INFINI_MODEL_CHANNEL).
+#
+#   start      change .github/infinity-learning.start on a branch, or run this workflow by hand
+#   stop       set the repository variable INFINITY_LEARNING to "off", or disable this workflow
+#   rollback   run this workflow by hand with action = rollback
+#   watchdog   every hour: if no session is running or waiting, one is started (GitHub runs schedules only from the
+#              default branch, so this works once the workflow is on it)
+#   new code   a session ends by itself between two steps when a newer commit was pushed to its branch
+#
+# A machine that stays on (deploy/, Dockerfile.worker) runs the same worker as one permanent process and is the better
+# home for it; see docs/WORKER.md.
+name: Infinity LLM learning
+
+on:
+  workflow_dispatch:
+    inputs:
+      action:
+        description: 'learn (a worker session) | rollback | pause | resume'
+        default: 'learn'
+      chain:
+        description: 'start the next session when this one ends (true / false)'
+        default: 'true'
+      runtime:
+        description: 'seconds this session may run (at most 18000)'
+        default: '18000'
+      failures:
+        description: 'failed sessions in a row (set by the chain itself)'
+        default: '0'
+  schedule:
+    - cron: '23 * * * *'
+  push:
+    paths: ['.github/infinity-learning.start']
+
+permissions:
+  contents: write        # releases: the model channel and the stored state
+  actions: write         # start the next session
+
+jobs:
+  # The hourly schedule does one thing: if no session is running or waiting, it starts one. (GitHub runs schedules only
+  # from the default branch, so this job exists once the workflow is there.)
+  watchdog:
+    if: ${{ github.event_name == 'schedule' && vars.INFINITY_LEARNING != 'off' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - name: Start a session if none is running
+        run: |
+          busy=$(gh run list --repo "$GITHUB_REPOSITORY" --workflow infinity-learning.yml --limit 30 --json databaseId,status,event \
+            --jq "[.[] | select(.databaseId != $GITHUB_RUN_ID and .event != \"schedule\" and (.status == \"in_progress\" or .status == \"queued\" or .status == \"pending\" or .status == \"waiting\" or .status == \"requested\"))] | length")
+          echo "sessions running or waiting: $busy"
+          if [ "$busy" = "0" ]; then
+            echo "no session is alive: starting one on $GITHUB_REF_NAME"
+            gh workflow run infinity-learning.yml --repo "$GITHUB_REPOSITORY" --ref "$GITHUB_REF_NAME" -f action=learn -f chain=true -f runtime=18000 -f failures=0
+          fi
+
+  session:
+    if: ${{ github.event_name != 'schedule' && vars.INFINITY_LEARNING != 'off' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 340
+    concurrency:
+      group: infinity-learning
+      cancel-in-progress: false
+    env:
+      GITHUB_TOKEN: ${{ github.token }}
+      GH_TOKEN: ${{ github.token }}
+      INFINI_LLM_DIR: ${{ github.workspace }}/data/llm
+      INFINI_PYTHON: ${{ github.workspace }}/.venv/bin/python
+      INFINI_STATE_GITHUB: ${{ github.repository }}
+      INFINI_STATE_TAG: infinity-state
+      INFINI_PUBLISH_GITHUB: ${{ github.repository }}
+      INFINI_PUBLISH_TAG: infinity-model
+      INFINI_PUBLISH_TARGET: ${{ github.sha }}
+      INFINI_WORKER_SESSION: ${{ github.run_id }}
+      INFINI_WORKER_CODE_REPO: ${{ github.repository }}       # a session ends early when newer code was pushed to its branch,
+      INFINI_WORKER_CODE_REF: ${{ github.ref_name }}          # so that the next session runs it
+      INFINI_WORKER_CODE_SHA: ${{ github.sha }}
+      INFINI_WORKER_WHERE: GitHub Actions (${{ github.ref_name }})
+      INFINI_CONTACT: https://github.com/${{ github.repository }}
+      ACTION: ${{ inputs.action || 'learn' }}
+      CHAIN: ${{ inputs.chain || 'true' }}
+      RUNTIME: ${{ inputs.runtime || '18000' }}
+      FAILURES: ${{ inputs.failures || '0' }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Python with PyTorch (CPU)
+        run: |
+          python3 -m venv .venv
+          .venv/bin/pip install --quiet --index-url https://download.pytorch.org/whl/cpu torch
+          .venv/bin/pip install --quiet numpy
+          .venv/bin/python -c "import torch; print('torch', torch.__version__, 'threads', torch.get_num_threads())"
+          node --version
+
+      - name: Restore the learning state
+        run: node learning/cli.mjs state-pull
+
+      - name: Session length
+        run: |
+          # a start through the start file may ask for a short first session ("first-session: SECONDS"), used to verify a
+          # new setup quickly; every later session of the chain has the full length
+          r="$RUNTIME"
+          if [ "$GITHUB_EVENT_NAME" = "push" ]; then
+            f=$(sed -n 's/^first-session:[[:space:]]*\([0-9][0-9]*\).*$/\1/p' .github/infinity-learning.start | head -n 1)
+            if [ -n "$f" ]; then r="$f"; fi
+          fi
+          if [ "$r" -gt 18000 ] 2>/dev/null; then r=18000; fi
+          echo "SESSION_SECONDS=$r" >> "$GITHUB_ENV"
+          echo "this session may run for $r seconds"
+
+      - name: Worker session
+        if: ${{ env.ACTION == 'learn' }}
+        run: node learning/worker.mjs --max-runtime "$SESSION_SECONDS"
+
+      - name: Rollback, pause or resume
+        if: ${{ env.ACTION != 'learn' }}
+        run: |
+          node learning/cli.mjs seed
+          case "$ACTION" in
+            rollback) node learning/cli.mjs rollback --reason "requested through the workflow" ;;
+            pause)    node learning/cli.mjs pause ;;
+            resume)   node learning/cli.mjs resume ;;
+            *) echo "unknown action $ACTION"; exit 2 ;;
+          esac
+          node learning/cli.mjs channel
+          node learning/cli.mjs state-push
+
+      - name: Summary
+        if: ${{ always() }}
+        run: |
+          node learning/cli.mjs status > status.json 2>/dev/null || true
+          { echo '### Infinity LLM learning session'; echo '```json'; head -c 6000 status.json; echo; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Start the next session
+        if: ${{ always() && env.ACTION == 'learn' && env.CHAIN == 'true' && vars.INFINITY_LEARNING != 'off' }}
+        env:
+          JOB_STATUS: ${{ job.status }}
+        run: |
+          n=0
+          if [ "$JOB_STATUS" != "success" ]; then n=$((FAILURES + 1)); fi
+          if [ "$n" -ge 5 ]; then echo "five sessions in a row failed: the chain stops here (the hourly schedule, or a new start, resumes it)"; exit 0; fi
+          if [ "$n" -gt 0 ]; then echo "this session failed ($n in a row): waiting ten minutes before the next one"; sleep 600; fi
+          gh workflow run infinity-learning.yml --repo "$GITHUB_REPOSITORY" --ref "$GITHUB_REF_NAME" -f action=learn -f chain=true -f runtime=18000 -f failures="$n"

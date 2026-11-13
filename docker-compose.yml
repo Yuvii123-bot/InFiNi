@@ -1,0 +1,28 @@
+# INFINI AI on one machine: the chat server and the learning worker as two containers sharing one volume.
+# The worker trains; the server answers from the production model in the shared state and picks up every promotion and
+# rollback without a restart. `docker compose up -d` — both restart by themselves after a crash or a reboot.
+services:
+  web:
+    build: .
+    restart: unless-stopped
+    ports: ["8787:8787"]
+    environment:
+      INFINI_LLM_DIR: /data/llm
+      INFINI_LEARNING_SCHEDULER: "0"          # the worker container decides when to train
+      INFINI_ADMIN_TOKEN: ${INFINI_ADMIN_TOKEN:-}
+      INFINI_CONTACT: ${INFINI_CONTACT:-}
+    volumes: ["infinity-state:/data"]
+    depends_on: [worker]
+  worker:
+    build:
+      context: .
+      dockerfile: Dockerfile.worker
+    restart: unless-stopped
+    stop_grace_period: 60s                     # time for the trainer to write its checkpoint
+    environment:
+      INFINI_CONTACT: ${INFINI_CONTACT:-}
+      GITHUB_TOKEN: ${GITHUB_TOKEN:-}          # optional: higher GitHub API limits; needed to publish to a release
+      INFINI_PUBLISH_GITHUB: ${INFINI_PUBLISH_GITHUB:-}   # optional: owner/repository whose release feeds a remote site
+    volumes: ["infinity-state:/data"]
+volumes:
+  infinity-state:

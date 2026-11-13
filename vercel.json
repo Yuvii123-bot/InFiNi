@@ -5,7 +5,7 @@
   "buildCommand": "",
   "installCommand": "",
   "framework": null,
-  "functions": { "api/index.js": { "maxDuration": 300, "includeFiles": "model/**" } },
+  "functions": { "api/index.js": { "maxDuration": 300, "includeFiles": "{model,learning/benchmark}/**" } },
   "rewrites": [{ "source": "/api/:path*", "destination": "/api/index?__path=:path*" }],
   "headers": [
     { "source": "/(.*)", "headers": [

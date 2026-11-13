@@ -1,0 +1,4025 @@
+{
+ "generated": "2026-11-13T13:18:40Z",
+ "host": {
+  "trainingCapable": false,
+  "remoteWorker": true
+ },
+ "status": {
+  "state": "idle",
+  "paused": false,
+  "phase": null,
+  "cycle": null,
+  "message": "discovery r00012: 0 accepted, 0 rejected; 38 waiting for training",
+  "training": null,
+  "lastCycle": {
+   "id": "c0006",
+   "outcome": "rejected",
+   "finished": "2026-11-13T13:15:39Z"
+  },
+  "lastSuccess": "2026-11-13T13:15:39Z",
+  "lastError": null,
+  "nextRunAt": null,
+  "auto": false,
+  "lastDiscovery": {
+   "round": "r00012",
+   "t": "2026-11-13T13:17:59Z",
+   "accepted": 0,
+   "rejected": 0,
+   "collected": 0
+  },
+  "mode": "worker"
+ },
+ "worker": {
+  "format": "infinity-worker/1",
+  "pid": 17120,
+  "host": "e2b.local",
+  "platform": "linux x64",
+  "node": "v22.22.3",
+  "session": "",
+  "where": "sandbox",
+  "started": "2026-11-13T13:18:40Z",
+  "heartbeat": "2026-11-13T13:18:40Z",
+  "uptimeSeconds": 0,
+  "state": "running",
+  "activity": "starting",
+  "detail": "",
+  "starts": 5,
+  "recoveries": 1,
+  "childFailures": 0,
+  "consecutiveFailures": 0,
+  "backoffUntil": null,
+  "nextAction": "",
+  "firstStarted": "2026-11-13T12:36:08Z",
+  "totals": {
+   "uptimeSeconds": 2511,
+   "discoveryRounds": 12,
+   "cycles": 4,
+   "promoted": 1,
+   "rejected": 3,
+   "documentsCollected": 361,
+   "documentsAccepted": 341,
+   "documentsRejected": 20
+  },
+  "lastStep": {
+   "kind": "discover",
+   "why": "38 new documents waiting (training starts at 60, or at 5 after 45 min)",
+   "started": "2026-11-13T13:17:56Z",
+   "seconds": 3,
+   "code": 0,
+   "signal": null,
+   "outcome": "done"
+  },
+  "lastRecovery": {
+   "t": "2026-11-13T13:08:05Z",
+   "found": [
+    "the previous worker (pid 3670, started 2026-11-13T12:36:44Z) ended without shutting down",
+    "a stale step lock was removed",
+    "cycle c0006 is unfinished (phases done: acquire, dataset) and will be continued"
+   ]
+  },
+  "errors": [],
+  "resources": {
+   "cpus": 2,
+   "load1": 0.11,
+   "memTotalMb": 3940,
+   "memFreeMb": 3476,
+   "workerRssMb": 95,
+   "stepRssMb": null,
+   "trainerRssMb": null,
+   "diskFreeMb": 13200,
+   "stateMb": 161.9
+  },
+  "lastPublish": {
+   "t": "2026-11-13T13:18:39Z",
+   "version": "m0005",
+   "model": false,
+   "targets": [
+    {
+     "target": "directory",
+     "ok": true,
+     "url": null
+    }
+   ]
+  },
+  "lastCheckpoint": null
+ },
+ "discovery": {
+  "waiting": 38,
+  "waitingSince": "2026-11-13T13:15:41Z",
+  "trainAt": 60,
+  "trainAfterMinutes": 45,
+  "minNewDocs": 5,
+  "rounds": [
+   {
+    "round": "r00001",
+    "started": "2026-11-13T12:36:10Z",
+    "finished": "2026-11-13T12:36:10Z",
+    "collected": 0,
+    "accepted": 0,
+    "rejected": 0,
+    "reasons": {},
+    "bySource": {},
+    "errors": [
+     "simplewiki: Client network socket disconnected before secure TLS connection was established",
+     "wikibooks: Client network socket disconnected before secure TLS connection was established",
+     "wikivoyage: Client network socket disconnected before secure TLS connection was established",
+     "factbook: unable to verify the first certificate",
+     "openstax-physics: unable to verify the first certificate"
+    ],
+    "waiting": 0
+   },
+   {
+    "round": "r00002",
+    "started": "2026-11-13T12:36:44Z",
+    "finished": "2026-11-13T12:36:55Z",
+    "collected": 40,
+    "accepted": 39,
+    "rejected": 1,
+    "reasons": {
+     "format": 1
+    },
+    "bySource": {
+     "factbook": {
+      "collected": 30,
+      "accepted": 29,
+      "rejected": 1
+     },
+     "openstax-physics": {
+      "collected": 10,
+      "accepted": 10,
+      "rejected": 0
+     }
+    },
+    "errors": [
+     "simplewiki: Client network socket disconnected before secure TLS connection was established",
+     "wikibooks: Client network socket disconnected before secure TLS connection was established",
+     "wikivoyage: Client network socket disconnected before secure TLS connection was established"
+    ],
+    "waiting": 39
+   },
+   {
+    "round": "r00003",
+    "started": "2026-11-13T12:37:55Z",
+    "finished": "2026-11-13T12:38:06Z",
+    "collected": 40,
+    "accepted": 33,
+    "rejected": 7,
+    "reasons": {
+     "format": 3,
+     "language": 4
+    },
+    "bySource": {
+     "factbook": {
+      "collected": 30,
+      "accepted": 24,
+      "rejected": 6
+     },
+     "openstax-physics": {
+      "collected": 10,
+      "accepted": 9,
+      "rejected": 1
+     }
+    },
+    "errors": [
+     "simplewiki: Client network socket disconnected before secure TLS connection was established",
+     "wikibooks: Client network socket disconnected before secure TLS connection was established",
+     "wikivoyage: Client network socket disconnected before secure TLS connection was established"
+    ],
+    "waiting": 72
+   },
+   {
+    "round": "r00004",
+    "started": "2026-11-13T12:46:01Z",
+    "finished": "2026-11-13T12:46:13Z",
+    "collected": 40,
+    "accepted": 38,
+    "rejected": 2,
+    "reasons": {
+     "format": 2
+    },
+    "bySource": {
+     "factbook": {
+      "collected": 30,
+      "accepted": 28,
+      "rejected": 2
+     },
+     "openstax-physics": {
+      "collected": 10,
+      "accepted": 10,
+      "rejected": 0
+     }
+    },
+    "errors": [
+     "simplewiki: Client network socket disconnected before secure TLS connection was established",
+     "wikibooks: Client network socket disconnected before secure TLS connection was established",
+     "wikivoyage: Client network socket disconnected before secure TLS connection was established"
+    ],
+    "waiting": 38
+   },
+   {
+    "round": "r00005",
+    "started": "2026-11-13T12:47:13Z",
+    "finished": "2026-11-13T12:47:29Z",
+    "collected": 40,
+    "accepted": 38,
+    "rejected": 2,
+    "reasons": {
+     "language": 1,
+     "format": 1
+    },
+    "bySource": {
+     "factbook": {
+      "collected": 30,
+      "accepted": 28,
+      "rejected": 2
+     },
+     "openstax-physics": {
+      "collected": 10,
+      "accepted": 10,
+      "rejected": 0
+     }
+    },
+    "errors": [
+     "simplewiki: Client network socket disconnected before secure TLS connection was established",
+     "wikibooks: Client network socket disconnected before secure TLS connection was established",
+     "wikivoyage: Client network socket disconnected before secure TLS connection was established"
+    ],
+    "waiting": 76
+   },
+   {
+    "round": "r00006",
+    "started": "2026-11-13T12:54:33Z",
+    "finished": "2026-11-13T12:54:43Z",
+    "collected": 40,
+    "accepted": 39,
+    "rejected": 1,
+    "reasons": {
+     "format": 1
+    },
+    "bySource": {
+     "factbook": {
+      "collected": 30,
+      "accepted": 29,
+      "rejected": 1
+     },
+     "openstax-physics": {
+      "collected": 10,
+      "accepted": 10,
+      "rejected": 0
+     }
+    },
+    "errors": [
+     "simplewiki: Client network socket disconnected before secure TLS connection was established",
+     "wikibooks: Client network socket disconnected before secure TLS connection was established",
+     "wikivoyage: Client network socket disconnected before secure TLS connection was established"
+    ],
+    "waiting": 39
+   },
+   {
+    "round": "r00007",
+    "started": "2026-11-13T12:55:43Z",
+    "finished": "2026-11-13T12:55:54Z",
+    "collected": 40,
+    "accepted": 38,
+    "rejected": 2,
+    "reasons": {
+     "format": 2
+    },
+    "bySource": {
+     "factbook": {
+      "collected": 30,
+      "accepted": 28,
+      "rejected": 2
+     },
+     "openstax-physics": {
+      "collected": 10,
+      "accepted": 10,
+      "rejected": 0
+     }
+    },
+    "errors": [
+     "simplewiki: Client network socket disconnected before secure TLS connection was established",
+     "wikibooks: Client network socket disconnected before secure TLS connection was established",
+     "wikivoyage: Client network socket disconnected before secure TLS connection was established"
+    ],
+    "waiting": 77
+   },
+   {
+    "round": "r00008",
+    "started": "2026-11-13T13:03:48Z",
+    "finished": "2026-11-13T13:03:59Z",
+    "collected": 40,
+    "accepted": 39,
+    "rejected": 1,
+    "reasons": {
+     "language": 1
+    },
+    "bySource": {
+     "factbook": {
+      "collected": 30,
+      "accepted": 29,
+      "rejected": 1
+     },
+     "openstax-physics": {
+      "collected": 10,
+      "accepted": 10,
+      "rejected": 0
+     }
+    },
+    "errors": [
+     "simplewiki: Client network socket disconnected before secure TLS connection was established",
+     "wikibooks: Client network socket disconnected before secure TLS connection was established",
+     "wikivoyage: Client network socket disconnected before secure TLS connection was established"
+    ],
+    "waiting": 39
+   },
+   {
+    "round": "r00009",
+    "started": "2026-11-13T13:04:59Z",
+    "finished": "2026-11-13T13:05:11Z",
+    "collected": 40,
+    "accepted": 39,
+    "rejected": 1,
+    "reasons": {
+     "language": 1
+    },
+    "bySource": {
+     "factbook": {
+      "collected": 30,
+      "accepted": 30,
+      "rejected": 0
+     },
+     "openstax-physics": {
+      "collected": 10,
+      "accepted": 9,
+      "rejected": 1
+     }
+    },
+    "errors": [
+     "simplewiki: Client network socket disconnected before secure TLS connection was established",
+     "wikibooks: Client network socket disconnected before secure TLS connection was established",
+     "wikivoyage: Client network socket disconnected before secure TLS connection was established"
+    ],
+    "waiting": 78
+   },
+   {
+    "round": "r00010",
+    "started": "2026-11-13T13:15:40Z",
+    "finished": "2026-11-13T13:15:51Z",
+    "collected": 40,
+    "accepted": 37,
+    "rejected": 3,
+    "reasons": {
+     "language": 1,
+     "format": 2
+    },
+    "bySource": {
+     "factbook": {
+      "collected": 21,
+      "accepted": 18,
+      "rejected": 3
+     },
+     "openstax-physics": {
+      "collected": 19,
+      "accepted": 19,
+      "rejected": 0
+     }
+    },
+    "errors": [
+     "simplewiki: Client network socket disconnected before secure TLS connection was established",
+     "wikibooks: Client network socket disconnected before secure TLS connection was established",
+     "wikivoyage: Client network socket disconnected before secure TLS connection was established"
+    ],
+    "waiting": 37
+   },
+   {
+    "round": "r00011",
+    "started": "2026-11-13T13:16:52Z",
+    "finished": "2026-11-13T13:16:54Z",
+    "collected": 1,
+    "accepted": 1,
+    "rejected": 0,
+    "reasons": {},
+    "bySource": {
+     "openstax-physics": {
+      "collected": 1,
+      "accepted": 1,
+      "rejected": 0
+     }
+    },
+    "errors": [
+     "simplewiki: Client network socket disconnected before secure TLS connection was established",
+     "wikibooks: Client network socket disconnected before secure TLS connection was established",
+     "wikivoyage: Client network socket disconnected before secure TLS connection was established"
+    ],
+    "waiting": 38
+   },
+   {
+    "round": "r00012",
+    "started": "2026-11-13T13:17:57Z",
+    "finished": "2026-11-13T13:17:59Z",
+    "collected": 0,
+    "accepted": 0,
+    "rejected": 0,
+    "reasons": {},
+    "bySource": {},
+    "errors": [
+     "simplewiki: Client network socket disconnected before secure TLS connection was established",
+     "wikibooks: Client network socket disconnected before secure TLS connection was established",
+     "wikivoyage: Client network socket disconnected before secure TLS connection was established"
+    ],
+    "waiting": 38
+   }
+  ]
+ },
+ "candidate": {
+  "current": null,
+  "last": {
+   "id": "m0006",
+   "cycle": "c0006",
+   "outcome": "rejected",
+   "finished": "2026-11-13T13:15:39Z",
+   "comparedWith": "m0005",
+   "passed": false,
+   "failed": [
+    "fixed benchmark text is not read worse"
+   ],
+   "evaluation": {
+    "dataset": "d0006",
+    "candidate": {
+     "id": "m0006",
+     "val_loss": 2.1858,
+     "perplexity": 8.9,
+     "groups": {
+      "dialogue": {
+       "val_loss": 1.0714,
+       "windows": 96
+      },
+      "web": {
+       "val_loss": 2.9023,
+       "windows": 96
+      }
+     },
+     "benchmark": {
+      "id": "infinity-bench-1",
+      "score": 0.5677,
+      "items": 176,
+      "language": 0.6458,
+      "knowledge": 0.4375,
+      "reasoning": 0.5,
+      "conversation": 0.6875,
+      "passageLoss": 6.6416
+     },
+     "memorization": {
+      "gap": 0.3471,
+      "verbatimTrained": 0.0208,
+      "verbatimUnseen": 0,
+      "lossTrained": 3.5997,
+      "lossUnseen": 3.9468,
+      "passages": [
+       48,
+       48
+      ]
+     },
+     "probes": {
+      "parity": true,
+      "chatExact": 0.2562,
+      "chatAccepted": 0.2625,
+      "chatF1": 0.4852,
+      "grounded": 0.525,
+      "groundedChance": 0.3583,
+      "route": 0.9625,
+      "repetition": 0,
+      "unfinished": 0,
+      "tokensPerSecond": 278
+     }
+    },
+    "production": {
+     "id": "m0005",
+     "val_loss": 2.2341,
+     "perplexity": 9.34,
+     "groups": {
+      "dialogue": {
+       "val_loss": 1.0751,
+       "windows": 96
+      },
+      "web": {
+       "val_loss": 2.9797,
+       "windows": 96
+      }
+     },
+     "benchmark": {
+      "id": "infinity-bench-1",
+      "score": 0.5859,
+      "items": 176,
+      "language": 0.5833,
+      "knowledge": 0.5208,
+      "reasoning": 0.4583,
+      "conversation": 0.7813,
+      "passageLoss": 6.5834
+     },
+     "memorization": {
+      "gap": -0.0396,
+      "verbatimTrained": 0.0208,
+      "verbatimUnseen": 0,
+      "lossTrained": 4.0958,
+      "lossUnseen": 4.0562,
+      "passages": [
+       48,
+       48
+      ]
+     },
+     "probes": {
+      "parity": true,
+      "chatExact": 0.2437,
+      "chatAccepted": 0.2687,
+      "chatF1": 0.477,
+      "grounded": 0.5,
+      "groundedChance": 0.3583,
+      "route": 0.9667,
+      "repetition": 0,
+      "unfinished": 0,
+      "tokensPerSecond": 268
+     }
+    }
+   },
+   "plan": {
+    "caution": 1,
+    "lr": 0.0002,
+    "anchorL2": 0.0002,
+    "passes": 0.75,
+    "stepsByTime": 369,
+    "stepsByData": 518,
+    "steps": 369
+   }
+  },
+  "caution": 2
+ },
+ "benchmark": {
+  "file": "learning/benchmark/v1.json",
+  "models": [
+   {
+    "id": "m0002",
+    "score": 0.5755,
+    "items": 176,
+    "language": 0.5833,
+    "knowledge": 0.4792,
+    "reasoning": 0.5208,
+    "conversation": 0.7188,
+    "passageLoss": 6.713,
+    "benchmark": "infinity-bench-1",
+    "status": "previous",
+    "val_loss": 2.131,
+    "evaluatedOn": "d0002"
+   },
+   {
+    "id": "m0003",
+    "score": 0.5807,
+    "items": 176,
+    "language": 0.5833,
+    "knowledge": 0.5,
+    "reasoning": 0.5208,
+    "conversation": 0.7188,
+    "passageLoss": 6.904,
+    "benchmark": "infinity-bench-1",
+    "status": "rejected",
+    "val_loss": 1.2212,
+    "evaluatedOn": "d0003"
+   },
+   {
+    "id": "m0004",
+    "score": 0.5677,
+    "items": 176,
+    "language": 0.6042,
+    "knowledge": 0.4792,
+    "reasoning": 0.4375,
+    "conversation": 0.75,
+    "passageLoss": 6.6914,
+    "benchmark": "infinity-bench-1",
+    "status": "rejected",
+    "val_loss": 1.9005,
+    "evaluatedOn": "d0004"
+   },
+   {
+    "id": "m0005",
+    "score": 0.5859,
+    "items": 176,
+    "language": 0.5833,
+    "knowledge": 0.5208,
+    "reasoning": 0.4583,
+    "conversation": 0.7813,
+    "passageLoss": 6.5834,
+    "benchmark": "infinity-bench-1",
+    "status": "production",
+    "val_loss": 2.1881,
+    "evaluatedOn": "d0005"
+   },
+   {
+    "id": "m0006",
+    "score": 0.5677,
+    "items": 176,
+    "language": 0.6458,
+    "knowledge": 0.4375,
+    "reasoning": 0.5,
+    "conversation": 0.6875,
+    "passageLoss": 6.6416,
+    "benchmark": "infinity-bench-1",
+    "status": "rejected",
+    "val_loss": 2.1858,
+    "evaluatedOn": "d0006"
+   }
+  ]
+ },
+ "model": {
+  "id": "m0005",
+  "status": "production",
+  "created": "2026-11-13T13:01:37Z",
+  "parent": "m0002",
+  "cycle": "c0005",
+  "dataset": "d0005",
+  "preset": "micro",
+  "config": {
+   "vocab_size": 4096,
+   "context": 256,
+   "n_layer": 4,
+   "n_head": 4,
+   "d_model": 128,
+   "mlp_ratio": 4,
+   "dropout": 0,
+   "norm": "rmsnorm",
+   "tie_weights": true
+  },
+  "context": 256,
+  "params": 1344640,
+  "step": 3178,
+  "tokens_seen": 26034176,
+  "train_seconds": 2651.6,
+  "sha256": "55103bf9c95ab4fe896ba95f5f699bf75c6cef6bf2ac450704543806940a9203",
+  "weightsBytes": 2689280,
+  "tokenizer_sha": "38f30f66d96c6b7f5994722fe02dcea2d651ded7ac41f4304b9b62559a29f0a5",
+  "initialisation": "continued from m0002",
+  "val_loss": 2.1881,
+  "groups": {
+   "dialogue": {
+    "val_loss": 1.0205,
+    "windows": 96
+   },
+   "web": {
+    "val_loss": 3.091,
+    "windows": 96
+   }
+  },
+  "probes": {
+   "parity": true,
+   "chatExact": 0.2875,
+   "chatAccepted": 0.3125,
+   "chatF1": 0.5006,
+   "grounded": 0.4833,
+   "groundedChance": 0.3535,
+   "route": 0.9667,
+   "repetition": 0,
+   "unfinished": 0,
+   "tokensPerSecond": 279
+  },
+  "benchmark": {
+   "id": "infinity-bench-1",
+   "score": 0.5859,
+   "items": 176,
+   "language": 0.5833,
+   "knowledge": 0.5208,
+   "reasoning": 0.4583,
+   "conversation": 0.7813,
+   "passageLoss": 6.5834
+  },
+  "memorization": {
+   "gap": 0.5394,
+   "verbatimTrained": 0,
+   "verbatimUnseen": 0,
+   "lossTrained": 3.5178,
+   "lossUnseen": 4.0572,
+   "passages": [
+    48,
+    48
+   ]
+  },
+  "gate": {
+   "pass": true,
+   "comparedWith": "m0002",
+   "failed": []
+  },
+  "evaluatedOn": "d0005",
+  "promotedAt": "2026-11-13T13:03:47Z"
+ },
+ "registry": {
+  "production": "m0005",
+  "previous": "m0002",
+  "experimental": null,
+  "models": {
+   "m0001": {
+    "id": "m0001",
+    "status": "archived",
+    "created": "2026-11-13T10:03:55Z",
+    "parent": null,
+    "cycle": "c0001",
+    "dataset": "d0001",
+    "preset": "micro",
+    "config": {
+     "vocab_size": 4096,
+     "context": 256,
+     "n_layer": 4,
+     "n_head": 4,
+     "d_model": 128,
+     "mlp_ratio": 4,
+     "dropout": 0,
+     "norm": "rmsnorm",
+     "tie_weights": true
+    },
+    "context": 256,
+    "params": 1344640,
+    "step": 2423,
+    "tokens_seen": 19849216,
+    "train_seconds": 1999.1,
+    "sha256": "4091830e052939d30f79a433b68d89bc42c250c66da440e6f50ae308961f3036",
+    "weightsBytes": 2689280,
+    "tokenizer_sha": "38f30f66d96c6b7f5994722fe02dcea2d651ded7ac41f4304b9b62559a29f0a5",
+    "initialisation": "random (seeded), no pretrained weights",
+    "val_loss": 1.1256,
+    "groups": {
+     "dialogue": {
+      "val_loss": 1.0068,
+      "windows": 96
+     },
+     "web": {
+      "val_loss": 3.9419,
+      "windows": 83
+     }
+    },
+    "probes": {
+     "parity": true,
+     "chatExact": 0.1938,
+     "chatF1": 0.4171,
+     "grounded": 0.4583,
+     "groundedChance": 0.3813,
+     "route": 0.975,
+     "repetition": 0,
+     "unfinished": 0,
+     "tokensPerSecond": 238
+    },
+    "gate": {
+     "pass": true,
+     "comparedWith": null,
+     "failed": []
+    },
+    "evaluatedOn": "d0001",
+    "promotedAt": "2026-11-13T10:04:51Z",
+    "weightsKept": false
+   },
+   "m0002": {
+    "id": "m0002",
+    "status": "previous",
+    "created": "2026-11-13T10:16:40Z",
+    "parent": "m0001",
+    "cycle": "c0002",
+    "dataset": "d0002",
+    "preset": "micro",
+    "config": {
+     "vocab_size": 4096,
+     "context": 256,
+     "n_layer": 4,
+     "n_head": 4,
+     "d_model": 128,
+     "mlp_ratio": 4,
+     "dropout": 0,
+     "norm": "rmsnorm",
+     "tie_weights": true
+    },
+    "context": 256,
+    "params": 1344640,
+    "step": 2908,
+    "tokens_seen": 23822336,
+    "train_seconds": 2394.4,
+    "sha256": "2d6d9516c8edf8e3350924dba08824f09fb0a7f035676b3125b2e8a89c03c4c5",
+    "weightsBytes": 2689280,
+    "tokenizer_sha": "38f30f66d96c6b7f5994722fe02dcea2d651ded7ac41f4304b9b62559a29f0a5",
+    "initialisation": "continued from m0001",
+    "val_loss": 2.131,
+    "groups": {
+     "dialogue": {
+      "val_loss": 1.0404,
+      "windows": 96
+     },
+     "web": {
+      "val_loss": 3.1428,
+      "windows": 96
+     }
+    },
+    "probes": {
+     "parity": true,
+     "chatExact": 0.1875,
+     "chatAccepted": 0.2062,
+     "chatF1": 0.434,
+     "grounded": 0.5,
+     "groundedChance": 0.3667,
+     "route": 0.9667,
+     "repetition": 0,
+     "unfinished": 0,
+     "tokensPerSecond": 239
+    },
+    "gate": {
+     "pass": true,
+     "comparedWith": "m0001",
+     "failed": []
+    },
+    "evaluatedOn": "d0002",
+    "promotedAt": "2026-11-13T10:18:23Z",
+    "importedAt": "2026-11-13T12:36:08Z",
+    "benchmark": {
+     "id": "infinity-bench-1",
+     "score": 0.5755,
+     "items": 176,
+     "language": 0.5833,
+     "knowledge": 0.4792,
+     "reasoning": 0.5208,
+     "conversation": 0.7188,
+     "passageLoss": 6.713
+    }
+   },
+   "m0003": {
+    "id": "m0003",
+    "status": "rejected",
+    "created": "2026-11-13T12:43:53Z",
+    "parent": "m0002",
+    "cycle": "c0003",
+    "dataset": "d0003",
+    "preset": "micro",
+    "config": {
+     "vocab_size": 4096,
+     "context": 256,
+     "n_layer": 4,
+     "n_head": 4,
+     "d_model": 128,
+     "mlp_ratio": 4,
+     "dropout": 0,
+     "norm": "rmsnorm",
+     "tie_weights": true
+    },
+    "context": 256,
+    "params": 1344640,
+    "step": 3277,
+    "tokens_seen": 26845184,
+    "train_seconds": 2657.1,
+    "sha256": "2d63e23a1d6026926d7b64b0f22c48ebe6603671311831841261db996c30b7c1",
+    "weightsBytes": 2689280,
+    "tokenizer_sha": "38f30f66d96c6b7f5994722fe02dcea2d651ded7ac41f4304b9b62559a29f0a5",
+    "initialisation": "continued from m0002",
+    "val_loss": 1.2212,
+    "groups": {
+     "dialogue": {
+      "val_loss": 1.0515,
+      "windows": 96
+     },
+     "web": {
+      "val_loss": 4.1566,
+      "windows": 96
+     }
+    },
+    "probes": {
+     "parity": true,
+     "chatExact": 0.2625,
+     "chatAccepted": 0.2813,
+     "chatF1": 0.4874,
+     "grounded": 0.5833,
+     "groundedChance": 0.3597,
+     "route": 0.9667,
+     "repetition": 0,
+     "unfinished": 0,
+     "tokensPerSecond": 281
+    },
+    "benchmark": {
+     "id": "infinity-bench-1",
+     "score": 0.5807,
+     "items": 176,
+     "language": 0.5833,
+     "knowledge": 0.5,
+     "reasoning": 0.5208,
+     "conversation": 0.7188,
+     "passageLoss": 6.904
+    },
+    "memorization": {
+     "gap": 1.3115,
+     "verbatimTrained": 0,
+     "verbatimUnseen": 0,
+     "lossTrained": 2.8791,
+     "lossUnseen": 4.1906,
+     "passages": [
+      48,
+      46
+     ]
+    },
+    "gate": {
+     "pass": false,
+     "comparedWith": "m0002",
+     "failed": [
+      "fixed benchmark text is not read worse",
+      "trained text is not much easier than unseen text"
+     ]
+    },
+    "evaluatedOn": "d0003",
+    "rejectedAt": "2026-11-13T12:46:01Z"
+   },
+   "m0004": {
+    "id": "m0004",
+    "status": "rejected",
+    "created": "2026-11-13T12:52:28Z",
+    "parent": "m0002",
+    "cycle": "c0004",
+    "dataset": "d0004",
+    "preset": "micro",
+    "config": {
+     "vocab_size": 4096,
+     "context": 256,
+     "n_layer": 4,
+     "n_head": 4,
+     "d_model": 128,
+     "mlp_ratio": 4,
+     "dropout": 0,
+     "norm": "rmsnorm",
+     "tie_weights": true
+    },
+    "context": 256,
+    "params": 1344640,
+    "step": 3211,
+    "tokens_seen": 26304512,
+    "train_seconds": 2610.3,
+    "sha256": "a611d0086a88c8df16b4e09c21f0612a7f580f1e2415a3d9da9b91fa5aa908e4",
+    "weightsBytes": 2689280,
+    "tokenizer_sha": "38f30f66d96c6b7f5994722fe02dcea2d651ded7ac41f4304b9b62559a29f0a5",
+    "initialisation": "continued from m0002",
+    "val_loss": 1.9005,
+    "groups": {
+     "dialogue": {
+      "val_loss": 1.0695,
+      "windows": 96
+     },
+     "web": {
+      "val_loss": 3.3369,
+      "windows": 96
+     }
+    },
+    "probes": {
+     "parity": true,
+     "chatExact": 0.2313,
+     "chatAccepted": 0.2375,
+     "chatF1": 0.4696,
+     "grounded": 0.5667,
+     "groundedChance": 0.3618,
+     "route": 0.975,
+     "repetition": 0,
+     "unfinished": 0,
+     "tokensPerSecond": 290
+    },
+    "benchmark": {
+     "id": "infinity-bench-1",
+     "score": 0.5677,
+     "items": 176,
+     "language": 0.6042,
+     "knowledge": 0.4792,
+     "reasoning": 0.4375,
+     "conversation": 0.75,
+     "passageLoss": 6.6914
+    },
+    "memorization": {
+     "gap": 0.7218,
+     "verbatimTrained": 0,
+     "verbatimUnseen": 0,
+     "lossTrained": 3.635,
+     "lossUnseen": 4.3568,
+     "passages": [
+      48,
+      48
+     ]
+    },
+    "gate": {
+     "pass": false,
+     "comparedWith": "m0002",
+     "failed": [
+      "trained text is not much easier than unseen text"
+     ]
+    },
+    "evaluatedOn": "d0004",
+    "rejectedAt": "2026-11-13T12:54:32Z"
+   },
+   "m0005": {
+    "id": "m0005",
+    "status": "production",
+    "created": "2026-11-13T13:01:37Z",
+    "parent": "m0002",
+    "cycle": "c0005",
+    "dataset": "d0005",
+    "preset": "micro",
+    "config": {
+     "vocab_size": 4096,
+     "context": 256,
+     "n_layer": 4,
+     "n_head": 4,
+     "d_model": 128,
+     "mlp_ratio": 4,
+     "dropout": 0,
+     "norm": "rmsnorm",
+     "tie_weights": true
+    },
+    "context": 256,
+    "params": 1344640,
+    "step": 3178,
+    "tokens_seen": 26034176,
+    "train_seconds": 2651.6,
+    "sha256": "55103bf9c95ab4fe896ba95f5f699bf75c6cef6bf2ac450704543806940a9203",
+    "weightsBytes": 2689280,
+    "tokenizer_sha": "38f30f66d96c6b7f5994722fe02dcea2d651ded7ac41f4304b9b62559a29f0a5",
+    "initialisation": "continued from m0002",
+    "val_loss": 2.1881,
+    "groups": {
+     "dialogue": {
+      "val_loss": 1.0205,
+      "windows": 96
+     },
+     "web": {
+      "val_loss": 3.091,
+      "windows": 96
+     }
+    },
+    "probes": {
+     "parity": true,
+     "chatExact": 0.2875,
+     "chatAccepted": 0.3125,
+     "chatF1": 0.5006,
+     "grounded": 0.4833,
+     "groundedChance": 0.3535,
+     "route": 0.9667,
+     "repetition": 0,
+     "unfinished": 0,
+     "tokensPerSecond": 279
+    },
+    "benchmark": {
+     "id": "infinity-bench-1",
+     "score": 0.5859,
+     "items": 176,
+     "language": 0.5833,
+     "knowledge": 0.5208,
+     "reasoning": 0.4583,
+     "conversation": 0.7813,
+     "passageLoss": 6.5834
+    },
+    "memorization": {
+     "gap": 0.5394,
+     "verbatimTrained": 0,
+     "verbatimUnseen": 0,
+     "lossTrained": 3.5178,
+     "lossUnseen": 4.0572,
+     "passages": [
+      48,
+      48
+     ]
+    },
+    "gate": {
+     "pass": true,
+     "comparedWith": "m0002",
+     "failed": []
+    },
+    "evaluatedOn": "d0005",
+    "promotedAt": "2026-11-13T13:03:47Z"
+   },
+   "m0006": {
+    "id": "m0006",
+    "status": "rejected",
+    "created": "2026-11-13T13:13:27Z",
+    "parent": "m0005",
+    "cycle": "c0006",
+    "dataset": "d0006",
+    "preset": "micro",
+    "config": {
+     "vocab_size": 4096,
+     "context": 256,
+     "n_layer": 4,
+     "n_head": 4,
+     "d_model": 128,
+     "mlp_ratio": 4,
+     "dropout": 0,
+     "norm": "rmsnorm",
+     "tie_weights": true
+    },
+    "context": 256,
+    "params": 1344640,
+    "step": 3547,
+    "tokens_seen": 29057024,
+    "train_seconds": 2985,
+    "sha256": "81ad2a805a1bfc36c5fdfd57420bf01b4651391efb0065c676a89d190ffe3c28",
+    "weightsBytes": 2689280,
+    "tokenizer_sha": "38f30f66d96c6b7f5994722fe02dcea2d651ded7ac41f4304b9b62559a29f0a5",
+    "initialisation": "continued from m0005",
+    "val_loss": 2.1858,
+    "groups": {
+     "dialogue": {
+      "val_loss": 1.0714,
+      "windows": 96
+     },
+     "web": {
+      "val_loss": 2.9023,
+      "windows": 96
+     }
+    },
+    "probes": {
+     "parity": true,
+     "chatExact": 0.2562,
+     "chatAccepted": 0.2625,
+     "chatF1": 0.4852,
+     "grounded": 0.525,
+     "groundedChance": 0.3583,
+     "route": 0.9625,
+     "repetition": 0,
+     "unfinished": 0,
+     "tokensPerSecond": 278
+    },
+    "benchmark": {
+     "id": "infinity-bench-1",
+     "score": 0.5677,
+     "items": 176,
+     "language": 0.6458,
+     "knowledge": 0.4375,
+     "reasoning": 0.5,
+     "conversation": 0.6875,
+     "passageLoss": 6.6416
+    },
+    "memorization": {
+     "gap": 0.3471,
+     "verbatimTrained": 0.0208,
+     "verbatimUnseen": 0,
+     "lossTrained": 3.5997,
+     "lossUnseen": 3.9468,
+     "passages": [
+      48,
+      48
+     ]
+    },
+    "gate": {
+     "pass": false,
+     "comparedWith": "m0005",
+     "failed": [
+      "fixed benchmark text is not read worse"
+     ]
+    },
+    "evaluatedOn": "d0006",
+    "rejectedAt": "2026-11-13T13:15:39Z"
+   }
+  },
+  "history": [
+   {
+    "t": "2026-11-13T10:04:51Z",
+    "action": "promote",
+    "from": null,
+    "to": "m0001",
+    "by": "gate",
+    "reason": "first model; passed all 7 checks"
+   },
+   {
+    "t": "2026-11-13T10:18:23Z",
+    "action": "promote",
+    "from": "m0001",
+    "to": "m0002",
+    "by": "gate",
+    "reason": "passed all 8 checks against m0001"
+   },
+   {
+    "t": "2026-11-13T12:36:08Z",
+    "action": "import",
+    "to": "m0002",
+    "by": "worker",
+    "reason": "state started from the published model"
+   },
+   {
+    "t": "2026-11-13T12:46:01Z",
+    "action": "reject",
+    "model": "m0003",
+    "kept": "m0002",
+    "reason": "fixed benchmark text is not read worse [loss 6.904 vs 6.713 (allowed +0.05)]; trained text is not much easier than unseen text [loss 2.8791 on trained passages, 4.1906 on unseen ones: gap 1.3115 (limit 0.6)]"
+   },
+   {
+    "t": "2026-11-13T12:54:32Z",
+    "action": "reject",
+    "model": "m0004",
+    "kept": "m0002",
+    "reason": "trained text is not much easier than unseen text [loss 3.635 on trained passages, 4.3568 on unseen ones: gap 0.7218 (limit 0.6; production on the same passages: 0.3412)]"
+   },
+   {
+    "t": "2026-11-13T13:03:47Z",
+    "action": "promote",
+    "from": "m0002",
+    "to": "m0005",
+    "by": "gate",
+    "reason": "passed all 15 checks against m0002"
+   },
+   {
+    "t": "2026-11-13T13:15:39Z",
+    "action": "reject",
+    "model": "m0006",
+    "kept": "m0005",
+    "reason": "fixed benchmark text is not read worse [loss 6.6416 vs 6.5834 (allowed +0.05)]"
+   }
+  ]
+ },
+ "cycles": [
+  {
+   "id": "c0001",
+   "started": "2026-11-13T09:29:36Z",
+   "finished": "2026-11-13T10:04:51Z",
+   "seconds": 2115,
+   "outcome": "promoted",
+   "parent": null,
+   "dataset": "d0001",
+   "model": "m0001",
+   "acquisition": {
+    "collected": 100,
+    "accepted": 98,
+    "rejected": 2,
+    "reasons": {
+     "format": 2
+    },
+    "bySource": {
+     "factbook": {
+      "collected": 60,
+      "accepted": 58,
+      "rejected": 2
+     },
+     "openstax-physics": {
+      "collected": 40,
+      "accepted": 40,
+      "rejected": 0
+     }
+    },
+    "tokensEstimate": 487073,
+    "errors": [],
+    "finished": "2026-11-13T09:29:57Z",
+    "corpusBefore": 0,
+    "corpusAfter": 98
+   },
+   "training": {
+    "source": "random initialisation",
+    "params": 1344640,
+    "device": "cpu",
+    "precision": "fp32",
+    "step": 2423,
+    "tokens_seen": 19849216,
+    "train_seconds": 1999.1,
+    "cycle_seconds_total": 2005.6,
+    "val_loss": 1.4721,
+    "reason": "cycle complete",
+    "finished": true,
+    "rss_mb": 1276.2,
+    "tok_per_s": 7969,
+    "last_loss": 1.2806,
+    "lr": 0.0001,
+    "planned_steps": 2423
+   },
+   "evaluation": {
+    "dataset": "d0001",
+    "candidate": {
+     "id": "m0001",
+     "val_loss": 1.1256,
+     "perplexity": 3.08,
+     "groups": {
+      "dialogue": {
+       "val_loss": 1.0068,
+       "windows": 96
+      },
+      "web": {
+       "val_loss": 3.9419,
+       "windows": 83
+      }
+     },
+     "probes": {
+      "parity": true,
+      "chatExact": 0.1938,
+      "chatF1": 0.4171,
+      "grounded": 0.4583,
+      "groundedChance": 0.3813,
+      "route": 0.975,
+      "repetition": 0,
+      "unfinished": 0,
+      "tokensPerSecond": 238
+     }
+    },
+    "production": null
+   },
+   "gate": {
+    "pass": true,
+    "checks": [
+     {
+      "name": "exported weights reproduce the training framework",
+      "pass": true,
+      "detail": "largest difference 0.000003"
+     },
+     {
+      "name": "validation loss is a number",
+      "pass": true,
+      "detail": "1.1256"
+     },
+     {
+      "name": "learned something (loss well below a uniform guess)",
+      "pass": true,
+      "detail": "1.1256 vs 0.6 × ln(4096) = 4.99"
+     },
+     {
+      "name": "replies resemble the expected ones",
+      "pass": true,
+      "detail": "0.4171 (floor 0.15)"
+     },
+     {
+      "name": "chooses the right evidence more often than chance",
+      "pass": true,
+      "detail": "0.4583 (chance 0.3813, floor 0.4)"
+     },
+     {
+      "name": "search decision is better than guessing",
+      "pass": true,
+      "detail": "0.975 (floor 0.7)"
+     },
+     {
+      "name": "sampled replies do not loop",
+      "pass": true,
+      "detail": "0 (limit 0.35)"
+     }
+    ],
+    "comparedWith": null
+   },
+   "message": "m0001 is the first production model (held-out loss 1.1256)"
+  },
+  {
+   "id": "c0002",
+   "started": "2026-11-13T10:09:02Z",
+   "finished": "2026-11-13T10:18:23Z",
+   "seconds": 561,
+   "outcome": "promoted",
+   "parent": "m0001",
+   "dataset": "d0002",
+   "model": "m0002",
+   "acquisition": {
+    "collected": 100,
+    "accepted": 91,
+    "rejected": 9,
+    "reasons": {
+     "format": 5,
+     "language": 4
+    },
+    "bySource": {
+     "factbook": {
+      "collected": 60,
+      "accepted": 52,
+      "rejected": 8
+     },
+     "openstax-physics": {
+      "collected": 40,
+      "accepted": 39,
+      "rejected": 1
+     }
+    },
+    "tokensEstimate": 479319,
+    "errors": [],
+    "finished": "2026-11-13T10:09:37Z",
+    "corpusBefore": 98,
+    "corpusAfter": 189
+   },
+   "training": {
+    "source": "continued from models/m0001/ckpt.pt",
+    "params": 1344640,
+    "device": "cpu",
+    "precision": "fp32",
+    "step": 2908,
+    "tokens_seen": 23822336,
+    "train_seconds": 2394.4,
+    "cycle_seconds_total": 396.7,
+    "val_loss": 2.0816,
+    "reason": "cycle complete",
+    "finished": true,
+    "rss_mb": 1336.4,
+    "tok_per_s": 9827,
+    "last_loss": 1.5148,
+    "lr": 0.0001,
+    "planned_steps": 485
+   },
+   "evaluation": {
+    "dataset": "d0002",
+    "candidate": {
+     "id": "m0002",
+     "val_loss": 2.131,
+     "perplexity": 8.42,
+     "groups": {
+      "dialogue": {
+       "val_loss": 1.0404,
+       "windows": 96
+      },
+      "web": {
+       "val_loss": 3.1428,
+       "windows": 96
+      }
+     },
+     "probes": {
+      "parity": true,
+      "chatExact": 0.1875,
+      "chatAccepted": 0.2062,
+      "chatF1": 0.434,
+      "grounded": 0.5,
+      "groundedChance": 0.3667,
+      "route": 0.9667,
+      "repetition": 0,
+      "unfinished": 0,
+      "tokensPerSecond": 239
+     }
+    },
+    "production": {
+     "id": "m0001",
+     "val_loss": 2.3502,
+     "perplexity": 10.49,
+     "groups": {
+      "dialogue": {
+       "val_loss": 1.0366,
+       "windows": 96
+      },
+      "web": {
+       "val_loss": 3.6156,
+       "windows": 96
+      }
+     },
+     "probes": {
+      "parity": true,
+      "chatExact": 0.1875,
+      "chatAccepted": 0.2125,
+      "chatF1": 0.4257,
+      "grounded": 0.4583,
+      "groundedChance": 0.3667,
+      "route": 0.9417,
+      "repetition": 0,
+      "unfinished": 0,
+      "tokensPerSecond": 254
+     }
+    }
+   },
+   "gate": {
+    "pass": true,
+    "checks": [
+     {
+      "name": "exported weights reproduce the training framework",
+      "pass": true,
+      "detail": "largest difference 0.000003"
+     },
+     {
+      "name": "validation loss is a number",
+      "pass": true,
+      "detail": "2.131"
+     },
+     {
+      "name": "held-out loss is not worse than production",
+      "pass": true,
+      "detail": "2.131 vs 2.3502 (allowed +0)"
+     },
+     {
+      "name": "earlier knowledge kept (conversation data)",
+      "pass": true,
+      "detail": "1.0404 vs 1.0366 (allowed +0.05)"
+     },
+     {
+      "name": "reply match did not fall",
+      "pass": true,
+      "detail": "0.434 vs 0.4257 (allowed −0.04)"
+     },
+     {
+      "name": "evidence choice did not fall",
+      "pass": true,
+      "detail": "0.5 vs 0.4583 (allowed −0.04)"
+     },
+     {
+      "name": "search decision did not fall",
+      "pass": true,
+      "detail": "0.9667 vs 0.9417 (allowed −0.04)"
+     },
+     {
+      "name": "sampled replies do not loop",
+      "pass": true,
+      "detail": "0 (limit 0.35)"
+     }
+    ],
+    "comparedWith": "m0001"
+   },
+   "message": "m0002 replaced m0001 (held-out loss 2.131 vs 2.3502)"
+  },
+  {
+   "id": "c0003",
+   "started": "2026-11-13T12:39:06Z",
+   "finished": "2026-11-13T12:46:01Z",
+   "seconds": 415,
+   "outcome": "rejected",
+   "parent": "m0002",
+   "dataset": "d0003",
+   "model": "m0003",
+   "acquisition": {
+    "collected": 0,
+    "accepted": 0,
+    "rejected": 0,
+    "reasons": {},
+    "bySource": {},
+    "errors": [],
+    "fromDiscovery": 72,
+    "corpusBefore": 72,
+    "corpusAfter": 72
+   },
+   "training": {
+    "source": "continued from models/m0002/ckpt.pt",
+    "params": 1344640,
+    "device": "cpu",
+    "precision": "fp32",
+    "step": 3277,
+    "tokens_seen": 26845184,
+    "train_seconds": 2657.1,
+    "cycle_seconds_total": 264.1,
+    "val_loss": 1.5067,
+    "reason": "cycle complete",
+    "finished": true,
+    "rss_mb": 1297.2,
+    "tok_per_s": 10472,
+    "last_loss": 1.0846,
+    "lr": 0.0001,
+    "planned_steps": 369
+   },
+   "evaluation": {
+    "dataset": "d0003",
+    "candidate": {
+     "id": "m0003",
+     "val_loss": 1.2212,
+     "perplexity": 3.39,
+     "groups": {
+      "dialogue": {
+       "val_loss": 1.0515,
+       "windows": 96
+      },
+      "web": {
+       "val_loss": 4.1566,
+       "windows": 96
+      }
+     },
+     "benchmark": {
+      "id": "infinity-bench-1",
+      "score": 0.5807,
+      "items": 176,
+      "language": 0.5833,
+      "knowledge": 0.5,
+      "reasoning": 0.5208,
+      "conversation": 0.7188,
+      "passageLoss": 6.904
+     },
+     "memorization": {
+      "gap": 1.3115,
+      "verbatimTrained": 0,
+      "verbatimUnseen": 0,
+      "lossTrained": 2.8791,
+      "lossUnseen": 4.1906,
+      "passages": [
+       48,
+       46
+      ]
+     },
+     "probes": {
+      "parity": true,
+      "chatExact": 0.2625,
+      "chatAccepted": 0.2813,
+      "chatF1": 0.4874,
+      "grounded": 0.5833,
+      "groundedChance": 0.3597,
+      "route": 0.9667,
+      "repetition": 0,
+      "unfinished": 0,
+      "tokensPerSecond": 281
+     }
+    },
+    "production": {
+     "id": "m0002",
+     "val_loss": 1.2544,
+     "perplexity": 3.51,
+     "groups": {
+      "dialogue": {
+       "val_loss": 1.0899,
+       "windows": 96
+      },
+      "web": {
+       "val_loss": 4.004,
+       "windows": 96
+      }
+     },
+     "benchmark": {
+      "id": "infinity-bench-1",
+      "score": 0.5755,
+      "items": 176,
+      "language": 0.5833,
+      "knowledge": 0.4792,
+      "reasoning": 0.5208,
+      "conversation": 0.7188,
+      "passageLoss": 6.713
+     },
+     "memorization": {
+      "gap": 0.6242,
+      "verbatimTrained": 0,
+      "verbatimUnseen": 0,
+      "lossTrained": 3.4118,
+      "lossUnseen": 4.036,
+      "passages": [
+       48,
+       46
+      ]
+     },
+     "probes": {
+      "parity": true,
+      "chatExact": 0.2313,
+      "chatAccepted": 0.25,
+      "chatF1": 0.4562,
+      "grounded": 0.5833,
+      "groundedChance": 0.3597,
+      "route": 0.95,
+      "repetition": 0,
+      "unfinished": 0,
+      "tokensPerSecond": 296
+     }
+    }
+   },
+   "gate": {
+    "pass": false,
+    "checks": [
+     {
+      "name": "exported weights reproduce the training framework",
+      "pass": true,
+      "detail": "largest difference 0.000004"
+     },
+     {
+      "name": "validation loss is a number",
+      "pass": true,
+      "detail": "1.2212"
+     },
+     {
+      "name": "held-out loss is not worse than production",
+      "pass": true,
+      "detail": "1.2212 vs 1.2544 (allowed +0)"
+     },
+     {
+      "name": "earlier knowledge kept (conversation data)",
+      "pass": true,
+      "detail": "1.0515 vs 1.0899 (allowed +0.05)"
+     },
+     {
+      "name": "reply match did not fall",
+      "pass": true,
+      "detail": "0.4874 vs 0.4562 (allowed −0.04)"
+     },
+     {
+      "name": "evidence choice did not fall",
+      "pass": true,
+      "detail": "0.5833 vs 0.5833 (allowed −0.04)"
+     },
+     {
+      "name": "search decision did not fall",
+      "pass": true,
+      "detail": "0.9667 vs 0.95 (allowed −0.04)"
+     },
+     {
+      "name": "sampled replies do not loop",
+      "pass": true,
+      "detail": "0 (limit 0.35)"
+     },
+     {
+      "name": "fixed benchmark was run",
+      "pass": true,
+      "detail": "infinity-bench-1, 176 items"
+     },
+     {
+      "name": "fixed benchmark score did not fall",
+      "pass": true,
+      "detail": "0.5807 vs 0.5755 (allowed −0.03)"
+     },
+     {
+      "name": "fixed benchmark text is not read worse",
+      "pass": false,
+      "detail": "loss 6.904 vs 6.713 (allowed +0.05)"
+     },
+     {
+      "name": "does not recite its training text",
+      "pass": true,
+      "detail": "0 of trained passages continued word for word, 0 of unseen ones (limits 0.15, difference 0.1)"
+     },
+     {
+      "name": "trained text is not much easier than unseen text",
+      "pass": false,
+      "detail": "loss 2.8791 on trained passages, 4.1906 on unseen ones: gap 1.3115 (limit 0.6)"
+     },
+     {
+      "name": "measurably better than production",
+      "pass": true,
+      "detail": "held-out loss improved by 0.0332 (needs 0.002) or benchmark score by 0.0052 (needs 0.01)"
+     }
+    ],
+    "comparedWith": "m0002"
+   },
+   "message": "m0003 was not promoted: fixed benchmark text is not read worse [loss 6.904 vs 6.713 (allowed +0.05)]; trained text is not much easier than unseen text [loss 2.8791 on trained passages, 4.1906 on unseen ones: gap 1.3115 (limit 0.6)]. m0002 stays in production."
+  },
+  {
+   "id": "c0004",
+   "started": "2026-11-13T12:48:29Z",
+   "finished": "2026-11-13T12:54:32Z",
+   "seconds": 363,
+   "outcome": "rejected",
+   "parent": "m0002",
+   "dataset": "d0004",
+   "model": "m0004",
+   "acquisition": {
+    "collected": 0,
+    "accepted": 0,
+    "rejected": 0,
+    "reasons": {},
+    "bySource": {},
+    "errors": [],
+    "fromDiscovery": 76,
+    "corpusBefore": 148,
+    "corpusAfter": 148
+   },
+   "training": {
+    "source": "continued from models/m0002/ckpt.pt",
+    "params": 1344640,
+    "device": "cpu",
+    "precision": "fp32",
+    "step": 3211,
+    "tokens_seen": 26304512,
+    "train_seconds": 2610.3,
+    "cycle_seconds_total": 217.1,
+    "val_loss": 1.9202,
+    "reason": "cycle complete",
+    "finished": true,
+    "rss_mb": 1323,
+    "tok_per_s": 10319,
+    "last_loss": 1.3137,
+    "lr": 0.00005,
+    "planned_steps": 303
+   },
+   "evaluation": {
+    "dataset": "d0004",
+    "candidate": {
+     "id": "m0004",
+     "val_loss": 1.9005,
+     "perplexity": 6.69,
+     "groups": {
+      "dialogue": {
+       "val_loss": 1.0695,
+       "windows": 96
+      },
+      "web": {
+       "val_loss": 3.3369,
+       "windows": 96
+      }
+     },
+     "benchmark": {
+      "id": "infinity-bench-1",
+      "score": 0.5677,
+      "items": 176,
+      "language": 0.6042,
+      "knowledge": 0.4792,
+      "reasoning": 0.4375,
+      "conversation": 0.75,
+      "passageLoss": 6.6914
+     },
+     "memorization": {
+      "gap": 0.7218,
+      "verbatimTrained": 0,
+      "verbatimUnseen": 0,
+      "lossTrained": 3.635,
+      "lossUnseen": 4.3568,
+      "passages": [
+       48,
+       48
+      ]
+     },
+     "probes": {
+      "parity": true,
+      "chatExact": 0.2313,
+      "chatAccepted": 0.2375,
+      "chatF1": 0.4696,
+      "grounded": 0.5667,
+      "groundedChance": 0.3618,
+      "route": 0.975,
+      "repetition": 0,
+      "unfinished": 0,
+      "tokensPerSecond": 290
+     }
+    },
+    "production": {
+     "id": "m0002",
+     "val_loss": 1.9969,
+     "perplexity": 7.37,
+     "groups": {
+      "dialogue": {
+       "val_loss": 1.1012,
+       "windows": 96
+      },
+      "web": {
+       "val_loss": 3.5409,
+       "windows": 96
+      }
+     },
+     "benchmark": {
+      "id": "infinity-bench-1",
+      "score": 0.5755,
+      "items": 176,
+      "language": 0.5833,
+      "knowledge": 0.4792,
+      "reasoning": 0.5208,
+      "conversation": 0.7188,
+      "passageLoss": 6.713
+     },
+     "memorization": {
+      "gap": 0.3412,
+      "verbatimTrained": 0,
+      "verbatimUnseen": 0,
+      "lossTrained": 4.173,
+      "lossUnseen": 4.5142,
+      "passages": [
+       48,
+       48
+      ]
+     },
+     "probes": {
+      "parity": true,
+      "chatExact": 0.25,
+      "chatAccepted": 0.275,
+      "chatF1": 0.4722,
+      "grounded": 0.5417,
+      "groundedChance": 0.3618,
+      "route": 0.9667,
+      "repetition": 0,
+      "unfinished": 0,
+      "tokensPerSecond": 284
+     }
+    }
+   },
+   "gate": {
+    "pass": false,
+    "checks": [
+     {
+      "name": "exported weights reproduce the training framework",
+      "pass": true,
+      "detail": "largest difference 0.000005"
+     },
+     {
+      "name": "validation loss is a number",
+      "pass": true,
+      "detail": "1.9005"
+     },
+     {
+      "name": "held-out loss is not worse than production",
+      "pass": true,
+      "detail": "1.9005 vs 1.9969 (allowed +0)"
+     },
+     {
+      "name": "earlier knowledge kept (conversation data)",
+      "pass": true,
+      "detail": "1.0695 vs 1.1012 (allowed +0.05)"
+     },
+     {
+      "name": "held-out document text is not read worse",
+      "pass": true,
+      "detail": "3.3369 vs 3.5409 (allowed +0.05)"
+     },
+     {
+      "name": "reply match did not fall",
+      "pass": true,
+      "detail": "0.4696 vs 0.4722 (allowed −0.04)"
+     },
+     {
+      "name": "evidence choice did not fall",
+      "pass": true,
+      "detail": "0.5667 vs 0.5417 (allowed −0.04)"
+     },
+     {
+      "name": "search decision did not fall",
+      "pass": true,
+      "detail": "0.975 vs 0.9667 (allowed −0.04)"
+     },
+     {
+      "name": "sampled replies do not loop",
+      "pass": true,
+      "detail": "0 (limit 0.35)"
+     },
+     {
+      "name": "fixed benchmark was run",
+      "pass": true,
+      "detail": "infinity-bench-1, 176 items"
+     },
+     {
+      "name": "fixed benchmark score did not fall",
+      "pass": true,
+      "detail": "0.5677 vs 0.5755 (allowed −0.03)"
+     },
+     {
+      "name": "fixed benchmark text is not read worse",
+      "pass": true,
+      "detail": "loss 6.6914 vs 6.713 (allowed +0.05)"
+     },
+     {
+      "name": "does not recite its training text",
+      "pass": true,
+      "detail": "0 of trained passages continued word for word, 0 of unseen ones (limits 0.15, difference 0.1)"
+     },
+     {
+      "name": "trained text is not much easier than unseen text",
+      "pass": false,
+      "detail": "loss 3.635 on trained passages, 4.3568 on unseen ones: gap 0.7218 (limit 0.6; production on the same passages: 0.3412)"
+     },
+     {
+      "name": "measurably better than production",
+      "pass": true,
+      "detail": "held-out loss improved by 0.0964 (needs 0.002) or benchmark score by -0.0078 (needs 0.01)"
+     }
+    ],
+    "comparedWith": "m0002"
+   },
+   "message": "m0004 was not promoted: trained text is not much easier than unseen text [loss 3.635 on trained passages, 4.3568 on unseen ones: gap 0.7218 (limit 0.6; production on the same passages: 0.3412)]. m0002 stays in production."
+  },
+  {
+   "id": "c0005",
+   "started": "2026-11-13T12:56:54Z",
+   "finished": "2026-11-13T13:03:47Z",
+   "seconds": 413,
+   "outcome": "promoted",
+   "parent": "m0002",
+   "dataset": "d0005",
+   "model": "m0005",
+   "acquisition": {
+    "collected": 0,
+    "accepted": 0,
+    "rejected": 0,
+    "reasons": {},
+    "bySource": {},
+    "errors": [],
+    "fromDiscovery": 77,
+    "corpusBefore": 225,
+    "corpusAfter": 225
+   },
+   "training": {
+    "source": "continued from models/m0002/ckpt.pt",
+    "params": 1344640,
+    "device": "cpu",
+    "precision": "fp32",
+    "step": 3178,
+    "tokens_seen": 26034176,
+    "train_seconds": 2651.6,
+    "cycle_seconds_total": 258.1,
+    "val_loss": 2.1675,
+    "reason": "cycle complete",
+    "finished": true,
+    "rss_mb": 1304.9,
+    "tok_per_s": 10752,
+    "last_loss": 1.4952,
+    "lr": 0.000025,
+    "planned_steps": 270
+   },
+   "evaluation": {
+    "dataset": "d0005",
+    "candidate": {
+     "id": "m0005",
+     "val_loss": 2.1881,
+     "perplexity": 8.92,
+     "groups": {
+      "dialogue": {
+       "val_loss": 1.0205,
+       "windows": 96
+      },
+      "web": {
+       "val_loss": 3.091,
+       "windows": 96
+      }
+     },
+     "benchmark": {
+      "id": "infinity-bench-1",
+      "score": 0.5859,
+      "items": 176,
+      "language": 0.5833,
+      "knowledge": 0.5208,
+      "reasoning": 0.4583,
+      "conversation": 0.7813,
+      "passageLoss": 6.5834
+     },
+     "memorization": {
+      "gap": 0.5394,
+      "verbatimTrained": 0,
+      "verbatimUnseen": 0,
+      "lossTrained": 3.5178,
+      "lossUnseen": 4.0572,
+      "passages": [
+       48,
+       48
+      ]
+     },
+     "probes": {
+      "parity": true,
+      "chatExact": 0.2875,
+      "chatAccepted": 0.3125,
+      "chatF1": 0.5006,
+      "grounded": 0.4833,
+      "groundedChance": 0.3535,
+      "route": 0.9667,
+      "repetition": 0,
+      "unfinished": 0,
+      "tokensPerSecond": 279
+     }
+    },
+    "production": {
+     "id": "m0002",
+     "val_loss": 2.283,
+     "perplexity": 9.81,
+     "groups": {
+      "dialogue": {
+       "val_loss": 1.0544,
+       "windows": 96
+      },
+      "web": {
+       "val_loss": 3.2323,
+       "windows": 96
+      }
+     },
+     "benchmark": {
+      "id": "infinity-bench-1",
+      "score": 0.5755,
+      "items": 176,
+      "language": 0.5833,
+      "knowledge": 0.4792,
+      "reasoning": 0.5208,
+      "conversation": 0.7188,
+      "passageLoss": 6.713
+     },
+     "memorization": {
+      "gap": 0.5401,
+      "verbatimTrained": 0,
+      "verbatimUnseen": 0,
+      "lossTrained": 3.6241,
+      "lossUnseen": 4.1642,
+      "passages": [
+       48,
+       48
+      ]
+     },
+     "probes": {
+      "parity": true,
+      "chatExact": 0.2875,
+      "chatAccepted": 0.3063,
+      "chatF1": 0.5005,
+      "grounded": 0.4667,
+      "groundedChance": 0.3535,
+      "route": 0.9708,
+      "repetition": 0,
+      "unfinished": 0,
+      "tokensPerSecond": 267
+     }
+    }
+   },
+   "gate": {
+    "pass": true,
+    "checks": [
+     {
+      "name": "exported weights reproduce the training framework",
+      "pass": true,
+      "detail": "largest difference 0.000003"
+     },
+     {
+      "name": "validation loss is a number",
+      "pass": true,
+      "detail": "2.1881"
+     },
+     {
+      "name": "held-out loss is not worse than production",
+      "pass": true,
+      "detail": "2.1881 vs 2.283 (allowed +0)"
+     },
+     {
+      "name": "earlier knowledge kept (conversation data)",
+      "pass": true,
+      "detail": "1.0205 vs 1.0544 (allowed +0.05)"
+     },
+     {
+      "name": "held-out document text is not read worse",
+      "pass": true,
+      "detail": "3.091 vs 3.2323 (allowed +0.05)"
+     },
+     {
+      "name": "reply match did not fall",
+      "pass": true,
+      "detail": "0.5006 vs 0.5005 (allowed −0.04)"
+     },
+     {
+      "name": "evidence choice did not fall",
+      "pass": true,
+      "detail": "0.4833 vs 0.4667 (allowed −0.04)"
+     },
+     {
+      "name": "search decision did not fall",
+      "pass": true,
+      "detail": "0.9667 vs 0.9708 (allowed −0.04)"
+     },
+     {
+      "name": "sampled replies do not loop",
+      "pass": true,
+      "detail": "0 (limit 0.35)"
+     },
+     {
+      "name": "fixed benchmark was run",
+      "pass": true,
+      "detail": "infinity-bench-1, 176 items"
+     },
+     {
+      "name": "fixed benchmark score did not fall",
+      "pass": true,
+      "detail": "0.5859 vs 0.5755 (allowed −0.03)"
+     },
+     {
+      "name": "fixed benchmark text is not read worse",
+      "pass": true,
+      "detail": "loss 6.5834 vs 6.713 (allowed +0.05)"
+     },
+     {
+      "name": "does not recite its training text",
+      "pass": true,
+      "detail": "0 of trained passages continued word for word, 0 of unseen ones (limits 0.15, difference 0.1)"
+     },
+     {
+      "name": "trained text is not much easier than unseen text",
+      "pass": true,
+      "detail": "loss 3.5178 on trained passages, 4.0572 on unseen ones: gap 0.5394 (limit 0.6901; production on the same passages: 0.5401)"
+     },
+     {
+      "name": "measurably better than production",
+      "pass": true,
+      "detail": "held-out loss improved by 0.0949 (needs 0.002) or benchmark score by 0.0104 (needs 0.01)"
+     }
+    ],
+    "comparedWith": "m0002"
+   },
+   "message": "m0005 replaced m0002 (held-out loss 2.1881 vs 2.283; benchmark 0.5859 vs 0.5755)"
+  },
+  {
+   "id": "c0006",
+   "started": "2026-11-13T13:06:11Z",
+   "finished": "2026-11-13T13:15:39Z",
+   "seconds": 568,
+   "outcome": "rejected",
+   "parent": "m0005",
+   "dataset": "d0006",
+   "model": "m0006",
+   "acquisition": {
+    "collected": 0,
+    "accepted": 0,
+    "rejected": 0,
+    "reasons": {},
+    "bySource": {},
+    "errors": [],
+    "fromDiscovery": 78,
+    "corpusBefore": 303,
+    "corpusAfter": 303
+   },
+   "training": {
+    "source": "resumed runs/c0006/ckpt.pt",
+    "params": 1344640,
+    "device": "cpu",
+    "precision": "fp32",
+    "step": 3547,
+    "tokens_seen": 29057024,
+    "train_seconds": 2985,
+    "cycle_seconds_total": 317.1,
+    "val_loss": 2.1984,
+    "reason": "cycle complete",
+    "finished": true,
+    "rss_mb": 1334.4,
+    "tok_per_s": 10453,
+    "last_loss": 1.3487,
+    "lr": 0.00005,
+    "planned_steps": 369
+   },
+   "plan": {
+    "caution": 1,
+    "lr": 0.0002,
+    "anchorL2": 0.0002,
+    "passes": 0.75,
+    "stepsByTime": 369,
+    "stepsByData": 518,
+    "steps": 369
+   },
+   "cautionAfter": 2,
+   "data": {
+    "tokens": {
+     "train": 5658824,
+     "validation": 381950
+    },
+    "documents": {
+     "total": 303,
+     "train": 284,
+     "validation": 19,
+     "fresh": 72,
+     "replay": 212
+    },
+    "mixture": {
+     "dialogue": 0.34,
+     "fresh": 0.33,
+     "replay": 0.33
+    },
+    "integrity": {
+     "benchmark": "infinity-bench-1",
+     "benchmarkSentencesInTraining": 0,
+     "benchmarkSentencesRemoved": 0,
+     "benchmarkPhrasesInDialogue": 6,
+     "valDocumentsInTraining": 0,
+     "valHashesInTraining": 0,
+     "valPhrasingsInTraining": 0
+    }
+   },
+   "evaluation": {
+    "dataset": "d0006",
+    "candidate": {
+     "id": "m0006",
+     "val_loss": 2.1858,
+     "perplexity": 8.9,
+     "groups": {
+      "dialogue": {
+       "val_loss": 1.0714,
+       "windows": 96
+      },
+      "web": {
+       "val_loss": 2.9023,
+       "windows": 96
+      }
+     },
+     "benchmark": {
+      "id": "infinity-bench-1",
+      "score": 0.5677,
+      "items": 176,
+      "language": 0.6458,
+      "knowledge": 0.4375,
+      "reasoning": 0.5,
+      "conversation": 0.6875,
+      "passageLoss": 6.6416
+     },
+     "memorization": {
+      "gap": 0.3471,
+      "verbatimTrained": 0.0208,
+      "verbatimUnseen": 0,
+      "lossTrained": 3.5997,
+      "lossUnseen": 3.9468,
+      "passages": [
+       48,
+       48
+      ]
+     },
+     "probes": {
+      "parity": true,
+      "chatExact": 0.2562,
+      "chatAccepted": 0.2625,
+      "chatF1": 0.4852,
+      "grounded": 0.525,
+      "groundedChance": 0.3583,
+      "route": 0.9625,
+      "repetition": 0,
+      "unfinished": 0,
+      "tokensPerSecond": 278
+     }
+    },
+    "production": {
+     "id": "m0005",
+     "val_loss": 2.2341,
+     "perplexity": 9.34,
+     "groups": {
+      "dialogue": {
+       "val_loss": 1.0751,
+       "windows": 96
+      },
+      "web": {
+       "val_loss": 2.9797,
+       "windows": 96
+      }
+     },
+     "benchmark": {
+      "id": "infinity-bench-1",
+      "score": 0.5859,
+      "items": 176,
+      "language": 0.5833,
+      "knowledge": 0.5208,
+      "reasoning": 0.4583,
+      "conversation": 0.7813,
+      "passageLoss": 6.5834
+     },
+     "memorization": {
+      "gap": -0.0396,
+      "verbatimTrained": 0.0208,
+      "verbatimUnseen": 0,
+      "lossTrained": 4.0958,
+      "lossUnseen": 4.0562,
+      "passages": [
+       48,
+       48
+      ]
+     },
+     "probes": {
+      "parity": true,
+      "chatExact": 0.2437,
+      "chatAccepted": 0.2687,
+      "chatF1": 0.477,
+      "grounded": 0.5,
+      "groundedChance": 0.3583,
+      "route": 0.9667,
+      "repetition": 0,
+      "unfinished": 0,
+      "tokensPerSecond": 268
+     }
+    }
+   },
+   "gate": {
+    "pass": false,
+    "checks": [
+     {
+      "name": "exported weights reproduce the training framework",
+      "pass": true,
+      "detail": "largest difference 0.00001"
+     },
+     {
+      "name": "validation loss is a number",
+      "pass": true,
+      "detail": "2.1858"
+     },
+     {
+      "name": "held-out loss is not worse than production",
+      "pass": true,
+      "detail": "2.1858 vs 2.2341 (allowed +0)"
+     },
+     {
+      "name": "earlier knowledge kept (conversation data)",
+      "pass": true,
+      "detail": "1.0714 vs 1.0751 (allowed +0.05)"
+     },
+     {
+      "name": "held-out document text is not read worse",
+      "pass": true,
+      "detail": "2.9023 vs 2.9797 (allowed +0.05)"
+     },
+     {
+      "name": "reply match did not fall",
+      "pass": true,
+      "detail": "0.4852 vs 0.477 (allowed −0.04)"
+     },
+     {
+      "name": "evidence choice did not fall",
+      "pass": true,
+      "detail": "0.525 vs 0.5 (allowed −0.04)"
+     },
+     {
+      "name": "search decision did not fall",
+      "pass": true,
+      "detail": "0.9625 vs 0.9667 (allowed −0.04)"
+     },
+     {
+      "name": "sampled replies do not loop",
+      "pass": true,
+      "detail": "0 (limit 0.35)"
+     },
+     {
+      "name": "fixed benchmark was run",
+      "pass": true,
+      "detail": "infinity-bench-1, 176 items"
+     },
+     {
+      "name": "fixed benchmark score did not fall",
+      "pass": true,
+      "detail": "0.5677 vs 0.5859 (allowed −0.03)"
+     },
+     {
+      "name": "fixed benchmark text is not read worse",
+      "pass": false,
+      "detail": "loss 6.6416 vs 6.5834 (allowed +0.05)"
+     },
+     {
+      "name": "does not recite its training text",
+      "pass": true,
+      "detail": "0.0208 of trained passages continued word for word, 0 of unseen ones (limits 0.15, difference 0.1)"
+     },
+     {
+      "name": "trained text is not much easier than unseen text",
+      "pass": true,
+      "detail": "loss 3.5997 on trained passages, 3.9468 on unseen ones: gap 0.3471 (limit 0.6; production on the same passages: -0.0396)"
+     },
+     {
+      "name": "measurably better than production",
+      "pass": true,
+      "detail": "held-out loss improved by 0.0483 (needs 0.002) or benchmark score by -0.0182 (needs 0.01)"
+     }
+    ],
+    "comparedWith": "m0005"
+   },
+   "message": "m0006 was not promoted: fixed benchmark text is not read worse [loss 6.6416 vs 6.5834 (allowed +0.05)]. m0005 stays in production."
+  }
+ ],
+ "curve": [
+  {
+   "run": "c0003",
+   "step": 2920,
+   "loss": 1.332,
+   "val_loss": null,
+   "lr": 0.00016,
+   "tokens": 23920640,
+   "tok_per_s": 10508,
+   "t": "2026-11-13T12:39:36Z"
+  },
+  {
+   "run": "c0003",
+   "step": 2940,
+   "loss": 1.2214,
+   "val_loss": null,
+   "lr": 0.0004,
+   "tokens": 24084480,
+   "tok_per_s": 11316,
+   "t": "2026-11-13T12:39:51Z"
+  },
+  {
+   "run": "c0003",
+   "step": 2960,
+   "loss": 1.2604,
+   "val_loss": null,
+   "lr": 0.0003972,
+   "tokens": 24248320,
+   "tok_per_s": 11210,
+   "t": "2026-11-13T12:40:05Z"
+  },
+  {
+   "run": "c0003",
+   "step": 2980,
+   "loss": 1.2356,
+   "val_loss": null,
+   "lr": 0.0003893,
+   "tokens": 24412160,
+   "tok_per_s": 11629,
+   "t": "2026-11-13T12:40:19Z"
+  },
+  {
+   "run": "c0003",
+   "step": 3000,
+   "loss": 1.2343,
+   "val_loss": 1.536,
+   "lr": 0.0003767,
+   "tokens": 24576000,
+   "tok_per_s": 11770,
+   "t": "2026-11-13T12:40:33Z"
+  },
+  {
+   "run": "c0003",
+   "step": 3020,
+   "loss": 1.1862,
+   "val_loss": null,
+   "lr": 0.0003597,
+   "tokens": 24739840,
+   "tok_per_s": 11678,
+   "t": "2026-11-13T12:40:47Z"
+  },
+  {
+   "run": "c0003",
+   "step": 3040,
+   "loss": 1.2299,
+   "val_loss": null,
+   "lr": 0.000339,
+   "tokens": 24903680,
+   "tok_per_s": 12044,
+   "t": "2026-11-13T12:41:01Z"
+  },
+  {
+   "run": "c0003",
+   "step": 3060,
+   "loss": 1.2408,
+   "val_loss": null,
+   "lr": 0.0003152,
+   "tokens": 25067520,
+   "tok_per_s": 11676,
+   "t": "2026-11-13T12:41:15Z"
+  },
+  {
+   "run": "c0003",
+   "step": 3080,
+   "loss": 1.1901,
+   "val_loss": null,
+   "lr": 0.0002892,
+   "tokens": 25231360,
+   "tok_per_s": 11912,
+   "t": "2026-11-13T12:41:29Z"
+  },
+  {
+   "run": "c0003",
+   "step": 3100,
+   "loss": 1.1858,
+   "val_loss": null,
+   "lr": 0.0002618,
+   "tokens": 25395200,
+   "tok_per_s": 11625,
+   "t": "2026-11-13T12:41:43Z"
+  },
+  {
+   "run": "c0003",
+   "step": 3120,
+   "loss": 1.1751,
+   "val_loss": null,
+   "lr": 0.000234,
+   "tokens": 25559040,
+   "tok_per_s": 11487,
+   "t": "2026-11-13T12:41:57Z"
+  },
+  {
+   "run": "c0003",
+   "step": 3140,
+   "loss": 1.1694,
+   "val_loss": null,
+   "lr": 0.0002068,
+   "tokens": 25722880,
+   "tok_per_s": 11130,
+   "t": "2026-11-13T12:42:12Z"
+  },
+  {
+   "run": "c0003",
+   "step": 3160,
+   "loss": 1.176,
+   "val_loss": null,
+   "lr": 0.0001811,
+   "tokens": 25886720,
+   "tok_per_s": 11225,
+   "t": "2026-11-13T12:42:26Z"
+  },
+  {
+   "run": "c0003",
+   "step": 3180,
+   "loss": 1.1323,
+   "val_loss": null,
+   "lr": 0.0001577,
+   "tokens": 26050560,
+   "tok_per_s": 11466,
+   "t": "2026-11-13T12:42:41Z"
+  },
+  {
+   "run": "c0003",
+   "step": 3200,
+   "loss": 1.1611,
+   "val_loss": 1.5083,
+   "lr": 0.0001375,
+   "tokens": 26214400,
+   "tok_per_s": 11499,
+   "t": "2026-11-13T12:42:55Z"
+  },
+  {
+   "run": "c0003",
+   "step": 3220,
+   "loss": 1.0923,
+   "val_loss": null,
+   "lr": 0.0001212,
+   "tokens": 26378240,
+   "tok_per_s": 11579,
+   "t": "2026-11-13T12:43:09Z"
+  },
+  {
+   "run": "c0003",
+   "step": 3240,
+   "loss": 1.1252,
+   "val_loss": null,
+   "lr": 0.0001092,
+   "tokens": 26542080,
+   "tok_per_s": 12090,
+   "t": "2026-11-13T12:43:23Z"
+  },
+  {
+   "run": "c0003",
+   "step": 3260,
+   "loss": 1.1804,
+   "val_loss": null,
+   "lr": 0.0001021,
+   "tokens": 26705920,
+   "tok_per_s": 11026,
+   "t": "2026-11-13T12:43:37Z"
+  },
+  {
+   "run": "c0003",
+   "step": 3277,
+   "loss": 1.0846,
+   "val_loss": 1.5067,
+   "lr": 0.0001,
+   "tokens": 26845184,
+   "tok_per_s": 10472,
+   "t": "2026-11-13T12:43:51Z"
+  },
+  {
+   "run": "c0004",
+   "step": 2920,
+   "loss": 1.7939,
+   "val_loss": null,
+   "lr": 0.00008,
+   "tokens": 23920640,
+   "tok_per_s": 11623,
+   "t": "2026-11-13T12:48:57Z"
+  },
+  {
+   "run": "c0004",
+   "step": 2940,
+   "loss": 1.6783,
+   "val_loss": null,
+   "lr": 0.0002,
+   "tokens": 24084480,
+   "tok_per_s": 11611,
+   "t": "2026-11-13T12:49:11Z"
+  },
+  {
+   "run": "c0004",
+   "step": 2960,
+   "loss": 1.6115,
+   "val_loss": null,
+   "lr": 0.0001978,
+   "tokens": 24248320,
+   "tok_per_s": 11613,
+   "t": "2026-11-13T12:49:25Z"
+  },
+  {
+   "run": "c0004",
+   "step": 2980,
+   "loss": 1.5743,
+   "val_loss": null,
+   "lr": 0.0001918,
+   "tokens": 24412160,
+   "tok_per_s": 11282,
+   "t": "2026-11-13T12:49:40Z"
+  },
+  {
+   "run": "c0004",
+   "step": 3000,
+   "loss": 1.5589,
+   "val_loss": 1.9475,
+   "lr": 0.0001823,
+   "tokens": 24576000,
+   "tok_per_s": 10936,
+   "t": "2026-11-13T12:49:55Z"
+  },
+  {
+   "run": "c0004",
+   "step": 3020,
+   "loss": 1.5425,
+   "val_loss": null,
+   "lr": 0.0001697,
+   "tokens": 24739840,
+   "tok_per_s": 11059,
+   "t": "2026-11-13T12:50:10Z"
+  },
+  {
+   "run": "c0004",
+   "step": 3040,
+   "loss": 1.4718,
+   "val_loss": null,
+   "lr": 0.0001548,
+   "tokens": 24903680,
+   "tok_per_s": 11920,
+   "t": "2026-11-13T12:50:23Z"
+  },
+  {
+   "run": "c0004",
+   "step": 3060,
+   "loss": 1.3879,
+   "val_loss": null,
+   "lr": 0.0001383,
+   "tokens": 25067520,
+   "tok_per_s": 11344,
+   "t": "2026-11-13T12:50:38Z"
+  },
+  {
+   "run": "c0004",
+   "step": 3080,
+   "loss": 1.472,
+   "val_loss": null,
+   "lr": 0.0001211,
+   "tokens": 25231360,
+   "tok_per_s": 11274,
+   "t": "2026-11-13T12:50:52Z"
+  },
+  {
+   "run": "c0004",
+   "step": 3100,
+   "loss": 1.4718,
+   "val_loss": null,
+   "lr": 0.0001041,
+   "tokens": 25395200,
+   "tok_per_s": 11837,
+   "t": "2026-11-13T12:51:06Z"
+  },
+  {
+   "run": "c0004",
+   "step": 3120,
+   "loss": 1.4002,
+   "val_loss": null,
+   "lr": 0.0000882,
+   "tokens": 25559040,
+   "tok_per_s": 11767,
+   "t": "2026-11-13T12:51:20Z"
+  },
+  {
+   "run": "c0004",
+   "step": 3140,
+   "loss": 1.4062,
+   "val_loss": null,
+   "lr": 0.0000743,
+   "tokens": 25722880,
+   "tok_per_s": 11847,
+   "t": "2026-11-13T12:51:34Z"
+  },
+  {
+   "run": "c0004",
+   "step": 3160,
+   "loss": 1.428,
+   "val_loss": null,
+   "lr": 0.000063,
+   "tokens": 25886720,
+   "tok_per_s": 11869,
+   "t": "2026-11-13T12:51:48Z"
+  },
+  {
+   "run": "c0004",
+   "step": 3180,
+   "loss": 1.3997,
+   "val_loss": null,
+   "lr": 0.000055,
+   "tokens": 26050560,
+   "tok_per_s": 11412,
+   "t": "2026-11-13T12:52:02Z"
+  },
+  {
+   "run": "c0004",
+   "step": 3200,
+   "loss": 1.4152,
+   "val_loss": 1.9263,
+   "lr": 0.0000507,
+   "tokens": 26214400,
+   "tok_per_s": 11045,
+   "t": "2026-11-13T12:52:17Z"
+  },
+  {
+   "run": "c0004",
+   "step": 3211,
+   "loss": 1.3137,
+   "val_loss": 1.9202,
+   "lr": 0.00005,
+   "tokens": 26304512,
+   "tok_per_s": 10319,
+   "t": "2026-11-13T12:52:26Z"
+  },
+  {
+   "run": "c0005",
+   "step": 2920,
+   "loss": 1.6468,
+   "val_loss": null,
+   "lr": 0.00004,
+   "tokens": 23920640,
+   "tok_per_s": 8245,
+   "t": "2026-11-13T12:57:29Z"
+  },
+  {
+   "run": "c0005",
+   "step": 2940,
+   "loss": 1.5434,
+   "val_loss": null,
+   "lr": 0.0001,
+   "tokens": 24084480,
+   "tok_per_s": 8175,
+   "t": "2026-11-13T12:57:49Z"
+  },
+  {
+   "run": "c0005",
+   "step": 2960,
+   "loss": 1.595,
+   "val_loss": null,
+   "lr": 0.0000986,
+   "tokens": 24248320,
+   "tok_per_s": 6248,
+   "t": "2026-11-13T12:58:15Z"
+  },
+  {
+   "run": "c0005",
+   "step": 2980,
+   "loss": 1.6247,
+   "val_loss": null,
+   "lr": 0.0000947,
+   "tokens": 24412160,
+   "tok_per_s": 9146,
+   "t": "2026-11-13T12:58:33Z"
+  },
+  {
+   "run": "c0005",
+   "step": 3000,
+   "loss": 1.5833,
+   "val_loss": 2.1756,
+   "lr": 0.0000887,
+   "tokens": 24576000,
+   "tok_per_s": 9132,
+   "t": "2026-11-13T12:58:51Z"
+  },
+  {
+   "run": "c0005",
+   "step": 3020,
+   "loss": 1.502,
+   "val_loss": null,
+   "lr": 0.0000808,
+   "tokens": 24739840,
+   "tok_per_s": 5393,
+   "t": "2026-11-13T12:59:22Z"
+  },
+  {
+   "run": "c0005",
+   "step": 3040,
+   "loss": 1.5366,
+   "val_loss": null,
+   "lr": 0.0000717,
+   "tokens": 24903680,
+   "tok_per_s": 9240,
+   "t": "2026-11-13T12:59:39Z"
+  },
+  {
+   "run": "c0005",
+   "step": 3060,
+   "loss": 1.4829,
+   "val_loss": null,
+   "lr": 0.000062,
+   "tokens": 25067520,
+   "tok_per_s": 9608,
+   "t": "2026-11-13T12:59:56Z"
+  },
+  {
+   "run": "c0005",
+   "step": 3080,
+   "loss": 1.5356,
+   "val_loss": null,
+   "lr": 0.0000523,
+   "tokens": 25231360,
+   "tok_per_s": 8115,
+   "t": "2026-11-13T13:00:17Z"
+  },
+  {
+   "run": "c0005",
+   "step": 3100,
+   "loss": 1.5096,
+   "val_loss": null,
+   "lr": 0.0000433,
+   "tokens": 25395200,
+   "tok_per_s": 9545,
+   "t": "2026-11-13T13:00:34Z"
+  },
+  {
+   "run": "c0005",
+   "step": 3120,
+   "loss": 1.4479,
+   "val_loss": null,
+   "lr": 0.0000356,
+   "tokens": 25559040,
+   "tok_per_s": 9219,
+   "t": "2026-11-13T13:00:52Z"
+  },
+  {
+   "run": "c0005",
+   "step": 3140,
+   "loss": 1.4961,
+   "val_loss": null,
+   "lr": 0.0000298,
+   "tokens": 25722880,
+   "tok_per_s": 10802,
+   "t": "2026-11-13T13:01:07Z"
+  },
+  {
+   "run": "c0005",
+   "step": 3160,
+   "loss": 1.5065,
+   "val_loss": null,
+   "lr": 0.0000262,
+   "tokens": 25886720,
+   "tok_per_s": 11090,
+   "t": "2026-11-13T13:01:21Z"
+  },
+  {
+   "run": "c0005",
+   "step": 3178,
+   "loss": 1.4952,
+   "val_loss": 2.1675,
+   "lr": 0.000025,
+   "tokens": 26034176,
+   "tok_per_s": 10752,
+   "t": "2026-11-13T13:01:35Z"
+  },
+  {
+   "run": "c0006",
+   "step": 3180,
+   "loss": 2.0258,
+   "val_loss": null,
+   "lr": 0.0000133,
+   "tokens": 26050560,
+   "tok_per_s": 9776,
+   "t": "2026-11-13T13:06:39Z"
+  },
+  {
+   "run": "c0006",
+   "step": 3200,
+   "loss": 1.7221,
+   "val_loss": 2.2033,
+   "lr": 0.0001467,
+   "tokens": 26214400,
+   "tok_per_s": 10293,
+   "t": "2026-11-13T13:06:55Z"
+  },
+  {
+   "run": "c0006",
+   "step": 3220,
+   "loss": 1.5926,
+   "val_loss": null,
+   "lr": 0.0001996,
+   "tokens": 26378240,
+   "tok_per_s": 10679,
+   "t": "2026-11-13T13:07:10Z"
+  },
+  {
+   "run": "c0006",
+   "step": 3240,
+   "loss": 1.6057,
+   "val_loss": null,
+   "lr": 0.0001969,
+   "tokens": 26542080,
+   "tok_per_s": 10324,
+   "t": "2026-11-13T13:07:26Z"
+  },
+  {
+   "run": "c0006",
+   "step": 3260,
+   "loss": 1.6417,
+   "val_loss": null,
+   "lr": 0.0001918,
+   "tokens": 26705920,
+   "tok_per_s": 10612,
+   "t": "2026-11-13T13:07:42Z"
+  },
+  {
+   "run": "c0006",
+   "step": 3280,
+   "loss": 1.4981,
+   "val_loss": null,
+   "lr": 0.0001843,
+   "tokens": 26869760,
+   "tok_per_s": 10217,
+   "t": "2026-11-13T13:07:58Z"
+  },
+  {
+   "run": "c0006",
+   "step": 3220,
+   "loss": 1.5926,
+   "val_loss": null,
+   "lr": 0.0001996,
+   "tokens": 26378240,
+   "tok_per_s": 10333,
+   "t": "2026-11-13T13:08:24Z"
+  },
+  {
+   "run": "c0006",
+   "step": 3240,
+   "loss": 1.6057,
+   "val_loss": null,
+   "lr": 0.0001969,
+   "tokens": 26542080,
+   "tok_per_s": 10948,
+   "t": "2026-11-13T13:08:39Z"
+  },
+  {
+   "run": "c0006",
+   "step": 3260,
+   "loss": 1.6417,
+   "val_loss": null,
+   "lr": 0.0001918,
+   "tokens": 26705920,
+   "tok_per_s": 10936,
+   "t": "2026-11-13T13:08:54Z"
+  },
+  {
+   "run": "c0006",
+   "step": 3280,
+   "loss": 1.498,
+   "val_loss": null,
+   "lr": 0.0001843,
+   "tokens": 26869760,
+   "tok_per_s": 5262,
+   "t": "2026-11-13T13:09:25Z"
+  },
+  {
+   "run": "c0006",
+   "step": 3300,
+   "loss": 1.5723,
+   "val_loss": null,
+   "lr": 0.0001749,
+   "tokens": 27033600,
+   "tok_per_s": 8367,
+   "t": "2026-11-13T13:09:44Z"
+  },
+  {
+   "run": "c0006",
+   "step": 3320,
+   "loss": 1.4996,
+   "val_loss": null,
+   "lr": 0.0001637,
+   "tokens": 27197440,
+   "tok_per_s": 6491,
+   "t": "2026-11-13T13:10:10Z"
+  },
+  {
+   "run": "c0006",
+   "step": 3340,
+   "loss": 1.4464,
+   "val_loss": null,
+   "lr": 0.0001512,
+   "tokens": 27361280,
+   "tok_per_s": 6214,
+   "t": "2026-11-13T13:10:36Z"
+  },
+  {
+   "run": "c0006",
+   "step": 3360,
+   "loss": 1.5554,
+   "val_loss": null,
+   "lr": 0.0001378,
+   "tokens": 27525120,
+   "tok_per_s": 9290,
+   "t": "2026-11-13T13:10:54Z"
+  },
+  {
+   "run": "c0006",
+   "step": 3380,
+   "loss": 1.5137,
+   "val_loss": null,
+   "lr": 0.000124,
+   "tokens": 27688960,
+   "tok_per_s": 8661,
+   "t": "2026-11-13T13:11:13Z"
+  },
+  {
+   "run": "c0006",
+   "step": 3400,
+   "loss": 1.4942,
+   "val_loss": 2.2017,
+   "lr": 0.0001102,
+   "tokens": 27852800,
+   "tok_per_s": 8863,
+   "t": "2026-11-13T13:11:31Z"
+  },
+  {
+   "run": "c0006",
+   "step": 3420,
+   "loss": 1.4329,
+   "val_loss": null,
+   "lr": 0.0000969,
+   "tokens": 28016640,
+   "tok_per_s": 10383,
+   "t": "2026-11-13T13:11:47Z"
+  },
+  {
+   "run": "c0006",
+   "step": 3440,
+   "loss": 1.4537,
+   "val_loss": null,
+   "lr": 0.0000845,
+   "tokens": 28180480,
+   "tok_per_s": 10644,
+   "t": "2026-11-13T13:12:02Z"
+  },
+  {
+   "run": "c0006",
+   "step": 3460,
+   "loss": 1.4642,
+   "val_loss": null,
+   "lr": 0.0000736,
+   "tokens": 28344320,
+   "tok_per_s": 10209,
+   "t": "2026-11-13T13:12:18Z"
+  },
+  {
+   "run": "c0006",
+   "step": 3480,
+   "loss": 1.3877,
+   "val_loss": null,
+   "lr": 0.0000644,
+   "tokens": 28508160,
+   "tok_per_s": 10558,
+   "t": "2026-11-13T13:12:34Z"
+  },
+  {
+   "run": "c0006",
+   "step": 3500,
+   "loss": 1.4632,
+   "val_loss": null,
+   "lr": 0.0000573,
+   "tokens": 28672000,
+   "tok_per_s": 10923,
+   "t": "2026-11-13T13:12:49Z"
+  },
+  {
+   "run": "c0006",
+   "step": 3520,
+   "loss": 1.3813,
+   "val_loss": null,
+   "lr": 0.0000525,
+   "tokens": 28835840,
+   "tok_per_s": 11077,
+   "t": "2026-11-13T13:13:04Z"
+  },
+  {
+   "run": "c0006",
+   "step": 3540,
+   "loss": 1.4386,
+   "val_loss": null,
+   "lr": 0.0000502,
+   "tokens": 28999680,
+   "tok_per_s": 10322,
+   "t": "2026-11-13T13:13:20Z"
+  },
+  {
+   "run": "c0006",
+   "step": 3547,
+   "loss": 1.3487,
+   "val_loss": 2.1984,
+   "lr": 0.00005,
+   "tokens": 29057024,
+   "tok_per_s": 10453,
+   "t": "2026-11-13T13:13:25Z"
+  }
+ ],
+ "datasets": [
+  {
+   "version": "d0001",
+   "created": "2026-11-13T09:30:24Z",
+   "cycle": "c0001",
+   "parent": "",
+   "tokens": {
+    "train": 2404368,
+    "validation": 134989
+   },
+   "documents": {
+    "total": 98,
+    "train": 94,
+    "validation": 4,
+    "fresh": 94,
+    "replay": 0
+   },
+   "mixture": {
+    "dialogue": 0.5075,
+    "fresh": 0.4925
+   },
+   "integrity": {
+    "valDocumentsInTraining": 0,
+    "valHashesInTraining": 0,
+    "valPhrasingsInTraining": 0
+   },
+   "probes": {
+    "chat": 240,
+    "grounded": 196,
+    "route": 300
+   }
+  },
+  {
+   "version": "d0002",
+   "created": "2026-11-13T10:09:57Z",
+   "cycle": "c0002",
+   "parent": "d0001",
+   "tokens": {
+    "train": 3524468,
+    "validation": 222170
+   },
+   "documents": {
+    "total": 189,
+    "train": 176,
+    "validation": 13,
+    "fresh": 82,
+    "replay": 94
+   },
+   "mixture": {
+    "dialogue": 0.34,
+    "fresh": 0.33,
+    "replay": 0.33
+   },
+   "integrity": {
+    "valDocumentsInTraining": 0,
+    "valHashesInTraining": 0,
+    "valPhrasingsInTraining": 0
+   },
+   "probes": {
+    "chat": 240,
+    "grounded": 218,
+    "route": 300
+   }
+  },
+  {
+   "version": "d0003",
+   "created": "2026-11-13T12:39:23Z",
+   "cycle": "c0003",
+   "parent": "d0002",
+   "tokens": {
+    "train": 2239374,
+    "validation": 144901
+   },
+   "documents": {
+    "total": 72,
+    "train": 69,
+    "validation": 3,
+    "fresh": 69,
+    "replay": 0
+   },
+   "mixture": {
+    "dialogue": 0.5075,
+    "fresh": 0.4925
+   },
+   "integrity": {
+    "benchmarkSentencesInTraining": 0,
+    "benchmarkPhrasesInDialogue": 9,
+    "valDocumentsInTraining": 0,
+    "valHashesInTraining": 0,
+    "valPhrasingsInTraining": 0
+   },
+   "probes": {
+    "chat": 240,
+    "grounded": 157,
+    "route": 300,
+    "memorization": {
+     "trained": 64,
+     "unseen": 46
+    }
+   }
+  },
+  {
+   "version": "d0004",
+   "created": "2026-11-13T12:48:47Z",
+   "cycle": "c0004",
+   "parent": "d0002",
+   "tokens": {
+    "train": 3307531,
+    "validation": 203180
+   },
+   "documents": {
+    "total": 148,
+    "train": 140,
+    "validation": 8,
+    "fresh": 71,
+    "replay": 69
+   },
+   "mixture": {
+    "dialogue": 0.34,
+    "fresh": 0.33,
+    "replay": 0.33
+   },
+   "integrity": {
+    "benchmarkSentencesInTraining": 0,
+    "benchmarkPhrasesInDialogue": 6,
+    "valDocumentsInTraining": 0,
+    "valHashesInTraining": 0,
+    "valPhrasingsInTraining": 0
+   },
+   "probes": {
+    "chat": 240,
+    "grounded": 203,
+    "route": 300,
+    "memorization": {
+     "trained": 64,
+     "unseen": 57
+    }
+   }
+  },
+  {
+   "version": "d0005",
+   "created": "2026-11-13T12:57:15Z",
+   "cycle": "c0005",
+   "parent": "d0002",
+   "tokens": {
+    "train": 4417284,
+    "validation": 277850
+   },
+   "documents": {
+    "total": 225,
+    "train": 212,
+    "validation": 13,
+    "fresh": 72,
+    "replay": 140
+   },
+   "mixture": {
+    "dialogue": 0.34,
+    "fresh": 0.33,
+    "replay": 0.33
+   },
+   "integrity": {
+    "benchmark": "infinity-bench-1",
+    "benchmarkSentencesInTraining": 0,
+    "benchmarkSentencesRemoved": 0,
+    "benchmarkPhrasesInDialogue": 10,
+    "valDocumentsInTraining": 0,
+    "valHashesInTraining": 0,
+    "valPhrasingsInTraining": 0
+   },
+   "probes": {
+    "chat": 240,
+    "grounded": 215,
+    "route": 300,
+    "memorization": {
+     "trained": 64,
+     "unseen": 62
+    }
+   }
+  },
+  {
+   "version": "d0006",
+   "created": "2026-11-13T13:06:35Z",
+   "cycle": "c0006",
+   "parent": "d0005",
+   "tokens": {
+    "train": 5658824,
+    "validation": 381950
+   },
+   "documents": {
+    "total": 303,
+    "train": 284,
+    "validation": 19,
+    "fresh": 72,
+    "replay": 212
+   },
+   "mixture": {
+    "dialogue": 0.34,
+    "fresh": 0.33,
+    "replay": 0.33
+   },
+   "integrity": {
+    "benchmark": "infinity-bench-1",
+    "benchmarkSentencesInTraining": 0,
+    "benchmarkSentencesRemoved": 0,
+    "benchmarkPhrasesInDialogue": 6,
+    "valDocumentsInTraining": 0,
+    "valHashesInTraining": 0,
+    "valPhrasingsInTraining": 0
+   },
+   "probes": {
+    "chat": 240,
+    "grounded": 215,
+    "route": 300,
+    "memorization": {
+     "trained": 64,
+     "unseen": 64
+    }
+   }
+  }
+ ],
+ "corpus": {
+  "documents": 341,
+  "train": 318,
+  "validation": 23,
+  "chars": 7351070,
+  "byLicence": {
+   "CC0-1.0": 243,
+   "CC-BY-4.0": 98
+  },
+  "bySource": {
+   "factbook": 243,
+   "openstax-physics": 98
+  },
+  "byVerification": {
+   "single-source": 341
+  },
+  "meanVerificationScore": 0.738,
+  "meanTextQuality": 0.895,
+  "disputedStatements": 0,
+  "rejected": 20,
+  "rejectedByStage": {
+   "format": 12,
+   "language": 8
+  },
+  "acceptanceRate": 0.945,
+  "lastCollected": "2026-11-13T13:16:54Z",
+  "domains": 1,
+  "sources": {
+   "factbook": {
+    "accepted": 243,
+    "rejected": 18,
+    "domains": 1,
+    "last": "2026-11-13T13:15:45Z",
+    "rejectedBy": {
+     "format": 12,
+     "language": 6
+    }
+   },
+   "openstax-physics": {
+    "accepted": 98,
+    "rejected": 2,
+    "domains": 1,
+    "last": "2026-11-13T13:16:54Z",
+    "rejectedBy": {
+     "language": 2
+    }
+   }
+  }
+ },
+ "evaluations": [],
+ "hardware": {
+  "hardware": {
+   "platform": "Linux-6.1.158+-x86_64-with-glibc2.36",
+   "machine": "x86_64",
+   "python": "3.11.2",
+   "torch": "2.15.0+cu132",
+   "cpu_count": 2,
+   "torch_threads": 2,
+   "memory_gb": 3.85,
+   "cpu_training": true,
+   "gpu_training": false,
+   "cuda": false,
+   "apple_silicon_mps": false,
+   "gpus": [],
+   "cpu_simd": [
+    "avx2",
+    "avx512f",
+    "fma"
+   ],
+   "mixed_precision": false,
+   "device": "cpu",
+   "precision": "fp32"
+  },
+  "recommended_preset": "micro",
+  "presets": {
+   "nano": {
+    "n_layer": 2,
+    "n_head": 2,
+    "d_model": 64,
+    "context": 128
+   },
+   "micro": {
+    "n_layer": 4,
+    "n_head": 4,
+    "d_model": 128,
+    "context": 256
+   },
+   "mini": {
+    "n_layer": 4,
+    "n_head": 4,
+    "d_model": 192,
+    "context": 256
+   },
+   "small": {
+    "n_layer": 6,
+    "n_head": 6,
+    "d_model": 288,
+    "context": 384
+   },
+   "base": {
+    "n_layer": 8,
+    "n_head": 8,
+    "d_model": 512,
+    "context": 512
+   },
+   "large": {
+    "n_layer": 12,
+    "n_head": 12,
+    "d_model": 768,
+    "context": 1024
+   }
+  },
+  "available": true,
+  "probed": "2026-11-13T12:39:07Z"
+ },
+ "config": {
+  "cycle": {
+   "auto": false,
+   "intervalMinutes": 360,
+   "maxNewDocs": 120,
+   "minNewDocs": 5,
+   "bootstrapSeconds": 1500,
+   "trainSeconds": 420,
+   "incrementalLr": 0.0004,
+   "maxPasses": 1.5,
+   "maxCaution": 3,
+   "anchorL2": 0.0001,
+   "evalWindows": 96
+  },
+  "mixture": {
+   "dialogue": 0.34,
+   "fresh": 0.33,
+   "replay": 0.33,
+   "groundedShare": 0.55
+  },
+  "gate": {
+   "maxLossRegression": 0,
+   "maxAnchorRegression": 0.05,
+   "maxProbeDrop": 0.04,
+   "minProbeFloor": {
+    "chat": 0.15,
+    "grounded": 0.4,
+    "route": 0.7
+   },
+   "minLearnRatio": 0.6,
+   "maxRepetition": 0.35,
+   "parityRequired": true,
+   "benchmarkRequired": true,
+   "maxBenchmarkDrop": 0.03,
+   "maxBenchmarkLossRegression": 0.05,
+   "memorizationRequired": false,
+   "maxVerbatim": 0.15,
+   "maxVerbatimExcess": 0.1,
+   "maxGeneralizationGap": 0.6,
+   "maxGapGrowth": 0.15,
+   "maxGapCeiling": 1,
+   "maxWebRegression": 0.05,
+   "minImprovement": 0.002,
+   "minBenchmarkGain": 0.01
+  },
+  "resources": {
+   "threads": 2,
+   "nice": 10,
+   "duty": 1,
+   "maxTrainRssMb": 2200,
+   "minFreeMb": 500,
+   "maxCorpusMb": 400,
+   "python": ""
+  },
+  "quality": {
+   "minChars": 500,
+   "maxChars": 400000,
+   "languages": [
+    "en"
+   ],
+   "minScore": 0.55,
+   "maxDomainShare": 0.4,
+   "nearDupHamming": 4
+  },
+  "licences": [
+   "CC0-1.0",
+   "PDM",
+   "CC-BY-4.0",
+   "CC-BY-3.0",
+   "CC-BY-2.5",
+   "CC-BY-2.0",
+   "CC-BY-SA-4.0",
+   "CC-BY-SA-3.0",
+   "CC-BY-SA-2.5",
+   "MIT",
+   "Apache-2.0",
+   "BSD-3-Clause",
+   "US-GOV-PD"
+  ],
+  "sources": [
+   {
+    "id": "web",
+    "type": "web",
+    "enabled": true,
+    "topics": [
+     "Nepal",
+     "Kathmandu",
+     "Mount Everest",
+     "Himalayas",
+     "solar system",
+     "photosynthesis",
+     "water cycle",
+     "human heart",
+     "Internet",
+     "computer",
+     "democracy",
+     "climate",
+     "electricity",
+     "gravity",
+     "atom",
+     "cell (biology)",
+     "ocean",
+     "volcano",
+     "language",
+     "mathematics"
+    ],
+    "perCycle": 40
+   },
+   {
+    "id": "simplewiki",
+    "type": "mediawiki",
+    "enabled": true,
+    "perCycle": 30,
+    "publisher": "Simple English Wikipedia"
+   },
+   {
+    "id": "wikibooks",
+    "type": "mediawiki",
+    "enabled": true,
+    "perCycle": 10,
+    "publisher": "Wikibooks"
+   },
+   {
+    "id": "wikivoyage",
+    "type": "mediawiki",
+    "enabled": true,
+    "perCycle": 10,
+    "publisher": "Wikivoyage"
+   },
+   {
+    "id": "factbook",
+    "type": "github",
+    "enabled": true,
+    "repo": "factbook/factbook.json",
+    "perCycle": 30,
+    "publisher": "The World Factbook (CIA), via factbook/factbook.json"
+   },
+   {
+    "id": "openstax-physics",
+    "type": "github",
+    "enabled": true,
+    "repo": "openstax/osbooks-physics",
+    "perCycle": 40,
+    "publisher": "OpenStax Physics (Rice University)"
+   },
+   {
+    "id": "openstax-psychology",
+    "type": "github",
+    "enabled": false,
+    "repo": "openstax/osbooks-psychology",
+    "perCycle": 10,
+    "publisher": "OpenStax Psychology 2e (Rice University)"
+   }
+  ]
+ },
+ "events": [
+  {
+   "t": "2026-11-13T13:03:48Z",
+   "type": "note",
+   "text": "source unavailable — wikibooks: Client network socket disconnected before secure TLS connection was established"
+  },
+  {
+   "t": "2026-11-13T13:03:48Z",
+   "type": "note",
+   "text": "source unavailable — wikivoyage: Client network socket disconnected before secure TLS connection was established"
+  },
+  {
+   "t": "2026-11-13T13:03:49Z",
+   "type": "note",
+   "text": "factbook: 261 documents in the collection, 81 not yet collected, licence CC0-1.0"
+  },
+  {
+   "t": "2026-11-13T13:03:57Z",
+   "type": "note",
+   "text": "openstax-physics: 100 documents in the collection, 40 not yet collected, licence CC-BY-4.0"
+  },
+  {
+   "t": "2026-11-13T13:03:59Z",
+   "type": "discovery",
+   "round": "r00008",
+   "collected": 40,
+   "accepted": 39,
+   "rejected": 1,
+   "waiting": 39
+  },
+  {
+   "t": "2026-11-13T13:04:59Z",
+   "type": "phase",
+   "phase": "discover",
+   "round": "r00009",
+   "message": "finding and reading new documents"
+  },
+  {
+   "t": "2026-11-13T13:05:00Z",
+   "type": "note",
+   "text": "web: the search engine returned nothing for 3 topics in a row (Client network socket disconnected before secure TLS connection was established); stopping web discovery for this cycle"
+  },
+  {
+   "t": "2026-11-13T13:05:00Z",
+   "type": "note",
+   "text": "source unavailable — simplewiki: Client network socket disconnected before secure TLS connection was established"
+  },
+  {
+   "t": "2026-11-13T13:05:00Z",
+   "type": "note",
+   "text": "source unavailable — wikibooks: Client network socket disconnected before secure TLS connection was established"
+  },
+  {
+   "t": "2026-11-13T13:05:00Z",
+   "type": "note",
+   "text": "source unavailable — wikivoyage: Client network socket disconnected before secure TLS connection was established"
+  },
+  {
+   "t": "2026-11-13T13:05:01Z",
+   "type": "note",
+   "text": "factbook: 261 documents in the collection, 51 not yet collected, licence CC0-1.0"
+  },
+  {
+   "t": "2026-11-13T13:05:08Z",
+   "type": "note",
+   "text": "openstax-physics: 100 documents in the collection, 30 not yet collected, licence CC-BY-4.0"
+  },
+  {
+   "t": "2026-11-13T13:05:11Z",
+   "type": "discovery",
+   "round": "r00009",
+   "collected": 40,
+   "accepted": 39,
+   "rejected": 1,
+   "waiting": 78
+  },
+  {
+   "t": "2026-11-13T13:06:11Z",
+   "type": "phase",
+   "cycle": "c0006",
+   "phase": "acquire",
+   "message": "finding and reading new documents"
+  },
+  {
+   "t": "2026-11-13T13:06:11Z",
+   "type": "note",
+   "text": "78 documents waiting from discovery; collected 0 now, accepted 0, rejected 0 {}"
+  },
+  {
+   "t": "2026-11-13T13:06:11Z",
+   "type": "phase",
+   "cycle": "c0006",
+   "phase": "dataset",
+   "message": "building training and validation sequences"
+  },
+  {
+   "t": "2026-11-13T13:06:35Z",
+   "type": "note",
+   "text": "dataset d0006: 5658824 training tokens, 381950 validation tokens, mixture {\"dialogue\":0.34,\"fresh\":0.33,\"replay\":0.33}"
+  },
+  {
+   "t": "2026-11-13T13:06:35Z",
+   "type": "phase",
+   "cycle": "c0006",
+   "phase": "train",
+   "message": "continuing from m0005 on d0006 (about 7 min)"
+  },
+  {
+   "t": "2026-11-13T13:06:35Z",
+   "type": "note",
+   "text": "careful training (level 1): learning rate 0.0002, 0.75 passes over the data, 369 steps"
+  },
+  {
+   "t": "2026-11-13T13:06:37Z",
+   "type": "train-start",
+   "cycle": "c0006",
+   "source": "continued from models/m0005/ckpt.pt",
+   "params": 1344640,
+   "device": "cpu",
+   "precision": "fp32"
+  },
+  {
+   "t": "2026-11-13T13:08:05Z",
+   "type": "worker-recovered",
+   "found": [
+    "the previous worker (pid 3670, started 2026-11-13T12:36:44Z) ended without shutting down",
+    "a stale step lock was removed",
+    "cycle c0006 is unfinished (phases done: acquire, dataset) and will be continued"
+   ]
+  },
+  {
+   "t": "2026-11-13T13:08:05Z",
+   "type": "worker-start",
+   "pid": 15325,
+   "host": "e2b.local",
+   "starts": 3,
+   "session": ""
+  },
+  {
+   "t": "2026-11-13T13:08:05Z",
+   "type": "pruned",
+   "files": 14
+  },
+  {
+   "t": "2026-11-13T13:08:05Z",
+   "type": "note",
+   "text": "continuing cycle c0006 after an interruption"
+  },
+  {
+   "t": "2026-11-13T13:08:05Z",
+   "type": "phase",
+   "cycle": "c0006",
+   "phase": "train",
+   "message": "continuing from m0005 on d0006 (about 7 min)"
+  },
+  {
+   "t": "2026-11-13T13:08:05Z",
+   "type": "note",
+   "text": "careful training (level 1): learning rate 0.0002, 0.75 passes over the data, 369 steps"
+  },
+  {
+   "t": "2026-11-13T13:08:08Z",
+   "type": "train-start",
+   "cycle": "c0006",
+   "source": "resumed runs/c0006/ckpt.pt",
+   "params": 1344640,
+   "device": "cpu",
+   "precision": "fp32"
+  },
+  {
+   "t": "2026-11-13T13:13:26Z",
+   "type": "note",
+   "text": "training ended (cycle complete) at step 3547, validation loss 2.1984"
+  },
+  {
+   "t": "2026-11-13T13:13:26Z",
+   "type": "phase",
+   "cycle": "c0006",
+   "phase": "export",
+   "message": "writing the candidate model"
+  },
+  {
+   "t": "2026-11-13T13:13:27Z",
+   "type": "phase",
+   "cycle": "c0006",
+   "phase": "evaluate",
+   "message": "measuring the candidate against the production model on held-out data and the fixed benchmark"
+  },
+  {
+   "t": "2026-11-13T13:15:39Z",
+   "type": "note",
+   "text": "training caution 1 → 2"
+  },
+  {
+   "t": "2026-11-13T13:15:39Z",
+   "type": "cycle",
+   "cycle": "c0006",
+   "outcome": "rejected",
+   "message": "m0006 was not promoted: fixed benchmark text is not read worse [loss 6.6416 vs 6.5834 (allowed +0.05)]. m0005 stays in production."
+  },
+  {
+   "t": "2026-11-13T13:15:40Z",
+   "type": "phase",
+   "phase": "discover",
+   "round": "r00010",
+   "message": "finding and reading new documents"
+  },
+  {
+   "t": "2026-11-13T13:15:40Z",
+   "type": "note",
+   "text": "web: the search engine returned nothing for 3 topics in a row (Client network socket disconnected before secure TLS connection was established); stopping web discovery for this cycle"
+  },
+  {
+   "t": "2026-11-13T13:15:40Z",
+   "type": "note",
+   "text": "source unavailable — simplewiki: Client network socket disconnected before secure TLS connection was established"
+  },
+  {
+   "t": "2026-11-13T13:15:40Z",
+   "type": "note",
+   "text": "source unavailable — wikibooks: Client network socket disconnected before secure TLS connection was established"
+  },
+  {
+   "t": "2026-11-13T13:15:40Z",
+   "type": "note",
+   "text": "source unavailable — wikivoyage: Client network socket disconnected before secure TLS connection was established"
+  },
+  {
+   "t": "2026-11-13T13:15:41Z",
+   "type": "note",
+   "text": "factbook: 261 documents in the collection, 21 not yet collected, licence CC0-1.0"
+  },
+  {
+   "t": "2026-11-13T13:15:47Z",
+   "type": "note",
+   "text": "openstax-physics: 100 documents in the collection, 20 not yet collected, licence CC-BY-4.0"
+  },
+  {
+   "t": "2026-11-13T13:15:51Z",
+   "type": "discovery",
+   "round": "r00010",
+   "collected": 40,
+   "accepted": 37,
+   "rejected": 3,
+   "waiting": 37
+  },
+  {
+   "t": "2026-11-13T13:16:52Z",
+   "type": "phase",
+   "phase": "discover",
+   "round": "r00011",
+   "message": "finding and reading new documents"
+  },
+  {
+   "t": "2026-11-13T13:16:52Z",
+   "type": "note",
+   "text": "web: the search engine returned nothing for 3 topics in a row (Client network socket disconnected before secure TLS connection was established); stopping web discovery for this cycle"
+  },
+  {
+   "t": "2026-11-13T13:16:52Z",
+   "type": "note",
+   "text": "source unavailable — simplewiki: Client network socket disconnected before secure TLS connection was established"
+  },
+  {
+   "t": "2026-11-13T13:16:52Z",
+   "type": "note",
+   "text": "source unavailable — wikibooks: Client network socket disconnected before secure TLS connection was established"
+  },
+  {
+   "t": "2026-11-13T13:16:52Z",
+   "type": "note",
+   "text": "source unavailable — wikivoyage: Client network socket disconnected before secure TLS connection was established"
+  },
+  {
+   "t": "2026-11-13T13:16:53Z",
+   "type": "note",
+   "text": "factbook: 261 documents in the collection, 0 not yet collected, licence CC0-1.0"
+  },
+  {
+   "t": "2026-11-13T13:16:54Z",
+   "type": "note",
+   "text": "openstax-physics: 100 documents in the collection, 1 not yet collected, licence CC-BY-4.0"
+  },
+  {
+   "t": "2026-11-13T13:16:54Z",
+   "type": "discovery",
+   "round": "r00011",
+   "collected": 1,
+   "accepted": 1,
+   "rejected": 0,
+   "waiting": 38
+  },
+  {
+   "t": "2026-11-13T13:17:48Z",
+   "type": "worker-stop",
+   "reason": "SIGTERM",
+   "uptimeSeconds": 583
+  },
+  {
+   "t": "2026-11-13T13:17:56Z",
+   "type": "worker-start",
+   "pid": 16968,
+   "host": "e2b.local",
+   "starts": 4,
+   "session": ""
+  },
+  {
+   "t": "2026-11-13T13:17:57Z",
+   "type": "phase",
+   "phase": "discover",
+   "round": "r00012",
+   "message": "finding and reading new documents"
+  },
+  {
+   "t": "2026-11-13T13:17:57Z",
+   "type": "note",
+   "text": "web: the search engine returned nothing for 3 topics in a row (Client network socket disconnected before secure TLS connection was established); stopping web discovery for this cycle"
+  },
+  {
+   "t": "2026-11-13T13:17:57Z",
+   "type": "note",
+   "text": "source unavailable — simplewiki: Client network socket disconnected before secure TLS connection was established"
+  },
+  {
+   "t": "2026-11-13T13:17:57Z",
+   "type": "note",
+   "text": "source unavailable — wikibooks: Client network socket disconnected before secure TLS connection was established"
+  },
+  {
+   "t": "2026-11-13T13:17:57Z",
+   "type": "note",
+   "text": "source unavailable — wikivoyage: Client network socket disconnected before secure TLS connection was established"
+  },
+  {
+   "t": "2026-11-13T13:17:58Z",
+   "type": "note",
+   "text": "factbook: 261 documents in the collection, 0 not yet collected, licence CC0-1.0"
+  },
+  {
+   "t": "2026-11-13T13:17:59Z",
+   "type": "note",
+   "text": "openstax-physics: 100 documents in the collection, 0 not yet collected, licence CC-BY-4.0"
+  },
+  {
+   "t": "2026-11-13T13:17:59Z",
+   "type": "discovery",
+   "round": "r00012",
+   "collected": 0,
+   "accepted": 0,
+   "rejected": 0,
+   "waiting": 38
+  },
+  {
+   "t": "2026-11-13T13:18:39Z",
+   "type": "worker-stop",
+   "reason": "SIGTERM",
+   "uptimeSeconds": 42
+  },
+  {
+   "t": "2026-11-13T13:18:40Z",
+   "type": "worker-start",
+   "pid": 17120,
+   "host": "e2b.local",
+   "starts": 5,
+   "session": ""
+  }
+ ],
+ "totals": {
+  "cycles": 6,
+  "promoted": 3,
+  "rejected": 3,
+  "trainSeconds": 2651.6,
+  "tokensTrained": 26034176,
+  "steps": 3178
+ },
+ "published": "2026-11-13T13:18:40Z"
+}

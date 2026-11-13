@@ -85,6 +85,11 @@ export function loadConfig(env = (typeof process !== 'undefined' ? process.env :
       adminToken: String(env.INFINI_ADMIN_TOKEN || '').length >= 16 ? String(env.INFINI_ADMIN_TOKEN) : '',     // protects the training controls; unset = controls disabled
       serverless: !!(env.VERCEL || env.AWS_LAMBDA_FUNCTION_NAME),              // no writable disk, no long-running processes: training runs elsewhere
       learning: env.INFINI_LEARNING !== '0',
+      // the learning worker's model channel (a URL under which channel.json and the model files are served, for example
+      // https://github.com/<owner>/<repo>/releases/download/infinity-model): approved models arrive here without a redeploy
+      channel: /^https?:\/\//.test(String(env.INFINI_MODEL_CHANNEL || '')) ? String(env.INFINI_MODEL_CHANNEL).trim() : '',
+      channelSeconds: num(env.INFINI_MODEL_CHANNEL_SECONDS, 300, 5, 86400),
+      channelDir: String(env.INFINI_MODEL_CHANNEL_DIR || ''),
       scheduler: env.INFINI_LEARNING_SCHEDULER !== '0',
     },
   };

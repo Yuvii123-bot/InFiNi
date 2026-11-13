@@ -7,11 +7,12 @@ import path from 'node:path';
 import { loadModel, selfTest } from '../engine/neural/model.js';
 import { createTokenizer } from '../engine/neural/tokenizer.js';
 import { createRuntime, tokenF1, replyCheck } from '../engine/neural/generate.js';
+import { loadBenchmark, runBenchmark, memorizationProbe } from './benchmark.mjs';
 
 const norm = (s) => String(s).toLowerCase().replace(/[^\p{L}\p{N}]+/gu, ' ').trim();
 const f1 = tokenF1;
 
-export async function evaluateModel(modelDir, datasetDir, { chatN = 160, groundedN = 120, routeN = 240, sampleN = 40 } = {}) {
+export async function evaluateModel(modelDir, datasetDir, { chatN = 160, groundedN = 120, routeN = 240, sampleN = 40, benchmark = true } = {}) {
   const t0 = Date.now();
   const model = loadModel(modelDir);
   const tok = createTokenizer(JSON.parse(fs.readFileSync(path.join(modelDir, 'tokenizer.json'), 'utf8')));
@@ -54,6 +55,11 @@ export async function evaluateModel(modelDir, datasetDir, { chatN = 160, grounde
   const sm = chat.slice(0, sampleN);
   for (let i = 0; i < sm.length; i++) { const g = await rt.chat({ user: sm[i].user, temperature: 0.7, seed: 1000 + i, maxNew: 96 }); tokens += g.tokens + g.promptTokens; ms += g.ms; if (g.loop) loops++; if (!g.text) empty++; if (!g.ended) unfinished++; }
   out.sampling = { n: sm.length, repetition: sm.length ? +(loops / sm.length).toFixed(4) : null, empty: sm.length ? +(empty / sm.length).toFixed(4) : null, unfinished: sm.length ? +(unfinished / sm.length).toFixed(4) : null };
+  // 5. the fixed benchmark (the same items for every version) and the memorization probe
+  out.benchmark = benchmark ? runBenchmark(model, tok, loadBenchmark()) : null;
+  let mem = null;
+  try { mem = JSON.parse(fs.readFileSync(path.join(datasetDir, 'memprobe.json'), 'utf8')); } catch { /* datasets built before the probe existed */ }
+  out.memorization = mem && mem.trained.length && mem.unseen.length ? memorizationProbe(model, tok, mem) : null;
   out.inference = { tokensPerSecond: ms ? Math.round(tokens / (ms / 1000)) : null, engine: 'javascript' };
   out.seconds = +((Date.now() - t0) / 1000).toFixed(1);
   return out;
@@ -73,6 +79,7 @@ export function promotionGate(cand, prod, gate, { vocab = 4096 } = {}) {
   if (prod) {
     add('held-out loss is not worse than production', num(cand.val_loss) && cand.val_loss <= prod.val_loss + gate.maxLossRegression, `${cand.val_loss} vs ${prod.val_loss} (allowed +${gate.maxLossRegression})`);
     if (num(cg('dialogue')) && num(pg('dialogue'))) add('earlier knowledge kept (conversation data)', cg('dialogue') <= pg('dialogue') + gate.maxAnchorRegression, `${cg('dialogue')} vs ${pg('dialogue')} (allowed +${gate.maxAnchorRegression})`);
+    if (num(cg('web')) && num(pg('web'))) add('held-out document text is not read worse', cg('web') <= pg('web') + (gate.maxWebRegression ?? 0.05), `${cg('web')} vs ${pg('web')} (allowed +${gate.maxWebRegression ?? 0.05})`);
     for (const [name, get] of [['reply match', (p) => p.chat.f1], ['evidence choice', (p) => p.grounded.accuracy], ['search decision', (p) => p.route.accuracy]]) {
       const c = get(cand.probes), p = get(prod.probes);
       if (num(c) && num(p)) add(`${name} did not fall`, c >= p - gate.maxProbeDrop, `${c} vs ${p} (allowed −${gate.maxProbeDrop})`);
@@ -85,5 +92,29 @@ export function promotionGate(cand, prod, gate, { vocab = 4096 } = {}) {
     if (num(cand.probes.route.accuracy)) add('search decision is better than guessing', cand.probes.route.accuracy >= f.route, `${cand.probes.route.accuracy} (floor ${f.route})`);
   }
   if (num(cand.probes.sampling.repetition)) add('sampled replies do not loop', cand.probes.sampling.repetition <= gate.maxRepetition, `${cand.probes.sampling.repetition} (limit ${gate.maxRepetition})`);
+  // ---- the fixed benchmark: the same items for every version ----
+  const cb = cand.probes.benchmark, pb = prod && prod.probes.benchmark;
+  if (gate.benchmarkRequired !== false) add('fixed benchmark was run', !!cb && num(cb.score), cb ? `${cb.id}, ${cb.items} items` : 'no benchmark result');
+  if (cb && pb) {
+    add('fixed benchmark score did not fall', cb.score >= pb.score - gate.maxBenchmarkDrop, `${cb.score} vs ${pb.score} (allowed −${gate.maxBenchmarkDrop})`);
+    add('fixed benchmark text is not read worse', cb.passages.loss <= pb.passages.loss + gate.maxBenchmarkLossRegression, `loss ${cb.passages.loss} vs ${pb.passages.loss} (allowed +${gate.maxBenchmarkLossRegression})`);
+  }
+  // ---- memorization: trained text must not be reproduced word for word, nor be far easier than unseen text ----
+  const cm = cand.probes.memorization;
+  if (cm && num(cm.trained.verbatim)) {
+    add('does not recite its training text', cm.trained.verbatim <= gate.maxVerbatim && (!num(cm.verbatimExcess) || cm.verbatimExcess <= gate.maxVerbatimExcess), `${cm.trained.verbatim} of trained passages continued word for word, ${cm.unseen.verbatim} of unseen ones (limits ${gate.maxVerbatim}, difference ${gate.maxVerbatimExcess})`);
+    // The two passage sets differ in difficulty by themselves, so production measured on the same passages is the control:
+    // the candidate's gap may exceed the fixed limit only as far as production's own gap explains it, and never the ceiling.
+    const pm = prod && prod.probes.memorization;
+    const limit = pm && num(pm.gap) ? +Math.min(gate.maxGapCeiling ?? 1, Math.max(gate.maxGeneralizationGap, pm.gap + (gate.maxGapGrowth ?? 0.15))).toFixed(4) : gate.maxGeneralizationGap;
+    if (num(cm.gap)) add('trained text is not much easier than unseen text', cm.gap <= limit, `loss ${cm.trained.loss} on trained passages, ${cm.unseen.loss} on unseen ones: gap ${cm.gap} (limit ${limit}${pm && num(pm.gap) ? `; production on the same passages: ${pm.gap}` : ''})`);
+  } else if (gate.memorizationRequired) add('memorization probe was run', false, 'the dataset has no memorization probe');
+  // ---- a candidate must be measurably better, not merely "not worse" ----
+  if (prod) {
+    const lossGain = num(cand.val_loss) && num(prod.val_loss) ? +(prod.val_loss - cand.val_loss).toFixed(4) : null;
+    const benchGain = cb && pb ? +(cb.score - pb.score).toFixed(4) : null;
+    const better = (num(lossGain) && lossGain >= gate.minImprovement) || (num(benchGain) && benchGain >= gate.minBenchmarkGain);
+    add('measurably better than production', better, `held-out loss improved by ${lossGain} (needs ${gate.minImprovement}) or benchmark score by ${benchGain} (needs ${gate.minBenchmarkGain})`);
+  }
   return { pass: checks.every((c) => c.pass), checks, comparedWith: prod ? prod.id : null };
 }

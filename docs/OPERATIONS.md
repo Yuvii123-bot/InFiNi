@@ -73,7 +73,7 @@ See `.env.example`. Secrets are read from the environment only, are never writte
 | `GET /api/status` | Version, provider availability, cache counters, Wikimedia budget, the size of the brain's data (`brain`) and how many messages it answered (`totals.brain`), the depths, and `research` (enabled, limits, runs in progress, runs started in the last hour). No secrets. |
 | `GET /api/health` | Liveness. |
 | `GET /api/llm/status` | The model in use (version, size, self-test) and the learning records: state, live training progress, loss curve, model versions with their measurements and gate results, cycles, dataset versions, corpus statistics, hardware, history, recent events. Public and read-only. |
-| `POST /api/llm/chat` `{message, history?[[user, reply]…], temperature?}` | The model alone, without rules or web: streams `token` events, then `answer` (`ok`, `text`, `reason` when the reply was withheld, tokens, speed) and `done`. 503 when no model is loaded. |
+| `POST /api/llm/chat` `{message, history?[[user, reply]…], temperature?, seed?, maxTokens?}` | The Infinity LLM chat (`/llm.html`): the model alone, without rules, web or reply check. Streams `start`, `token` events, then `answer` (`text` exactly as generated, `note` when the model did not end the reply itself, `finished`, tokens, context turns used, speed) and `done`. 503 when no model is loaded; nothing answers in its place. Details: [`PURE-LLM.md`](PURE-LLM.md). |
 | `POST /api/llm/admin` `{action, …}` with `Authorization: Bearer <INFINI_ADMIN_TOKEN>` | `check`, `pause`, `resume`, `start` (a learning cycle), `evaluate` (the production model), `rollback` `{to?, reason?}`, `configure` `{settings}`. 403 when the server has no token, 401 for a wrong one (failed attempts are rate-limited), 409 when a cycle is already running, learning is paused or the host cannot train. |
 
 `POST /api/ask` additionally accepts `history` (up to 8 `[user, reply]` pairs, the context the model reads) and `settings.neural: false` (do not use the model for this request). When the model writes, the stream carries `token` events: `{start, mode: 'chat'|'grounded', model}`, then `{text}` per token, and `{reset}` if the text is withdrawn. The final `answer` has `origin: 'neural'` and a `neural` object with the model version, token counts, speed and the rule-based reply it replaced; or `neural.used: false` with the reason.
@@ -93,6 +93,18 @@ Full description: [`INFINITY-LLM.md`](INFINITY-LLM.md).
 | `INFINI_LEARNING_SCHEDULER` | `1` | `0` = cycles start only on request (`node learning/cli.mjs cycle`, or the dashboard). |
 | `INFINI_PYTHON` | `.venv/bin/python`, then `python3` | Interpreter with PyTorch, for training only. |
 | `GITHUB_TOKEN` | empty | Read-only token that raises the GitHub API allowance when collecting text from public repositories. |
+| `INFINI_MODEL_CHANNEL` | empty | **Serving side.** Address of the learning worker's model channel. The server checks it, verifies and self-tests a new model, then answers with it — no redeploy. With a GitHub release: `https://github.com/<owner>/<repo>/releases/download/infinity-model`. |
+| `INFINI_MODEL_CHANNEL_SECONDS` | `300` | Least time between two looks at the channel. |
+| `INFINI_MODEL_CHANNEL_DIR` | the temporary directory | Where received models are kept. |
+| `INFINI_PUBLISH_DIR` | empty | **Worker side.** Directory into which approved models and the records are published. |
+| `INFINI_PUBLISH_GITHUB` | empty | **Worker side.** `owner/repository` whose release `INFINI_PUBLISH_TAG` (`infinity-model`) receives them. Needs `GITHUB_TOKEN` with `contents: write`. |
+| `INFINI_STATE_GITHUB`, `INFINI_STATE_ARCHIVE` | empty | **Worker side**, hosts without a permanent disk: keep the state as one archive in the release `INFINI_STATE_TAG` (`infinity-state`), or in a file. |
+| `INFINI_WORKER_MAX_RUNTIME` | `0` | The worker ends by itself after this many seconds (`0` = never). |
+
+**Continuous learning** runs in a separate process, the learning worker (`node learning/worker.mjs`): it discovers and
+verifies text all the time, trains when enough has arrived, lets the gate decide, publishes approved models, and
+recovers from crashes and restarts by itself. How to run it (Docker, systemd, GitHub Actions), what it does when
+something fails, and what was measured: [`WORKER.md`](WORKER.md).
 
 Set up training on a host with a disk:
 
@@ -121,10 +133,12 @@ If the server stops, the checkpoint on disk is the last one written and the cycl
 |---|---|---|
 | `node server/server.js` on a machine with Python and PyTorch | yes | yes, on schedule or on request |
 | Container from the `Dockerfile` (read-only, no Python) | yes, the published model | no |
-| Vercel or another serverless host | yes, the published model | no: no disk, no Python, minutes of run time. The learning page shows the records published with the app. |
+| Vercel or another serverless host | yes: the model deployed with the app, replaced by whatever the worker's channel offers once `INFINI_MODEL_CHANNEL` is set | no: no disk, no Python, seconds of run time. The learning page shows the worker's records from the channel. |
+| The learning worker (`Dockerfile.worker`, `deploy/infinity-worker.service`, or the workflow `infinity-learning.yml`) | no | yes, continuously |
 
-To update a serverless deployment: run cycles on a machine that can train, `node learning/cli.mjs publish`, commit
-`model/`, deploy.
+To update a serverless deployment without a worker: run cycles on a machine that can train,
+`node learning/cli.mjs publish`, commit `model/`, deploy. With a worker and `INFINI_MODEL_CHANNEL`, nothing has to be
+committed or deployed: an approved model arrives through the channel.
 
 ## Production deployment
 

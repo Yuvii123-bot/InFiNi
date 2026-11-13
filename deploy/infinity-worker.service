@@ -1,0 +1,27 @@
+# systemd unit for the Infinity LLM learning worker (a machine that stays on).
+#   sudo cp deploy/infinity-worker.service /etc/systemd/system/ && sudo systemctl enable --now infinity-worker
+# Adjust User, WorkingDirectory and the environment. Python with PyTorch: python3 -m venv .venv && .venv/bin/pip install torch numpy
+[Unit]
+Description=Infinity LLM learning worker
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=infini
+WorkingDirectory=/opt/infini
+Environment=NODE_ENV=production
+Environment=INFINI_LLM_DIR=/var/lib/infini/llm
+Environment=INFINI_PYTHON=/opt/infini/.venv/bin/python
+# Environment=INFINI_PUBLISH_GITHUB=owner/repository
+# Environment=GITHUB_TOKEN=...
+# Environment=INFINI_PUBLISH_DIR=/var/lib/infini/channel
+ExecStart=/usr/bin/node --max-old-space-size=768 learning/worker.mjs
+Restart=always
+RestartSec=10
+KillSignal=SIGTERM
+TimeoutStopSec=60
+Nice=5
+
+[Install]
+WantedBy=multi-user.target
