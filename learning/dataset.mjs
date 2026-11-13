@@ -20,6 +20,7 @@ import { trainBPE, createTokenizer, tokenizerSpec, T, normalizeText } from '../e
 import { rng } from '../engine/neural/model.js';
 import { goodSentences, sha256 } from './process.mjs';
 import { REPO, writeJSON, nowISO } from './store.mjs';
+import { benchmarkSentences, isBenchmarkSentence, normSentence, loadBenchmark } from './benchmark.mjs';
 
 const pick = (r, list) => list[Math.floor(r() * list.length)];
 const shuffle = (r, list) => { for (let i = list.length - 1; i > 0; i--) { const j = Math.floor(r() * (i + 1)); [list[i], list[j]] = [list[j], list[i]]; } return list; };
@@ -126,10 +127,16 @@ export function questionFor(r, { title, sentence, lead }) {
   if (k.length < 2) return '';
   return pick(r, [`${title}: ${k.join(' ')}?`, `What about ${k.join(' and ')}?`, `${k.join(' ')}`, `Tell me about ${k.join(' and ')} in ${title}.`, `${k.join(' ')} ${title}`]).replace(/\s+/g, ' ');
 }
+let BENCH = null;                                  // sentences of the fixed benchmark: never part of any training or validation text
+const benchSet = () => (BENCH || (BENCH = benchmarkSentences()));
+let BENCH_ID = null;
+const loadBenchmarkId = () => (BENCH_ID || (BENCH_ID = loadBenchmark().id));
+let benchRemoved = 0;                              // benchmark sentences met in documents and left out (reset per dataset)
 function docSentences(doc) {
   const disputed = new Set(((doc.verification && doc.verification.disputed) || []).map((d) => d.text));
+  const bench = benchSet();
   const out = [];
-  doc.paras.forEach((p, pi) => { for (const s of goodSentences(p.text)) if (!disputed.has(s)) out.push({ s, h: p.h, pi, lead: out.length === 0 }); });
+  doc.paras.forEach((p, pi) => { for (const s of goodSentences(p.text)) if (isBenchmarkSentence(bench, s)) benchRemoved++; else if (!disputed.has(s)) out.push({ s, h: p.h, pi, lead: out.length === 0 }); });
   return out;
 }
 const labelOf = (s) => { const m = LABELLED.exec(s); return m ? m[1] : ''; };
@@ -198,6 +205,7 @@ function encodeSeqs(tok, seqs, context) {
  * @param freshIds  ids of the documents that are new in this cycle (the rest is replay)
  */
 export function buildDataset({ dir, version, docs, freshIds = null, cfg, tokenizer = null, context = 256, cycle = '', parent = '', seed = 11, dialogue = null, log = () => {} }) {
+  benchRemoved = 0;
   fs.mkdirSync(dir, { recursive: true });
   const r = rng(seed);
   const dlg = dialogue || buildDialogue({ seed: 7 });
@@ -235,11 +243,13 @@ export function buildDataset({ dir, version, docs, freshIds = null, cfg, tokeniz
   const present = groups.filter((g) => g.split === 'train').map((g) => g.group);
   const total = present.reduce((a, g) => a + mix[g], 0);
   const shards = [];
+  const documentText = [];                          // what was actually written, decoded again: the contamination check reads this
   let dropped = 0;
   for (const g of groups) {
     const enc = encodeSeqs(tok, g.seqs, context);
     dropped += enc.dropped;
     if (enc.ids.length < context + 2) continue;
+    if (g.group !== 'dialogue') documentText.push(normSentence(tok.decode(Array.from(enc.ids))));
     const file = `${g.group}.${g.split}.bin`, index = `${g.group}.${g.split}.idx`;
     fs.writeFileSync(path.join(dir, file), Buffer.from(enc.ids.buffer, enc.ids.byteOffset, enc.ids.byteLength));
     fs.writeFileSync(path.join(dir, index), Buffer.from(enc.starts.buffer, enc.starts.byteOffset, enc.starts.byteLength));
@@ -251,16 +261,30 @@ export function buildDataset({ dir, version, docs, freshIds = null, cfg, tokeniz
   const chat = dlg.probes.slice(0, 240);
   const route = shuffle(pr, [...chat.slice(0, 150).map((p) => ({ text: p.user, label: 'chat' })), ...grounded.slice(0, 150).map((g) => ({ text: g.question, label: 'search' }))]);
   writeJSON(path.join(dir, 'probes.json'), { chat, grounded, route });
+  // memorization probe: passages exactly as they are trained on (newest documents first) and passages from held-out documents
+  const probeSeqs = (list, n) => {
+    const out = [];
+    const per = Math.max(1, Math.ceil(n / Math.max(1, list.length)));
+    for (const d of list) { const ch = proseChunks(d); for (let i = 0; i < ch.length && i < per; i++) { const ids = [ch[i][0], ...tok.encode(ch[i][1])].slice(0, context - 2); if (ids.length >= 56) out.push(ids.slice(0, 64)); } if (out.length >= n) break; }
+    return out.slice(0, n);
+  };
+  const memprobe = { trained: probeSeqs(shuffle(rng(seed + 2), [...(freshDocs.length ? freshDocs : trainDocs)]), 64), unseen: probeSeqs(shuffle(rng(seed + 3), [...valDocs]), 64) };
+  writeJSON(path.join(dir, 'memprobe.json'), memprobe);
   // contamination check, by actual intersection
   const valIds = new Set(valDocs.map((d) => d.id));
-  const integrity = { valDocumentsInTraining: trainDocs.filter((d) => valIds.has(d.id)).length, valHashesInTraining: trainDocs.filter((d) => valDocs.some((v) => v.contentHash === d.contentHash)).length, valPhrasingsInTraining: dlg.stats.valPhrasingsInTrain };
+  const bench = benchSet();
+  const benchHits = [...dlg.train.flatMap((c) => c.flatMap(([u, a]) => [u, a]))].filter((t) => isBenchmarkSentence(bench, t)).length;
+  // measured on the written shards, not assumed: every benchmark sentence is searched in the decoded document text
+  const written = ' ' + documentText.join(' ') + ' ';
+  const benchFound = [...bench].filter((b) => b.length >= 24 && written.includes(' ' + b + ' ')).length;
+  const integrity = { benchmark: (loadBenchmarkId()), benchmarkSentencesInTraining: benchFound, benchmarkSentencesRemoved: benchRemoved, benchmarkPhrasesInDialogue: benchHits, valDocumentsInTraining: trainDocs.filter((d) => valIds.has(d.id)).length, valHashesInTraining: trainDocs.filter((d) => valDocs.some((v) => v.contentHash === d.contentHash)).length, valPhrasingsInTraining: dlg.stats.valPhrasingsInTrain };
   writeJSON(path.join(dir, 'documents.json'), docs.map((d) => ({ id: d.id, url: d.url, title: d.title, licence: d.licence.id, split: d.split, group: d.split === 'val' ? 'web-val' : fresh.has(d.id) ? 'fresh' : 'replay', weight: d.weight, verification: d.verification.status, score: d.verification.score, cycle: d.cycle })));
   const manifest = {
     version, created: nowISO(), cycle, parent, vocab_size: tok.vocabSize, tokenizer_sha: spec.sha256, context,
     shards, mixture: Object.fromEntries(present.map((g) => [g, +(mix[g] / total).toFixed(4)])), counts,
     documents: { total: docs.length, train: trainDocs.length, validation: valDocs.length, fresh: freshDocs.length, replay: replayDocs.length },
     tokens: { train: shards.filter((s) => s.split === 'train').reduce((a, s) => a + s.tokens, 0), validation: shards.filter((s) => s.split === 'val').reduce((a, s) => a + s.tokens, 0) },
-    probes: { chat: chat.length, grounded: grounded.length, route: route.length }, droppedTooLong: dropped, integrity, dialogue: dlg.stats,
+    probes: { chat: chat.length, grounded: grounded.length, route: route.length, memorization: { trained: memprobe.trained.length, unseen: memprobe.unseen.length } }, droppedTooLong: dropped, integrity, dialogue: dlg.stats,
   };
   writeJSON(path.join(dir, 'dataset.json'), manifest);
   return { manifest, tokenizer: spec };

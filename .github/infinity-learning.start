@@ -1,0 +1,9 @@
+Changing this file on a branch starts a chain of Infinity LLM learning sessions on that branch
+(.github/workflows/infinity-learning.yml). Each session runs the learning worker for up to five hours, stores its
+state in the release "infinity-state", and starts the next session.
+
+To stop the chain: set the repository variable INFINITY_LEARNING to "off" (Settings → Secrets and variables →
+Actions → Variables), or disable the workflow "Infinity LLM learning" on the Actions page.
+
+started: 2026-11-13T13:12Z
+first-session: 780

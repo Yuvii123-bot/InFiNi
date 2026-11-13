@@ -143,4 +143,36 @@ export async function collectWeb(engine, src, st, budget, { signal = null, note 
   return out;
 }
 
-export async function collect(engine, src, st, budget, opts) { return src.type === 'github' ? collectGithub(engine, src, st, budget, opts) : collectWeb(engine, src, st, budget, opts); }
+// ---------- openly licensed wikis, through their own API (random articles: breadth that no topic list gives) ----------
+export async function collectMediawiki(engine, src, st, budget, { signal = null, note = () => {} } = {}) {
+  const out = [];
+  const site = String(src.site || '').replace(/\/+$/, '');
+  if (!site) return out;
+  const minBytes = src.minBytes || 2500;                               // stubs are not worth a request
+  let calls = 0, skipped = 0;
+  while (out.length < budget && calls < (src.maxCalls || 4)) {
+    if (signal && signal.aborted) break;
+    calls++;
+    const api = `${site}/w/api.php?action=query&format=json&generator=random&grnnamespace=0&grnlimit=20&prop=info&inprop=url`;
+    const j = (await engine.http.getJSON(api, { signal, timeoutMs: 12000, ttlMs: 0 })).json;
+    const pages = Object.values((j && j.query && j.query.pages) || {});
+    if (!pages.length) break;
+    for (const p of pages) {
+      if (out.length >= budget) break;
+      const url = p.fullurl || p.canonicalurl;
+      if (!url || st.urls[url]) continue;
+      if ((p.length || 0) < minBytes) { skipped++; st.urls[url] = { t: nowISO(), status: 'skipped:stub', sha: '' }; continue; }
+      const rec = { url, source: src.id, sourceType: 'web', discoveredBy: 'mediawiki-random', query: '', collectedAt: nowISO(), trusted: false };
+      try {
+        const got = await engine.acquire(url, { signal });
+        const licence = detectLicence({ html: got.html, url: got.url, headers: got.headers, robotsMeta: got.page.robots });
+        out.push({ ...rec, url: got.url, title: got.page.title || p.title, lang: got.page.lang || '', author: got.page.author || '', published: got.page.published || '', modified: got.page.modified || '', publisher: got.page.site || src.publisher || '', licence: { id: licence.id, url: licence.url, basis: licence.basis }, optOut: licence.optOut, blocks: got.page.blocks, extraction: { via: got.via, format: 'html', bytes: got.html ? got.html.length : 0, ...(got.page.quality || {}) } });
+      } catch (e) { out.push({ ...rec, error: String(e && e.message).slice(0, 160), code: e && e.code }); }
+    }
+  }
+  note(`${src.id}: ${out.length} articles read from ${site} (${skipped} stubs skipped)`);
+  return out;
+}
+
+const COLLECTORS = { github: collectGithub, web: collectWeb, mediawiki: collectMediawiki };
+export async function collect(engine, src, st, budget, opts) { return (COLLECTORS[src.type] || collectWeb)(engine, src, st, budget, opts); }

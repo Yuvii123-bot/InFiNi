@@ -112,5 +112,14 @@ export function corpusStats(root) {
     rejected: rejected.length, rejectedByStage: by(rejected, (r) => r.stage),
     acceptanceRate: docs.length + rejected.length ? +(docs.length / (docs.length + rejected.length)).toFixed(3) : null,
     lastCollected: docs.length ? docs[docs.length - 1].collectedAt : null,
+    domains: new Set(docs.map((d) => d.domain)).size,
+    // per source: what it delivered, what was turned away, and when it last delivered something
+    sources: (() => {
+      const m = {};
+      const get = (id) => m[id] || (m[id] = { accepted: 0, rejected: 0, domains: new Set(), last: null, rejectedBy: {} });
+      for (const d of docs) { const x = get(d.source || '—'); x.accepted++; x.domains.add(d.domain); if (!x.last || d.collectedAt > x.last) x.last = d.collectedAt; }
+      for (const r of rejected) { const x = get(r.source || '—'); x.rejected++; x.rejectedBy[r.stage] = (x.rejectedBy[r.stage] || 0) + 1; }
+      return Object.fromEntries(Object.entries(m).map(([k, v]) => [k, { ...v, domains: v.domains.size }]));
+    })(),
   };
 }

@@ -16,13 +16,16 @@ const CHAT_ORIGINS = new Set(['conversation']);   // common-sense facts stay wit
 /** The engine's result without the fields that exist only for the reply check (they are not for the client). */
 export const lean = (r) => (r && r.brain && 'alternatives' in r.brain ? { ...r, brain: { intent: r.brain.intent, group: r.brain.group, sure: r.brain.sure } } : r);
 
-export function createNeural({ root = '', enabled = true, minLogProb = -1.6, minAgreement = 0.6, log = () => {}, bundled = undefined } = {}) {
+export function createNeural({ root = '', enabled = true, minLogProb = -1.6, minAgreement = 0.6, log = () => {}, bundled = undefined, channel = null } = {}) {
   root = root || stateDir();
   let cur = null, lastCheck = 0, lastError = '';
   const stats = { chats: 0, checked: 0, accepted: 0, grounded: 0, fallbacks: 0, tokens: 0, ms: 0, reloads: 0 };
 
   function load() {
-    const where = resolveProduction(root, bundled ? { bundled } : {});
+    // live learning state on this machine first; then a model received from the worker's channel; then the copy shipped with the app
+    let where = resolveProduction(root, bundled ? { bundled } : {});
+    const fromChannel = channel && channel.current();
+    if (fromChannel && (!where || where.source !== 'state')) where = fromChannel;
     if (!where) { cur = null; lastError = 'no trained model has been published yet'; return; }
     if (cur && cur.id === where.id && cur.dir === where.dir && cur.registryMtime === where.registryMtime) return;
     if (cur && cur.id === where.id && cur.dir === where.dir) { cur.registryMtime = where.registryMtime; cur.card = where.card || cur.card; return; }

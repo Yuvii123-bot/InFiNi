@@ -1,0 +1,26 @@
+# Fly.io: the learning worker as one always-on machine with a volume.
+#   fly launch --no-deploy --copy-config --config deploy/fly.worker.toml
+#   fly volumes create infinity_state --size 10
+#   fly secrets set GITHUB_TOKEN=... INFINI_PUBLISH_GITHUB=owner/repository
+#   fly deploy --config deploy/fly.worker.toml
+app = "infinity-worker"
+primary_region = "sin"
+
+[build]
+  dockerfile = "../Dockerfile.worker"
+
+[env]
+  INFINI_LLM_DIR = "/data/llm"
+  INFINI_PUBLISH_DIR = ""
+
+[mounts]
+  source = "infinity_state"
+  destination = "/data"
+
+[[vm]]
+  cpu_kind = "shared"
+  cpus = 2
+  memory = "4gb"
+
+[processes]
+  worker = "node --max-old-space-size=768 learning/worker.mjs"

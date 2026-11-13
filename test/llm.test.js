@@ -193,7 +193,7 @@ test('the brain describes itself truthfully with and without a model', () => {
 
 test('promotion gate: a weaker candidate is refused, a better one passes, the first model must clear absolute floors', () => {
   const gate = DEFAULTS.gate;
-  const card = (over = {}) => ({ id: 'm', val_loss: 2.0, groups: { dialogue: { val_loss: 1.9 } }, probes: { parity: { ok: true, maxDiff: 0.0001 }, chat: { f1: 0.5 }, grounded: { accuracy: 0.6, chance: 0.3 }, route: { accuracy: 0.9 }, sampling: { repetition: 0.05 } }, ...over });
+  const card = (over = {}) => ({ id: 'm', val_loss: 2.0, groups: { dialogue: { val_loss: 1.9 } }, probes: { parity: { ok: true, maxDiff: 0.0001 }, chat: { f1: 0.5 }, grounded: { accuracy: 0.6, chance: 0.3 }, route: { accuracy: 0.9 }, sampling: { repetition: 0.05 }, benchmark: { id: 'infinity-bench-1', score: 0.58, items: 176, passages: { loss: 6.7 } } }, ...over });   // the fixed benchmark is required since the always-on worker (test/worker.test.js covers its checks)
   const prod = card({ id: 'm0001' });
   const better = promotionGate(card({ id: 'm0002', val_loss: 1.9, groups: { dialogue: { val_loss: 1.88 } } }), prod, gate);
   assert.equal(better.pass, true, JSON.stringify(better.checks.filter((c) => !c.pass)));
