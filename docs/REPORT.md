@@ -73,6 +73,10 @@ still asked when LangSearch rests, and five times in every research run.
 * The report still quotes and sorts; it does not write. Key points on a narrow question resemble one another because
   the sources do. Some section titles are still taken as found (“Fall of rome”, “Reducing commuting”).
 * The one-key-at-a-time figures are single runs on one question.
+* Two small answer rules were added after the research benchmark, the interface check and the security audit had
+  run (a name beside or inside a quotation is not a second candidate; a report opens with running text, not a table
+  row). After them the 68 tests were re-run, the web benchmark was re-run after the first of the two (36 of 36), and
+  the live site was checked; the other three checks were not repeated.
 
 **What I need from you**
 
