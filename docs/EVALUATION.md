@@ -51,6 +51,11 @@ Three things to know when reading the table:
    process. A research run started within a minute of another on the same process finds less (127 pages against 214
    in one check). The benchmark's runs are 15 to 55 s apart, as on a small server.
 
+**On the live site after release** (Vercel, with the Tavily key): a research run on the microplastics question took
+47.5 s and read 316 pages and 800 abstracts from 128 sites (6,863 results screened, 1,104 documents kept, 167 pages
+not readable, 32 sources cited, first draft after 8.8 s, six drafts). A deep search on the fasting question took
+48.5 s (69 pages, 60 abstracts, 45 sites) and ended at its time budget; in the sandbox the same search takes 22 s.
+
 **What the reports are like** (read by hand; these are judgements, not measurements)
 
 * The opening sentences and key points of the five runs answer the question asked. Example (microplastics): “In vitro
@@ -61,7 +66,8 @@ Three things to know when reading the table:
   Respiratory effects · Inflammatory responses* (microplastics); *Employee productivity · Flexibility · Work-life balance ·
   Job satisfaction · Stress levels · Organizational culture* (remote work); *Lithium ion batteries · Challenges ·
   Advantages · Thin-film solid-state batteries · Uses · Materials* (solid-state batteries). Weak labels still get
-  through: “Employee productivity” is the question again, not a part of it.
+  through: “Employee productivity” is the question again, not a part of it, and one later run had “Plastic particles”
+  as a section of the microplastics report.
 * The yes-or-no count for intermittent fasting read 45 yes, 3 no, 1 qualified of 49 independent sources. Reading the
   listed statements by hand, most are classed correctly; a sentence that only mentions the topic favourably can be
   counted as “yes” although it is not a finding.
