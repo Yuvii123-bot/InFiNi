@@ -1,0 +1,72 @@
+name: Continue 117M with more Q&A
+on:
+  push:
+    paths: ['.github/workflows/simple-qa-more.yml']
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  train:
+    runs-on: ubuntu-latest
+    timeout-minutes: 70
+    concurrency:
+      group: infini-simple-qa-more
+      cancel-in-progress: false
+    env:
+      GH_TOKEN: ${{ github.token }}
+      OMP_NUM_THREADS: '2'
+      MKL_NUM_THREADS: '2'
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install CPU training dependencies
+        run: |
+          python3 -m venv .venv
+          .venv/bin/pip install --quiet --index-url https://download.pytorch.org/whl/cpu torch
+          .venv/bin/pip install --quiet numpy
+      - name: Fetch previous 117M Q&A checkpoint and export
+        run: |
+          set -euo pipefail
+          mkdir -p data/llm/previous
+          gh release download infinity-qa-43590062833 --repo "$GITHUB_REPOSITORY" -p ckpt.pt -p model.json -p tokenizer.json -p 'weights.*.bin' -D data/llm/previous
+          cd data/llm/previous
+          sha256sum -c <<'SHA'
+          b84457bb94d632f87c13406137f96a702971cb564dcc196bb33937016e34ae20  ckpt.pt
+          8cd327c8db00af8fa206a8a66fc1451cfebe307940f781d5c9b9b24d2c8141fc  model.json
+          3c5373f704c5191c66819c1114c642efc0b54bbede23b337623ce8e3f93f1ce8  tokenizer.json
+          6f8ec0b198a12d833f1cc178081717f1a2079d86502f6d60683816e806c56050  weights.0.bin
+          07bf9f726efc202ea2b518eff83682c0a0cc85a6ae5a62e799f91d042b6e819f  weights.1.bin
+          SHA
+      - name: Build the expanded Q&A dataset
+        run: |
+          set -euo pipefail
+          node learning/qa-more-dataset.mjs data/llm/datasets/simple-qa-more-v2 > data/llm/more-dataset-report.json
+          .venv/bin/python -c 'import json; m=json.load(open("data/llm/more-dataset-report.json")); assert m["addedArithmeticTrain"] >= 20000; assert m["integrity"]["valPhrasingsInTraining"] == 0; print(m["addedArithmeticTrain"],m["counts"],m["integrity"])'
+      - name: Evaluate previous Q&A model
+        run: |
+          .venv/bin/python -m llm.evaluate --data data/llm/datasets/simple-qa-more-v2 --ckpt data/llm/previous/ckpt.pt --context 128 --windows 16 --threads 2 > data/llm/more-before-evaluation.json
+          node learning/qa-probe.mjs data/llm/previous data/llm/datasets/simple-qa-more-v2 > data/llm/more-before-probes.json
+      - name: Continue from the prior checkpoint and optimizer
+        run: |
+          set -euo pipefail
+          .venv/bin/python -m llm.train --data data/llm/datasets/simple-qa-more-v2 --run data/llm/runs/simple-qa-more --init-from data/llm/previous/ckpt.pt --steps 1500 --max-seconds 2400 --cycle simple-qa-more-v2 --set batch_size=1 --set grad_accum=1 --set sequence_length=128 --set threads=2 --set lr=0.00008 --set min_lr=0.00001 --set warmup_steps=30 --set eval_interval=250 --set eval_windows=8 --set log_interval=20 --set save_interval=250 --set nice=0
+      - name: Evaluate and export trained model
+        run: |
+          set -euo pipefail
+          .venv/bin/python -m llm.evaluate --data data/llm/datasets/simple-qa-more-v2 --ckpt data/llm/runs/simple-qa-more/ckpt.pt --context 128 --windows 16 --threads 2 > data/llm/more-after-evaluation.json
+          .venv/bin/python -m llm.export_int8 --ckpt data/llm/runs/simple-qa-more/ckpt.pt --out data/llm/more-candidate --part-bytes 66000000
+          cp data/llm/previous/tokenizer.json data/llm/more-candidate/tokenizer.json
+          node learning/qa-probe.mjs data/llm/more-candidate data/llm/datasets/simple-qa-more-v2 > data/llm/more-after-probes.json
+      - name: Publish candidate and checkpoint
+        run: |
+          set -euo pipefail
+          tag="infinity-qa-more-${GITHUB_RUN_ID}"
+          gh release create "$tag" --repo "$GITHUB_REPOSITORY" --prerelease --title "117M additional Q&A ${GITHUB_RUN_ID}" --notes 'Continuation of the step-610 Q&A model. Includes generated arithmetic examples and conversation replay. Check probe results; the inference model is experimental.'
+          gh release upload "$tag" --repo "$GITHUB_REPOSITORY" data/llm/more-candidate/model.json data/llm/more-candidate/tokenizer.json data/llm/more-candidate/weights.0.bin data/llm/more-candidate/weights.1.bin data/llm/more-dataset-report.json data/llm/more-before-evaluation.json data/llm/more-after-evaluation.json data/llm/more-before-probes.json data/llm/more-after-probes.json data/llm/runs/simple-qa-more/status.json
+          gh release upload "$tag" --repo "$GITHUB_REPOSITORY" data/llm/runs/simple-qa-more/ckpt.pt
+      - name: Summarize result
+        if: always()
+        run: |
+          echo '### Additional Q&A training' >> "$GITHUB_STEP_SUMMARY"
+          for f in data/llm/more-before-evaluation.json data/llm/more-after-evaluation.json data/llm/more-after-probes.json data/llm/runs/simple-qa-more/status.json; do
+            if [ -f "$f" ]; then printf '\n**%s**\n```json\n' "$f" >> "$GITHUB_STEP_SUMMARY"; cat "$f" >> "$GITHUB_STEP_SUMMARY"; printf '\n```\n' >> "$GITHUB_STEP_SUMMARY"; fi
+          done

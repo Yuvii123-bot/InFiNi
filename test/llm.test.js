@@ -22,6 +22,7 @@ import { inspectText, simhash, hamming, languageOf } from '../learning/process.m
 import { verifyDocuments } from '../learning/verify.mjs';
 import { buildDialogue } from '../learning/dataset.mjs';
 import { addSimpleQA } from '../learning/qa-dataset.mjs';
+import { addMoreQA } from '../learning/qa-more-dataset.mjs';
 import { promotionGate } from '../learning/evalsuite.mjs';
 import { DEFAULTS } from '../learning/store.mjs';
 import { loadRegistry, registerModel, promote, reject, rollback, resolveProduction } from '../learning/registry.mjs';
@@ -143,6 +144,17 @@ test('simple Q&A data includes identity and thousands of correct additions with 
   assert.ok(dialogue.val.length > 300);
   assert.ok(dialogue.train.some((c) => c[0][0] === 'What is 2 plus 3?' && c[0][1] === '2 plus 3 is 5.'));
   assert.equal(dialogue.stats.valPhrasingsInTrain, 0);
+});
+
+test('more Q&A data has over 20,000 new correct pairs and disjoint held-out questions', () => {
+  const { dialogue, newTrain, newVal } = addMoreQA({ train: [], val: [], probes: [], stats: {} });
+  assert.equal(newTrain, 25920);
+  assert.equal(newVal, 2880);
+  const norm = (s) => s.toLowerCase().replace(/[^\p{L}\p{N}]+/gu, ' ').trim();
+  const train = new Set(dialogue.train.flatMap((c) => c.map(([q]) => norm(q))));
+  assert.ok(dialogue.val.every((c) => c.every(([q]) => !train.has(norm(q)))));
+  assert.ok(dialogue.train.some((c) => c[0][0] === 'What is 2 times 3?' && c[0][1] === '2 times 3 is 6.'));
+  assert.ok(dialogue.train.some((c) => c[0][0] === 'What is 5 minus 3?' && c[0][1] === '5 minus 3 is 2.'));
 });
 
 test('inference engine: cached generation equals recomputation, greedy decoding is deterministic', async () => {
