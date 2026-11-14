@@ -143,7 +143,15 @@ export async function runCycle({ root, engine = null, env = process.env, overrid
   };
   try {
     const reg0 = loadRegistry(root);
-    const bootstrap = !reg0.production;
+    // A configured preset that differs from the production model's architecture starts a new lineage: train a
+    // fresh model of the requested size from random weights instead of continuing the small one. It is judged as
+    // a first model (it does not have to beat the small production model), and the old model stays in place until
+    // the new one is approved, so a failed attempt costs nothing.
+    const wantPreset = cfg.model.preset && cfg.model.preset !== 'auto' ? cfg.model.preset : null;
+    const prodPreset = reg0.production ? (reg0.models[reg0.production] || {}).preset : null;
+    const newLineage = !!(wantPreset && prodPreset && wantPreset !== prodPreset);
+    const bootstrap = !reg0.production || newLineage;
+    cyc.newLineage = newLineage;
     // ---------- A–D: discover, acquire, process, verify ----------
     if (!cyc.phases.acquire) {
       phase('acquire', 'finding and reading new documents');
@@ -250,7 +258,9 @@ export async function runCycle({ root, engine = null, env = process.env, overrid
     }
     // ---------- G: evaluation and the promotion gate ----------
     phase('evaluate', 'measuring the candidate against the production model on held-out data and the fixed benchmark');
-    const prodId = reg1.production;
+    // a new-lineage model (a bigger architecture trained from scratch) is judged as a first model: it does not
+    // have to beat the small production model, which stays in place until the new one is approved
+    const prodId = newLineage ? null : reg1.production;
     setState(root, { candidate: { id: cyc.model, parent: cyc.parent, dataset: cyc.dataset, since: nowISO() } });
     const ckpts = [path.join(modelDir(root, cyc.model), 'ckpt.pt'), ...(prodId ? [path.join(modelDir(root, prodId), 'ckpt.pt')] : [])];
     const ev = await runPython(cfg, ['llm.evaluate', '--data', dataDir, ...ckpts.flatMap((c) => ['--ckpt', c]), '--windows', String(cfg.cycle.evalWindows), '--threads', String(cfg.resources.threads)], { env });

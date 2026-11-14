@@ -357,6 +357,25 @@ test('dataset: benchmark sentences never reach the training text', async () => {
   assert.ok(probe.trained.length > 0 && probe.unseen.length > 0);
 });
 
+test('dataset: a benchmark sentence embedded in a longer sentence is removed too', async () => {
+  const { buildDataset, buildDialogue } = await import('../learning/dataset.mjs');
+  const bench = loadBenchmark();
+  const fact = bench.knowledge[0][0];                       // e.g. "The capital of France is Paris."
+  const embedded = `${fact} This is widely known and appears in many reference works about the region and its history.`;
+  const filler = (n) => Array.from({ length: 14 }, (_, i) => `The river station number ${n} recorded a water level of ${120 + i + n} centimetres on day ${i + 1} of the survey.`).join(' ');
+  const mk = (i, extra = '') => ({ id: `doc${i}`, url: `https://example.org/${i}`, title: `Survey ${i}`, contentHash: crypto.createHash('sha256').update(`doc${i}`).digest('hex'), licence: { id: 'CC0-1.0' }, split: i % 5 === 0 ? 'val' : 'train', weight: 1, cycle: 'r0001', verification: { status: 'single-source', score: 0.8, disputed: [] }, paras: [{ text: `${filler(i)} ${extra}`.trim() }, { text: filler(i + 100) }] });
+  const docs = Array.from({ length: 10 }, (_, i) => mk(i + 1, i === 1 ? embedded : ''));
+  const dir = tmp('dataset-embed');
+  const tokenizer = JSON.parse(fs.readFileSync(path.join(REPO, 'model', 'current', 'tokenizer.json'), 'utf8'));
+  const { manifest } = buildDataset({ dir, version: 'd0001', docs, cfg: DEFAULTS, tokenizer, context: 256, cycle: 'c0001', dialogue: buildDialogue({ seed: 7, conversations: 300 }) });
+  const tok = createTokenizer(tokenizer);
+  const text = (file) => { const b = fs.readFileSync(path.join(dir, file)); const ids = new Uint16Array(b.buffer, b.byteOffset, b.byteLength / 2); return tok.decode(Array.from(ids)); };
+  const train = manifest.shards.filter((s) => s.split === 'train' && s.group !== 'dialogue').map((s) => text(s.file)).join(' ');
+  assert.equal(train.includes(fact), false, `embedded benchmark sentence leaked into training: ${fact}`);
+  assert.equal(manifest.integrity.benchmarkSentencesInTraining, 0, 'measured on the written shards');
+  assert.ok(manifest.integrity.benchmarkSentencesRemoved >= 1, JSON.stringify(manifest.integrity));
+});
+
 test('memorisation probe: reports how much easier trained text is, and whether it is continued word for word', () => {
   const dir = path.join(FIX, 'models', 'm0001');
   const model = loadModel(dir);

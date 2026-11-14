@@ -132,11 +132,16 @@ const benchSet = () => (BENCH || (BENCH = benchmarkSentences()));
 let BENCH_ID = null;
 const loadBenchmarkId = () => (BENCH_ID || (BENCH_ID = loadBenchmark().id));
 let benchRemoved = 0;                              // benchmark sentences met in documents and left out (reset per dataset)
+// a sentence that merely contains a benchmark sentence (the fact inside a longer sentence, e.g.
+// "The capital of Nepal is Kathmandu, a major city in the Himalayas") leaks just as much as one
+// that equals it: drop it too, or the contamination check finds it in the written shards and the
+// whole cycle is aborted without any training
+const containsBenchmark = (bench, s) => { const n = normSentence(s); if (n.length < 24) return false; for (const b of bench) if (b.length >= 24 && n.includes(b)) return true; return false; };
 function docSentences(doc) {
   const disputed = new Set(((doc.verification && doc.verification.disputed) || []).map((d) => d.text));
   const bench = benchSet();
   const out = [];
-  doc.paras.forEach((p, pi) => { for (const s of goodSentences(p.text)) if (isBenchmarkSentence(bench, s)) benchRemoved++; else if (!disputed.has(s)) out.push({ s, h: p.h, pi, lead: out.length === 0 }); });
+  doc.paras.forEach((p, pi) => { for (const s of goodSentences(p.text)) { if (isBenchmarkSentence(bench, s) || containsBenchmark(bench, s)) benchRemoved++; else if (!disputed.has(s)) out.push({ s, h: p.h, pi, lead: out.length === 0 }); } });
   return out;
 }
 const labelOf = (s) => { const m = LABELLED.exec(s); return m ? m[1] : ''; };
