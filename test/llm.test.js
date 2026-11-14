@@ -8,17 +8,21 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import http from 'node:http';
+import crypto from 'node:crypto';
 import { fileURLToPath } from 'node:url';
 
 import { trainBPE, createTokenizer, tokenizerSpec, T, SPECIALS } from '../engine/neural/tokenizer.js';
 import { loadModel, selfTest, createSession } from '../engine/neural/model.js';
 import { createRuntime } from '../engine/neural/generate.js';
 import { createNeural } from '../engine/neural/service.js';
+import { createPinnedChannel } from '../engine/neural/pinned-channel.js';
 import { createBrain } from '../engine/brain/index.js';
 import { licenceFromUrl, detectLicence, permitted } from '../learning/licence.mjs';
 import { inspectText, simhash, hamming, languageOf } from '../learning/process.mjs';
 import { verifyDocuments } from '../learning/verify.mjs';
 import { buildDialogue } from '../learning/dataset.mjs';
+import { addSimpleQA } from '../learning/qa-dataset.mjs';
+import { addMoreQA } from '../learning/qa-more-dataset.mjs';
 import { promotionGate } from '../learning/evalsuite.mjs';
 import { DEFAULTS } from '../learning/store.mjs';
 import { loadRegistry, registerModel, promote, reject, rollback, resolveProduction } from '../learning/registry.mjs';
@@ -56,6 +60,122 @@ test('inference engine: the exported weights reproduce the reference outputs wri
   assert.equal(st.argmaxAgree, st.positions);
   assert.match(model.meta.initialisation || model.meta.init || 'random', /random/);
   assert.ok(model.meta.params > 10000);
+});
+
+test('inference engine: split q8 weights load accurately and reject damaged or unsafe parts', () => {
+  const original = loadModel(MODEL);
+  const meta = structuredClone(original.meta);
+  const bytes = Buffer.alloc(meta.tensors.reduce((sum, t) => sum + t.size, 0));
+  for (const t of meta.tensors) {
+    const values = original.W[t.name];
+    let max = 0;
+    for (const v of values) max = Math.max(max, Math.abs(v));
+    t.scale = max ? max / 127 : 1;
+    for (let i = 0; i < t.size; i++) bytes.writeInt8(Math.max(-127, Math.min(127, Math.round(values[i] / t.scale))), t.offset + i);
+  }
+  meta.dtype = 'q8';
+  meta.sha256 = crypto.createHash('sha256').update(bytes).digest('hex');
+  meta.weight_parts = ['weights.0.bin', 'weights.1.bin'];
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'infini-q8-'));
+  try {
+    const middle = Math.floor(bytes.length / 2);
+    fs.writeFileSync(path.join(dir, meta.weight_parts[0]), bytes.subarray(0, middle));
+    fs.writeFileSync(path.join(dir, meta.weight_parts[1]), bytes.subarray(middle));
+    const save = () => fs.writeFileSync(path.join(dir, 'model.json'), JSON.stringify(meta));
+    save();
+    const decoded = loadModel(dir);
+    for (const t of meta.tensors) {
+      for (let i = 0; i < t.size; i++) assert.ok(Math.abs(decoded.W[t.name][i] - original.W[t.name][i]) <= t.scale * 0.501 + 1e-7);
+    }
+    fs.appendFileSync(path.join(dir, meta.weight_parts[1]), 'x');
+    assert.throws(() => loadModel(dir), /checksum/);
+    meta.weight_parts = ['../escape.bin']; save();
+    assert.throws(() => loadModel(dir), /invalid model weight parts/);
+  } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+});
+
+test('pinned channel verifies every file and keeps a failed download inactive', async () => {
+  const data = {
+    'model.json': Buffer.from(JSON.stringify({ dtype: 'q8', sha256: 'a'.repeat(64), weight_parts: ['weights.0.bin'] })),
+    'tokenizer.json': Buffer.from('{"merges":[]}'), 'weights.0.bin': Buffer.from([1, 2, 3, 4]),
+  };
+  const files = Object.entries(data).map(([name, bytes], i) => ({ name, id: `file${i}`, size: bytes.length, sha256: crypto.createHash('sha256').update(bytes).digest('hex') }));
+  const manifest = { version: 'test-model', sha256: 'a'.repeat(64), files };
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'infini-pinned-test-'));
+  let broken = true;
+  try {
+    const fetchImpl = async (url) => {
+      const file = files.find((f) => new URL(url).searchParams.get('id') === f.id);
+      return new Response(broken && file.name === 'weights.0.bin' ? Buffer.from([9, 9, 9, 9]) : data[file.name]);
+    };
+    const channel = createPinnedChannel({ manifest, dir, fetchImpl });
+    assert.equal(await channel.sync(), false);
+    assert.equal(channel.current(), null);
+    assert.match(channel.info().error, /checksum/);
+    broken = false;
+    assert.equal(await channel.sync({ force: true }), true);
+    assert.equal(channel.current().id, manifest.version);
+    assert.equal(channel.info().error, undefined);
+    const cached = createPinnedChannel({ manifest, dir, fetchImpl: () => { throw Error('should not fetch'); } });
+    assert.equal(await cached.sync(), true);
+  } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+});
+
+test('pinned GitHub release files are verified and arbitrary release paths are refused', async () => {
+  const data = {
+    'model.json': Buffer.from(JSON.stringify({ dtype: 'q8', sha256: 'b'.repeat(64), weight_parts: ['weights.0.bin'] })),
+    'tokenizer.json': Buffer.from('{"merges":[]}'), 'weights.0.bin': Buffer.from([1, 2, 3]),
+  };
+  const files = Object.entries(data).map(([name, bytes]) => ({ name, size: bytes.length, sha256: crypto.createHash('sha256').update(bytes).digest('hex') }));
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'infini-release-test-'));
+  let fetched = 0;
+  try {
+    const fetchImpl = async (url) => { fetched++; const u = new URL(url); assert.equal(u.hostname, 'github.com'); return new Response(data[u.pathname.split('/').pop()]); };
+    const manifest = { version: 'qa-test', release: 'infinity-qa-more-123', sha256: 'b'.repeat(64), files };
+    const channel = createPinnedChannel({ manifest, dir, fetchImpl });
+    assert.equal(await channel.sync(), true);
+    assert.equal(fetched, 3);
+    const bad = createPinnedChannel({ manifest: { ...manifest, version: 'bad', release: '../../evil' }, dir, fetchImpl });
+    assert.equal(await bad.sync(), false);
+    assert.match(bad.info().error, /invalid pinned manifest/);
+    assert.equal(fetched, 3);
+  } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+});
+
+test('a pinned selection never silently serves the older state or bundled model', () => {
+  let current = null;
+  const channel = { pinned: true, current: () => current };
+  const neural = createNeural({ root: FIX, channel });
+  assert.equal(neural.info().available, false);
+  assert.match(neural.info().reason, /pinned model/);
+  current = { dir: MODEL, id: 'pinned-test', source: 'pinned', registryMtime: 0 };
+  neural.refresh(true);
+  assert.equal(neural.info().version, 'pinned-test');
+  assert.equal(neural.info().source, 'pinned');
+});
+
+test('simple Q&A data includes identity and thousands of correct additions with separate holdouts', () => {
+  const source = { train: [[['What is your name?', 'Wrong name.', 'identity']], [['What do people call you?', 'Wrong.', 'identity']]], val: [], probes: [], stats: {} };
+  const { dialogue, identityVal } = addSimpleQA(source);
+  assert.ok(dialogue.train.length > 4000);
+  assert.ok(dialogue.train.some((c) => c[0][0] === 'What is your name?' && c[0][1] === "I'm Infini."));
+  assert.ok(!dialogue.train.some((c) => c[0][1] === 'Wrong name.'));
+  const train = new Set(dialogue.train.map((c) => c[0][0].toLowerCase()));
+  for (const q of identityVal) assert.ok(!train.has(q.toLowerCase()));
+  assert.ok(dialogue.val.length > 300);
+  assert.ok(dialogue.train.some((c) => c[0][0] === 'What is 2 plus 3?' && c[0][1] === '2 plus 3 is 5.'));
+  assert.equal(dialogue.stats.valPhrasingsInTrain, 0);
+});
+
+test('more Q&A data has over 20,000 new correct pairs and disjoint held-out questions', () => {
+  const { dialogue, newTrain, newVal } = addMoreQA({ train: [], val: [], probes: [], stats: {} });
+  assert.equal(newTrain, 25920);
+  assert.equal(newVal, 2880);
+  const norm = (s) => s.toLowerCase().replace(/[^\p{L}\p{N}]+/gu, ' ').trim();
+  const train = new Set(dialogue.train.flatMap((c) => c.map(([q]) => norm(q))));
+  assert.ok(dialogue.val.every((c) => c.every(([q]) => !train.has(norm(q)))));
+  assert.ok(dialogue.train.some((c) => c[0][0] === 'What is 2 times 3?' && c[0][1] === '2 times 3 is 6.'));
+  assert.ok(dialogue.train.some((c) => c[0][0] === 'What is 5 minus 3?' && c[0][1] === '5 minus 3 is 2.'));
 });
 
 test('inference engine: cached generation equals recomputation, greedy decoding is deterministic', async () => {

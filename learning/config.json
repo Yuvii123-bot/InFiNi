@@ -1,4 +1,6 @@
 {
   "model": { "preset": "xl" },
-  "cycle": { "bootstrapSeconds": 14400 }
+  "train": { "batch_size": 1, "grad_accum": 1, "lr": 0.0003, "min_lr": 0.00003, "eval_windows": 8, "log_interval": 1, "save_interval": 10 },
+  "cycle": { "bootstrapSeconds": 10800, "evalWindows": 24 },
+  "resources": { "maxTrainRssMb": 10500, "minFreeMb": 3000 }
 }

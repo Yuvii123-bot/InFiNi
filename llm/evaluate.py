@@ -22,6 +22,7 @@ def main(argv=None) -> int:
     ap.add_argument("--data", required=True)
     ap.add_argument("--ckpt", action="append", required=True)
     ap.add_argument("--windows", type=int, default=128)
+    ap.add_argument("--context", type=int, default=0, help="shared window length when comparing different architectures")
     ap.add_argument("--split", default="val")
     ap.add_argument("--device", default="auto")
     ap.add_argument("--threads", type=int, default=0)
@@ -40,15 +41,18 @@ def main(argv=None) -> int:
         model = InfinityLM(cfg)
         model.load_state_dict(state["model"])
         model.to(device)
-        windows = Shards(args.data, manifest, args.split).fixed_windows(cfg.context, args.windows)
+        context = args.context or cfg.context
+        if context > cfg.context or context < 1:
+            raise ValueError(f"comparison context {context} exceeds model context {cfg.context}")
+        windows = Shards(args.data, manifest, args.split).fixed_windows(context, args.windows)
         loss = validation_loss(model, windows, device, precision)
         groups = {}
         for g in sorted({s.get("group", "") for s in manifest.get("shards", []) if s.get("split") == args.split and s.get("group")}):
-            gw = Shards(args.data, manifest, args.split, group=g).fixed_windows(cfg.context, args.windows)
+            gw = Shards(args.data, manifest, args.split, group=g).fixed_windows(context, args.windows)
             gl = validation_loss(model, gw, device, precision) if gw else float("nan")
             groups[g] = {"val_loss": None if gl != gl else round(gl, 4), "windows": len(gw)}
         out.append({"groups": groups,"ckpt": path, "step": int(state.get("step", 0)), "val_loss": None if loss != loss else round(loss, 4),
-                    "perplexity": None if loss != loss else round(math.exp(min(20.0, loss)), 2), "windows": len(windows), "tokens": len(windows) * cfg.context,
+                    "perplexity": None if loss != loss else round(math.exp(min(20.0, loss)), 2), "windows": len(windows), "tokens": len(windows) * context, "context": context,
                     "dataset": manifest.get("version", ""), "split": args.split})
     print(json.dumps({"results": out}))
     return 0

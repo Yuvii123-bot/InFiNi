@@ -13,6 +13,7 @@ import argparse
 import hashlib
 import json
 import os
+import re
 import sys
 
 import numpy as np
@@ -26,16 +27,36 @@ def load_export(model_dir: str):
     meta = read_json(os.path.join(model_dir, "model.json"))
     if not meta:
         raise SystemExit(f"no model.json in {model_dir}")
-    with open(os.path.join(model_dir, "weights.bin"), "rb") as f:
-        blob = f.read()
+    parts = meta.get("weight_parts", ["weights.bin"])
+    if not isinstance(parts, list) or not parts or any(not isinstance(p, str) or not re.fullmatch(r"weights(?:\.\d+)?\.bin", p) for p in parts):
+        raise SystemExit("invalid weight parts")
+    chunks = []
+    for part in parts:
+        with open(os.path.join(model_dir, part), "rb") as f:
+            chunks.append(f.read())
+    blob = b"".join(chunks)
+    del chunks
     if meta.get("sha256") and hashlib.sha256(blob).hexdigest() != meta["sha256"]:
         raise SystemExit("weights.bin does not match the checksum in model.json")
-    dtype = np.dtype("<f2") if meta.get("dtype", "f16") == "f16" else np.dtype("<f4")
+    kind = meta.get("dtype", "f16")
+    if kind not in ("f16", "f32", "q8"):
+        raise SystemExit("unsupported model dtype")
+    dtype = np.dtype("i1" if kind == "q8" else "<f2" if kind == "f16" else "<f4")
     flat = np.frombuffer(blob, dtype=dtype)
+    if flat.size != sum(t["size"] for t in meta["tensors"]):
+        raise SystemExit("wrong weight count")
     cfg = ModelConfig.from_dict(meta["config"])
     sd = {}
     for t in meta["tensors"]:
-        arr = flat[t["offset"]:t["offset"] + t["size"]].astype(np.float32).reshape(t["shape"])
+        offset, size = t["offset"], t["size"]
+        if not isinstance(offset, int) or not isinstance(size, int) or offset < 0 or size < 0 or offset + size > flat.size:
+            raise SystemExit("invalid tensor bounds")
+        arr = flat[offset:offset + size].astype(np.float32).reshape(t["shape"])
+        if kind == "q8":
+            scale = t.get("scale")
+            if not isinstance(scale, (int, float)) or not np.isfinite(scale) or scale <= 0:
+                raise SystemExit("invalid q8 tensor scale")
+            arr *= scale
         sd[t["name"]] = torch.from_numpy(arr.copy())
     if cfg.tie_weights and "head.weight" not in sd:
         sd["head.weight"] = sd["tok_emb.weight"]

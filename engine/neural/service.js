@@ -25,8 +25,11 @@ export function createNeural({ root = '', enabled = true, minLogProb = -1.6, min
     // live learning state on this machine first; then a model received from the worker's channel; then the copy shipped with the app
     let where = resolveProduction(root, bundled ? { bundled } : {});
     const fromChannel = channel && channel.current();
-    if (fromChannel && (!where || where.source !== 'state')) where = fromChannel;
-    if (!where) { cur = null; lastError = 'no trained model has been published yet'; return; }
+    // A specifically pinned model is an explicit operator selection, not a suggestion. Never silently serve an older
+    // bundled or worker model when it is still downloading or unavailable; disabling the pin restores the old channel.
+    if (channel && channel.pinned) where = fromChannel;
+    else if (fromChannel && (!where || where.source !== 'state')) where = fromChannel;
+    if (!where) { cur = null; lastError = channel && channel.pinned ? 'the pinned model is not available yet' : 'no trained model has been published yet'; return; }
     if (cur && cur.id === where.id && cur.dir === where.dir && cur.registryMtime === where.registryMtime) return;
     if (cur && cur.id === where.id && cur.dir === where.dir) { cur.registryMtime = where.registryMtime; cur.card = where.card || cur.card; return; }
     try {

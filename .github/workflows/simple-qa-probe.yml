@@ -1,0 +1,34 @@
+name: Evaluate 117M Q&A candidate
+on:
+  push:
+    paths: ['.github/workflows/simple-qa-probe.yml']
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Download baseline and candidate
+        run: |
+          set -euo pipefail
+          mkdir -p data/llm/baseline data/llm/candidate
+          for f in model.json tokenizer.json weights.0.bin weights.1.bin; do gh release download infinity-qa-43590062833 --repo "$GITHUB_REPOSITORY" -p "$f" -D data/llm/candidate; done
+          download() { curl --fail --location --retry 3 --max-time 300 "https://drive.usercontent.google.com/download?id=$1&export=download&confirm=t" -o "data/llm/baseline/$2"; }
+          download 1Ncy43yTonMQBzJtQcqEoGDGNDzyoCOlc model.json
+          download 1WHfsSSFRSM4YHr8j7YA8KcHkXCDgW3Nn tokenizer.json
+          download 1Qy1NDqQfI7Wzjqhtzrk8ulg-GzAvZFJ9 weights.0.bin
+          download 1de7ZZ3sVyqd7g3ARDurLCpoT_wGiLf6p weights.1.bin
+      - name: Compare real responses
+        run: |
+          set -euo pipefail
+          mkdir -p data/llm/probe
+          printf '%s' '{"train":["What is your name?"],"validation":["What do people call you?"]}' > data/llm/probe/identity-probes.json
+          node learning/qa-probe.mjs data/llm/baseline data/llm/probe > data/llm/probe/baseline.json
+          node learning/qa-probe.mjs data/llm/candidate data/llm/probe > data/llm/probe/candidate.json
+          cat data/llm/probe/baseline.json data/llm/probe/candidate.json
+          gh release upload infinity-qa-43590062833 --repo "$GITHUB_REPOSITORY" data/llm/probe/baseline.json data/llm/probe/candidate.json --clobber

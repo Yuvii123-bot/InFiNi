@@ -17,7 +17,12 @@ import { runPython } from './cycle.mjs';
 import { loadModel, selfTest } from '../engine/neural/model.js';
 
 const exists = (f) => fs.existsSync(f);
-const sha256File = (f) => crypto.createHash('sha256').update(fs.readFileSync(f)).digest('hex');
+const sha256File = (f) => {
+  const hash = crypto.createHash('sha256'), fd = fs.openSync(f, 'r'), buffer = Buffer.allocUnsafe(1024 * 1024);
+  try { let n; while ((n = fs.readSync(fd, buffer, 0, buffer.length, null)) > 0) hash.update(buffer.subarray(0, n)); }
+  finally { fs.closeSync(fd); }
+  return hash.digest('hex');
+};
 
 /** Start a state directory from the published model. Does nothing when the state already has a production model. */
 export async function seedFromPublished(root, { bundled = BUNDLED, env = process.env, log = () => {} } = {}) {
@@ -64,7 +69,8 @@ export function pruneState(root, cfg = loadConfig(root)) {
   const live = cyc && !cyc.finished ? cyc : null;
   const dsets = listDirs(P.datasets), keepD = new Set([...dsets.slice(-w.keepDatasets), live && live.dataset].filter(Boolean));
   for (const d of dsets) if (!keepD.has(d)) for (const f of fs.readdirSync(path.join(P.datasets, d))) if (f !== 'dataset.json') rm(path.join(P.datasets, d, f));
-  const runs = listDirs(P.runs), keepR = new Set([...runs.slice(-w.keepRuns), live && live.run].filter(Boolean));
+  // A challenger must survive ordinary pruning between cycles and runner sessions.
+  const runs = listDirs(P.runs), keepR = new Set([...runs.filter((r) => r.startsWith('challenger-')), ...runs.slice(-w.keepRuns), live && live.run].filter(Boolean));
   for (const r of runs) if (!keepR.has(r)) rm(path.join(P.runs, r, 'ckpt.pt'));
   if (removed.length) logEvent(root, 'pruned', { files: removed.length });
   return removed;

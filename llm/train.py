@@ -30,6 +30,7 @@ TRAIN_DEFAULTS = dict(
     eval_interval=250, eval_windows=64, log_interval=20, save_interval=250,
     anchor_l2=0.0,          # pull towards the weights the cycle started from (guards against forgetting); 0 = off
     duty=1.0,               # share of wall time spent training (0.5 = sleep as long as each step took)
+    sequence_length=0,      # 0 = model context; shorter windows leave the architecture/context unchanged
     nice=10,                # lower scheduling priority so the chat server stays responsive
 )
 
@@ -184,7 +185,10 @@ def main(argv=None) -> int:
     val = Shards(args.data, manifest, "val")
     if not train.items:
         raise SystemExit("the dataset has no training shards")
-    val_windows = val.fixed_windows(mcfg.context, int(tcfg["eval_windows"]))
+    sequence_length = int(tcfg["sequence_length"]) or mcfg.context
+    if sequence_length < 1 or sequence_length > mcfg.context:
+        raise SystemExit(f"sequence_length must be between 1 and {mcfg.context}")
+    val_windows = val.fixed_windows(sequence_length, int(tcfg["eval_windows"]))
 
     anchor = None
     if tcfg["anchor_l2"] > 0 and state:
@@ -203,7 +207,7 @@ def main(argv=None) -> int:
 
     info = dict(
         device=device, precision=precision, threads=torch.get_num_threads(), params=model.num_params(), model=mcfg.to_dict(),
-        train={k: tcfg[k] for k in ("batch_size", "grad_accum", "lr", "min_lr", "warmup_steps", "weight_decay", "optimizer", "grad_clip", "anchor_l2", "duty")},
+        train={k: tcfg[k] for k in ("batch_size", "grad_accum", "lr", "min_lr", "warmup_steps", "weight_decay", "optimizer", "grad_clip", "anchor_l2", "duty", "sequence_length")},
         dataset=manifest.get("version", ""), train_tokens_available=train.tokens, val_tokens_available=val.tokens,
         source=source, optimizer_state_restored=opt_restored, cycle=cycle, torch=torch.__version__, pid=os.getpid(),
     )
@@ -227,7 +231,7 @@ def main(argv=None) -> int:
     status("starting")
     print(json.dumps({"event": "start", **info}), flush=True)
 
-    bs, accum, ctx = int(tcfg["batch_size"]), max(1, int(tcfg["grad_accum"])), mcfg.context
+    bs, accum, ctx = int(tcfg["batch_size"]), max(1, int(tcfg["grad_accum"])), sequence_length
     model.train()
     t_cycle = time.time()
     run_loss, run_n, t_log, tok_log = 0.0, 0, time.time(), 0
