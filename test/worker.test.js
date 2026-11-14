@@ -92,6 +92,21 @@ test('larger architecture is a separate challenger, including imported cards wit
   assert.equal(needsChallenger({ model: { preset: 'auto' } }, { production: 'm1', models: { m1: { preset: 'micro' } } }), false);
 });
 
+test('worker schedules a challenger without waiting for new documents', async () => {
+  const root = state({ docsPerRound: 0 }, { ...FAST, model: { preset: 'xl' } });
+  const { record } = await runUntil(root, () => fakeLog(root).some((r) => r.kind === 'cycle'), { what: 'challenger cycle' });
+  const cycle = fakeLog(root).find((r) => r.kind === 'cycle');
+  assert.deepEqual(cycle.args, ['--no-acquire']);
+  assert.match(record.lastStep.why, /xl challenger/);
+});
+
+test('worker reports a failed final state checkpoint as failure', async () => {
+  const root = state({ docsPerRound: 0 });
+  const worker = createWorker({ root, env: { PATH: process.env.PATH }, cli: FAKE, seed: false, once: true, log: () => {}, onCheckpoint: async () => { throw new Error('upload failed'); } });
+  assert.equal(await worker.run(), 1);
+  assert.ok(worker.record().errors.some((e) => e.where === 'state checkpoint'));
+});
+
 test('pruning retains the persistent challenger checkpoint across cycles', () => {
   const root = state({});
   const dir = path.join(paths(root).runs, 'challenger-xl');

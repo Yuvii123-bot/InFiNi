@@ -156,7 +156,8 @@ export function createWorker({ root = stateDir(), env = process.env, log = (s) =
     finally { publishing = false; }
   }
   async function checkpoint() {
-    try { lastCheckpoint = Date.now(); const r = await onCheckpoint(root); w.lastCheckpoint = { t: nowISO(), ...(r || {}) }; } catch (e) { fail('state checkpoint', e && e.message); }
+    try { lastCheckpoint = Date.now(); const r = await onCheckpoint(root); w.lastCheckpoint = { t: nowISO(), ...(r || {}) }; return true; }
+    catch (e) { fail('state checkpoint', e && e.message); return false; }
   }
 
   async function run() {
@@ -252,12 +253,12 @@ export function createWorker({ root = stateDir(), env = process.env, log = (s) =
     try { await publishNow(loadRegistry(root).production !== lastPublished); } catch { /* reported inside */ }
     clearInterval(beat);
     save({ state: 'stopped', activity: 'stopped', detail: reason, stoppedAt: nowISO() });
-    if (onCheckpoint) await checkpoint();
+    const saved = !onCheckpoint || await checkpoint();
     writeJSON(P.worker, w);
     logEvent(root, 'worker-stop', { reason, uptimeSeconds: w.uptimeSeconds });
     try { const sup = readJSON(P.supervisor, null); if (sup && sup.pid === process.pid) fs.rmSync(P.supervisor, { force: true }); } catch { /* ignore */ }
-    say(`stopped: ${reason}`);
-    return 0;
+    say(`stopped: ${reason}${saved ? '' : '; final state checkpoint failed'}`);
+    return saved ? 0 : 1;
   }
   /** Ask the running step to stop at a safe point (the trainer writes its checkpoint); kill it if it does not. */
   async function stopChild() {
