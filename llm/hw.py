@@ -61,6 +61,8 @@ def recommend(inv: dict) -> str:
     if inv["apple_silicon_mps"]:
         return "base" if inv["memory_gb"] >= 16 else "small"
     cores, mem = inv["cpu_count"] or 1, inv["memory_gb"]
+    if mem >= 12 and cores >= 4:
+        return "xl"
     if cores >= 16 and mem >= 16:
         return "small"
     if cores >= 4 and mem >= 6:

@@ -190,4 +190,5 @@ PRESETS = {
     "small": dict(n_layer=6, n_head=6, d_model=288, context=384),
     "base":  dict(n_layer=8, n_head=8, d_model=512, context=512),
     "large": dict(n_layer=12, n_head=12, d_model=768, context=1024),
+    "xl":    dict(n_layer=16, n_head=16, d_model=768, context=1024),
 }
