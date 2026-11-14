@@ -16,6 +16,7 @@ import { BlockedError } from '../engine/net/guard.js';
 import crypto from 'node:crypto';
 import { createNeural, lean } from '../engine/neural/service.js';
 import { createChannel } from '../engine/neural/channel.js';
+import { createPinnedChannel } from '../engine/neural/pinned-channel.js';
 import { createManager } from '../learning/manager.mjs';
 import { BUNDLED as BUNDLED_MODEL } from '../learning/store.mjs';
 
@@ -56,7 +57,7 @@ export function createApp(cfg = loadConfig()) {
     try { const dir = llm.bundled || BUNDLED_MODEL; const snap = JSON.parse(fs.readFileSync(path.join(dir, 'snapshot.json'), 'utf8')); const meta = JSON.parse(fs.readFileSync(path.join(dir, 'current', 'model.json'), 'utf8')); shippedMemo = snap.registry && snap.registry.production && meta.sha256 ? { id: snap.registry.production, sha256: meta.sha256 } : null; } catch { shippedMemo = null; }
     return shippedMemo;
   };
-  const channel = llm.enabled && llm.channel ? createChannel({ url: llm.channel, dir: llm.channelDir || '', intervalMs: (llm.channelSeconds || 300) * 1000, log, shipped: shippedModel, ...(cfg.fetchImpl ? { fetchImpl: cfg.fetchImpl } : {}) }) : null;
+  const channel = llm.enabled && llm.pinnedModel ? createPinnedChannel({ log, ...(cfg.fetchImpl ? { fetchImpl: cfg.fetchImpl } : {}) }) : llm.enabled && llm.channel ? createChannel({ url: llm.channel, dir: llm.channelDir || '', intervalMs: (llm.channelSeconds || 300) * 1000, log, shipped: shippedModel, ...(cfg.fetchImpl ? { fetchImpl: cfg.fetchImpl } : {}) }) : null;
   const neural = llm.enabled ? createNeural({ root: llm.dir, minLogProb: llm.minLogProb, minAgreement: llm.minAgreement, log, bundled: llm.bundled || undefined, channel }) : null;
   /** Look at the channel when the last look is old. The first look of a process is waited for; later ones only briefly. */
   async function modelSync() { if (!channel || !channel.stale()) return; const changed = await channel.syncWithin(channel.everChecked() ? 2500 : 12000); if (changed && neural) neural.refresh(true); }
@@ -246,7 +247,11 @@ export function createApp(cfg = loadConfig()) {
     try { url = new URL(req.url, 'http://localhost'); } catch { return json(res, 400, { error: 'bad_request' }); }
     const p = url.pathname;
     try {
-      if (p === '/api/ask') return req.method === 'POST' ? await ask(req, res) : json(res, 405, { error: 'method_not_allowed' }, { Allow: 'POST' });
+      if (p === '/api/ask') {
+        if (req.method !== 'POST') return json(res, 405, { error: 'method_not_allowed' }, { Allow: 'POST' });
+        if (channel) { await modelSync(); if (neural) neural.refresh(); }
+        return await ask(req, res);
+      }
       if (p === '/api/preview') return req.method === 'POST' ? await preview(req, res) : json(res, 405, { error: 'method_not_allowed' }, { Allow: 'POST' });
       if (p === '/api/health') return json(res, 200, { ok: true, version: VERSION });
       if (channel && (p.startsWith('/api/llm/') || p === '/api/ask' || p === '/api/status')) { await modelSync(); if (neural) neural.refresh(); }

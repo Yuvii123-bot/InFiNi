@@ -15,6 +15,7 @@ import { trainBPE, createTokenizer, tokenizerSpec, T, SPECIALS } from '../engine
 import { loadModel, selfTest, createSession } from '../engine/neural/model.js';
 import { createRuntime } from '../engine/neural/generate.js';
 import { createNeural } from '../engine/neural/service.js';
+import { createPinnedChannel } from '../engine/neural/pinned-channel.js';
 import { createBrain } from '../engine/brain/index.js';
 import { licenceFromUrl, detectLicence, permitted } from '../learning/licence.mjs';
 import { inspectText, simhash, hamming, languageOf } from '../learning/process.mjs';
@@ -88,6 +89,33 @@ test('inference engine: split q8 weights load accurately and reject damaged or u
     assert.throws(() => loadModel(dir), /checksum/);
     meta.weight_parts = ['../escape.bin']; save();
     assert.throws(() => loadModel(dir), /invalid model weight parts/);
+  } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+});
+
+test('pinned channel verifies every file and keeps a failed download inactive', async () => {
+  const data = {
+    'model.json': Buffer.from(JSON.stringify({ dtype: 'q8', sha256: 'a'.repeat(64), weight_parts: ['weights.0.bin'] })),
+    'tokenizer.json': Buffer.from('{"merges":[]}'), 'weights.0.bin': Buffer.from([1, 2, 3, 4]),
+  };
+  const files = Object.entries(data).map(([name, bytes], i) => ({ name, id: `file${i}`, size: bytes.length, sha256: crypto.createHash('sha256').update(bytes).digest('hex') }));
+  const manifest = { version: 'test-model', sha256: 'a'.repeat(64), files };
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'infini-pinned-test-'));
+  let broken = true;
+  try {
+    const fetchImpl = async (url) => {
+      const file = files.find((f) => new URL(url).searchParams.get('id') === f.id);
+      return new Response(broken && file.name === 'weights.0.bin' ? Buffer.from([9, 9, 9, 9]) : data[file.name]);
+    };
+    const channel = createPinnedChannel({ manifest, dir, fetchImpl });
+    assert.equal(await channel.sync(), false);
+    assert.equal(channel.current(), null);
+    assert.match(channel.info().error, /checksum/);
+    broken = false;
+    assert.equal(await channel.sync({ force: true }), true);
+    assert.equal(channel.current().id, manifest.version);
+    assert.equal(channel.info().error, undefined);
+    const cached = createPinnedChannel({ manifest, dir, fetchImpl: () => { throw Error('should not fetch'); } });
+    assert.equal(await cached.sync(), true);
   } finally { fs.rmSync(dir, { recursive: true, force: true }); }
 });
 
