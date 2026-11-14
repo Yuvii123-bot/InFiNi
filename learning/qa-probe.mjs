@@ -14,6 +14,7 @@ if (!parity.ok) throw Error('model parity check failed: ' + JSON.stringify(parit
 const tok = createTokenizer(JSON.parse(fs.readFileSync(path.join(dir, 'tokenizer.json'), 'utf8')));
 const runtime = createRuntime(model, tok);
 const probes = JSON.parse(fs.readFileSync(path.join(data, 'identity-probes.json'), 'utf8'));
+probes.general = ['Hello!', 'What is 2 plus 3?', 'What is 17 plus 28?', 'What color is the sky?', 'What is water?', 'How are you?', 'What is the capital of France?', 'Can you help me?', 'Tell me a joke.', 'What is 8 plus 5?'];
 const output = [];
 for (const [split, prompts] of Object.entries(probes)) {
   for (const user of (split === 'train' ? prompts.slice(0, 2) : prompts)) {
