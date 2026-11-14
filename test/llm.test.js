@@ -119,6 +119,18 @@ test('pinned channel verifies every file and keeps a failed download inactive', 
   } finally { fs.rmSync(dir, { recursive: true, force: true }); }
 });
 
+test('a pinned selection never silently serves the older state or bundled model', () => {
+  let current = null;
+  const channel = { pinned: true, current: () => current };
+  const neural = createNeural({ root: FIX, channel });
+  assert.equal(neural.info().available, false);
+  assert.match(neural.info().reason, /pinned model/);
+  current = { dir: MODEL, id: 'pinned-test', source: 'pinned', registryMtime: 0 };
+  neural.refresh(true);
+  assert.equal(neural.info().version, 'pinned-test');
+  assert.equal(neural.info().source, 'pinned');
+});
+
 test('inference engine: cached generation equals recomputation, greedy decoding is deterministic', async () => {
   const { model, tok, rt } = load();
   const ids = [T.USER, ...tok.encode('hello there'), T.ASSISTANT];

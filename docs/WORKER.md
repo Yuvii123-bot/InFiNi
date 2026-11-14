@@ -423,3 +423,9 @@ These are the things that are not solved, or not verified.
 | `.github/workflows/infinity-learning.yml`, `.github/infinity-learning.start` | Worker sessions on GitHub Actions |
 | `Dockerfile.worker`, `docker-compose.yml`, `deploy/` | The worker on a machine that stays on |
 | `test/worker.test.js`, `test/ui-worker.test.js`, `test/helpers/fake-cli.mjs` | Tests |
+
+### Explicit 117M chat selection
+
+`INFINI_PINNED_MODEL=1` selects the step-110 117,203,712-parameter q8 export, not the worker's mutable production channel. Each cold serving instance downloads the four public, link-accessible Google Drive files identified in `engine/neural/pinned-channel.js`, verifies their sizes and SHA-256 checksums, and runs the model's numerical self-test before serving it. Cold starts and generation can be slow. If the files are unavailable or validation fails, the neural model is unavailable rather than silently serving a different model. Setting the variable to `0` and redeploying restores the existing worker channel (and its previous m0008 model). Keep the Drive files available; these are inference weights, not a resumable optimizer checkpoint.
+
+This checkpoint was trained for only 110 steps on synthetic dialogue from random initialization. It is undertrained and may generate poor or nonsensical responses; more parameters do not imply better quality. The normal assistant can still use its rules or retrieval, while `/llm.html` shows unfiltered model output.
