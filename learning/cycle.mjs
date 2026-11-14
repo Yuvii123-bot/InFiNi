@@ -186,8 +186,8 @@ export async function runCycle({ root, engine = null, env = process.env, overrid
       const built = buildDataset({ dir: path.join(P.datasets, version), version, docs: loadCorpus(root), freshIds: bootstrap ? null : cyc.fresh, cfg, tokenizer, context: ctxLen, cycle: cyc.id, parent: (reg0.models[reg0.production] || {}).dataset || '', seed: 11 + listDirs(P.datasets).length, log: note, dialogue: buildDialogue({ seed: 7, conversations: cfg.dialogue.conversations }) });
       if (!tokenizer) writeJSON(P.tokenizer, built.tokenizer);
       // a dataset in which benchmark or validation material is found is never trained on
-      { const it = built.manifest.integrity; const leaks = (it.benchmarkSentencesInTraining || 0) + (it.valDocumentsInTraining || 0) + (it.valHashesInTraining || 0);
-        if (leaks) { cyc.message = `dataset ${version} failed its contamination check (${it.benchmarkSentencesInTraining || 0} benchmark sentences, ${(it.valDocumentsInTraining || 0) + (it.valHashesInTraining || 0)} validation documents in the training text): not trained`; cyc.datasetSummary = { integrity: it }; return finish('error'); } }
+      { const it = built.manifest.integrity; const benchmarkLeaks = (it.benchmarkSentencesInTraining || 0) + (it.benchmarkPhrasesInDialogue || 0); const leaks = benchmarkLeaks + (it.valDocumentsInTraining || 0) + (it.valHashesInTraining || 0);
+        if (leaks) { cyc.message = `dataset ${version} failed its contamination check (${benchmarkLeaks} benchmark sentences, ${(it.valDocumentsInTraining || 0) + (it.valHashesInTraining || 0)} validation documents in the training text): not trained`; cyc.datasetSummary = { integrity: it }; return finish('error'); } }
       cyc.dataset = version; cyc.datasetSummary = { tokens: built.manifest.tokens, documents: built.manifest.documents, mixture: built.manifest.mixture, integrity: built.manifest.integrity };
       cyc.phases.dataset = nowISO(); saveCyc();
       note(`dataset ${version}: ${built.manifest.tokens.train} training tokens, ${built.manifest.tokens.validation} validation tokens, mixture ${JSON.stringify(built.manifest.mixture)}`);

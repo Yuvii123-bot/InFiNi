@@ -414,6 +414,25 @@ test('dataset: a benchmark sentence embedded in a longer sentence is removed too
   assert.ok(manifest.integrity.benchmarkSentencesRemoved >= 1, JSON.stringify(manifest.integrity));
 });
 
+test('dataset: exact and embedded benchmark phrases are removed from training dialogue', async () => {
+  const { buildDataset, buildDialogue } = await import('../learning/dataset.mjs');
+  const dialogue = buildDialogue({ seed: 7, conversations: 300 });
+  const fact = loadBenchmark().knowledge[0][0];
+  dialogue.train.push([['What fact is this?', fact, 'test']]);
+  dialogue.train.push([['Tell me something.', `As a reminder, ${fact} This is a known fact.`, 'test']]);
+  const originalLength = dialogue.train.length;
+  const dir = tmp('dialogue-leak');
+  const tokenizer = JSON.parse(fs.readFileSync(path.join(REPO, 'model', 'current', 'tokenizer.json'), 'utf8'));
+  const { manifest } = buildDataset({ dir, version: 'dialogue-test', docs: [], cfg: DEFAULTS, tokenizer, context: 256, dialogue });
+  assert.equal(dialogue.train.length, originalLength, 'the supplied dialogue is not mutated');
+  assert.ok(manifest.integrity.benchmarkConversationsRemoved >= 2);
+  assert.equal(manifest.integrity.benchmarkPhrasesInDialogue, 0);
+  const shard = manifest.shards.find((s) => s.split === 'train' && s.group === 'dialogue');
+  const bytes = fs.readFileSync(path.join(dir, shard.file));
+  const text = createTokenizer(tokenizer).decode(Array.from(new Uint16Array(bytes.buffer, bytes.byteOffset, bytes.byteLength / 2)));
+  assert.equal(text.includes(fact), false);
+});
+
 test('memorisation probe: reports how much easier trained text is, and whether it is continued word for word', () => {
   const dir = path.join(FIX, 'models', 'm0001');
   const model = loadModel(dir);
