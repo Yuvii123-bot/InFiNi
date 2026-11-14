@@ -255,6 +255,13 @@ export function createApp(cfg = loadConfig()) {
       if (p === '/api/preview') return req.method === 'POST' ? await preview(req, res) : json(res, 405, { error: 'method_not_allowed' }, { Allow: 'POST' });
       if (p === '/api/health') return json(res, 200, { ok: true, version: VERSION });
       if (channel && (p.startsWith('/api/llm/') || p === '/api/ask' || p === '/api/status')) { await modelSync(); if (neural) neural.refresh(); }
+      if (p === '/api/llm/smoke' && process.env.INFINI_MODEL_SMOKE === '1' && req.method === 'GET') {
+        const wait = rateLimit(clientIp(req), 5);
+        if (wait) return json(res, 429, { error: 'rate_limited' });
+        if (!neural || !neural.ready()) return json(res, 503, { error: 'llm_unavailable' });
+        const result = await neural.chat({ user: 'Hello, how are you?', temperature: 0, maxNew: 8, seed: 1 });
+        return json(res, 200, { model: neural.info(), result });
+      }
       if (p === '/api/llm/status') return req.method === 'GET' ? llmStatus(req, res) : json(res, 405, { error: 'method_not_allowed' }, { Allow: 'GET' });
       if (p === '/api/llm/chat') return req.method === 'POST' ? await llmChat(req, res) : json(res, 405, { error: 'method_not_allowed' }, { Allow: 'POST' });
       if (p === '/api/llm/admin') return req.method === 'POST' ? await llmAdmin(req, res) : json(res, 405, { error: 'method_not_allowed' }, { Allow: 'POST' });
