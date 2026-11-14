@@ -33,7 +33,7 @@ import { packState, restoreState, healthCheck, seedFromPublished, pruneState } f
 import { buildChannel, publishDir, publishGithub, fetchGithubAsset, publishAll, withoutPaths, statusNotes, newerCommit } from '../learning/publish.mjs';
 import { collectMediawiki } from '../learning/sources.mjs';
 import { createManager } from '../learning/manager.mjs';
-import { snapshot, pendingInfo } from '../learning/cycle.mjs';
+import { snapshot, pendingInfo, needsChallenger } from '../learning/cycle.mjs';
 import { createChannel } from '../engine/neural/channel.js';
 import { loadModel } from '../engine/neural/model.js';
 import { createTokenizer } from '../engine/neural/tokenizer.js';
@@ -47,7 +47,7 @@ const WORKER = path.join(REPO, 'learning', 'worker.mjs');
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 const tmp = (name) => fs.mkdtempSync(path.join(os.tmpdir(), `infini-${name}-`));
 const sha = (f) => crypto.createHash('sha256').update(fs.readFileSync(f)).digest('hex');
-const FAST = { worker: { discoverPauseSeconds: 0.05, idleSeconds: 0.05, trainWhenNewDocs: 6, trainAfterMinutes: 45, heartbeatSeconds: 1, backoffSeconds: 0.2, backoffMaxSeconds: 0.5, publishSeconds: 0, stallMinutes: 5 } };
+const FAST = { model: { preset: 'auto' }, worker: { discoverPauseSeconds: 0.05, idleSeconds: 0.05, trainWhenNewDocs: 6, trainAfterMinutes: 45, heartbeatSeconds: 1, backoffSeconds: 0.2, backoffMaxSeconds: 0.5, publishSeconds: 0, stallMinutes: 5 } };
 
 /** A private state directory holding the fixture model m0001 as production, with fast worker timings. */
 function state(plan = {}, config = FAST) {
@@ -82,6 +82,29 @@ function spawnWorker(root, extra = []) {
 const alive = (pid) => { try { process.kill(pid, 0); return true; } catch { return false; } };
 
 // ---------------------------------------------------------------- continuous operation
+
+test('larger architecture is a separate challenger, including imported cards without a preset', () => {
+  const cfg = { model: { preset: 'xl' } };
+  assert.equal(needsChallenger(cfg, { production: null, models: {} }), false);
+  assert.equal(needsChallenger(cfg, { production: 'm1', models: { m1: { preset: 'micro' } } }), true);
+  assert.equal(needsChallenger(cfg, { production: 'm1', models: { m1: {} } }), true);
+  assert.equal(needsChallenger(cfg, { production: 'm1', models: { m1: { preset: 'xl' } } }), false);
+  assert.equal(needsChallenger({ model: { preset: 'auto' } }, { production: 'm1', models: { m1: { preset: 'micro' } } }), false);
+});
+
+test('pruning retains the persistent challenger checkpoint across cycles', () => {
+  const root = state({});
+  const dir = path.join(paths(root).runs, 'challenger-xl');
+  fs.mkdirSync(dir, { recursive: true });
+  fs.writeFileSync(path.join(dir, 'ckpt.pt'), 'important');
+  for (let i = 1; i <= 4; i++) {
+    const d = path.join(paths(root).runs, `c000${i}`);
+    fs.mkdirSync(d, { recursive: true });
+    fs.writeFileSync(path.join(d, 'ckpt.pt'), 'old');
+  }
+  pruneState(root, { worker: { keepModels: 1, keepDatasets: 1, keepRuns: 1 } });
+  assert.equal(fs.readFileSync(path.join(dir, 'ckpt.pt'), 'utf8'), 'important');
+});
 
 test('worker: discovers, starts training by itself when enough documents arrived, publishes the approved model, and carries on', async () => {
   const root = state({ docsPerRound: 3 });
@@ -232,7 +255,7 @@ test('worker: a session with a time limit ends by itself and the next session co
 });
 
 test('worker: a session ends between two steps when newer code was pushed, and not otherwise', async () => {
-  const root = state({ docsPerRound: 1 }, { worker: { ...FAST.worker, codeCheckMinutes: 0 } });
+  const root = state({ docsPerRound: 1 }, { model: FAST.model, worker: { ...FAST.worker, codeCheckMinutes: 0 } });
   let asked = 0;
   const lines = [];
   const w = createWorker({ root, env: { PATH: process.env.PATH }, cli: FAKE, seed: false, log: (s) => lines.push(s), newerCode: async () => { asked++; return asked >= 3 ? 'abcdef0123456789abcdef0123456789abcdef01' : null; } });
@@ -495,6 +518,7 @@ function fakeGithub() {
       const r = [...releases.values()].find((x) => x.assets.has(Number(m[1])));
       if (!r) return json({ message: 'Not Found' }, 404);
       if (method === 'DELETE') { r.assets.delete(Number(m[1])); return new Response(null, { status: 204 }); }
+      if (method === 'PATCH') { const a = r.assets.get(Number(m[1])); a.name = JSON.parse(opts.body).name; return json({ id: a.id, name: a.name }); }
       return new Response(r.assets.get(Number(m[1])).data, { status: 200 });
     }
     if ((m = /^\/repos\/o\/r\/releases\/(\d+)$/.exec(u.pathname)) && method === 'PATCH') { byId(m[1]).body = JSON.parse(opts.body).body; return json({}); }
@@ -539,6 +563,14 @@ test('publication: a GitHub release as the channel — created when missing, unc
   assert.equal(got.bytes, stored.bytes);
   const back = tmp('restored');
   assert.equal(restoreState(to, back).production, 'm0001');
+  // A failed upload cannot delete the last good state. A failed final rename is recoverable from staging.
+  const failUpload = async (url, opts) => String(url).includes('name=state-staging-') ? new Response('failed', { status: 503 }) : gh.fetchImpl(url, opts);
+  await assert.rejects(pushState(root, { env: { ...env, INFINI_STATE_GITHUB: 'o/r' }, fetchImpl: failUpload }), /503/);
+  assert.deepEqual(gh.names('infinity-state'), ['state.tar.gz']);
+  const failRename = async (url, opts) => opts?.method === 'PATCH' && /\/assets\/\d+$/.test(new URL(url).pathname) ? new Response('failed', { status: 503 }) : gh.fetchImpl(url, opts);
+  await assert.rejects(pushState(root, { env: { ...env, INFINI_STATE_GITHUB: 'o/r' }, fetchImpl: failRename }), /503/);
+  assert.match(gh.names('infinity-state')[0], /^state-staging-/);
+  assert.ok(await fetchGithubAsset({ repo: 'o/r', tag: 'infinity-state', name: 'state.tar.gz', token: 'secret-token', api: 'https://api.test', fetchImpl: gh.fetchImpl, to }), 'completed staging asset recovers after failed rename');
   assert.equal(await fetchGithubAsset({ repo: 'o/r', tag: 'no-such-release', name: 'state.tar.gz', token: 'secret-token', api: 'https://api.test', fetchImpl: gh.fetchImpl, to }), null, 'no stored state yet is not an error');
 });
 

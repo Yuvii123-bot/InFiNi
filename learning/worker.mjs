@@ -24,7 +24,7 @@ import path from 'node:path';
 import { spawn } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { REPO, stateDir, paths, loadConfig, readJSON, writeJSON, readLines, nowISO, logEvent } from './store.mjs';
-import { isPaused, pendingInfo, reapTrainer, getState } from './cycle.mjs';
+import { isPaused, pendingInfo, reapTrainer, getState, needsChallenger } from './cycle.mjs';
 import { loadRegistry } from './registry.mjs';
 import { seedFromPublished, pruneState, healthCheck, stateSizeMb, packState } from './persist.mjs';
 import { publishAll } from './publish.mjs';
@@ -191,6 +191,7 @@ export function createWorker({ root = stateDir(), env = process.env, log = (s) =
       if (ctl.trainNow && canTrain && !unfinished && reg.production) { kind = 'cycle'; args = pend.ids.length >= cfg.worker.trainWhenNewDocs ? ['--no-acquire'] : []; why = `requested by an operator (${pend.ids.length} new documents waiting)`; }
       else if (unfinished && canTrain) { kind = 'cycle'; args = cyc.phases && cyc.phases.acquire ? ['--no-acquire'] : []; why = `continuing ${cyc.id}`; }
       else if (!reg.production && canTrain) { kind = 'cycle'; why = 'no model yet: collecting data and training the first one'; }
+      else if (canTrain && needsChallenger(cfg, reg)) { kind = 'cycle'; args = ['--no-acquire']; why = `continuing the ${cfg.model.preset} challenger while keeping production`; }
       else if (canTrain && (pend.ids.length >= cfg.worker.trainWhenNewDocs || (pend.ids.length >= cfg.cycle.minNewDocs && waitedMin >= cfg.worker.trainAfterMinutes))) { kind = 'cycle'; args = ['--no-acquire']; why = `${pend.ids.length} new verified documents are waiting`; }
       else why = `${pend.ids.length} new documents waiting (training starts at ${cfg.worker.trainWhenNewDocs}, or at ${cfg.cycle.minNewDocs} after ${cfg.worker.trainAfterMinutes} min)`;
       save({ activity: kind === 'cycle' ? 'learning cycle' : 'discovering', detail: why, nextAction: '' });
@@ -263,7 +264,8 @@ export function createWorker({ root = stateDir(), env = process.env, log = (s) =
     const c = child;
     if (!c) return;
     try { c.kill('SIGTERM'); } catch { /* gone */ }
-    for (let i = 0; i < 90 && child === c; i++) await sleep(500);
+    // A 100M-parameter AdamW checkpoint is well over a gigabyte; allow time for a safe atomic save.
+    for (let i = 0; i < 360 && child === c; i++) await sleep(500);
     if (child === c) { try { c.kill('SIGKILL'); } catch { /* gone */ } for (let i = 0; i < 20 && child === c; i++) await sleep(250); }
   }
   function stop(reason = 'asked to stop') { if (stopping) return; stopping = true; stopReason = reason; say(`stopping: ${reason}`); stopChild(); }

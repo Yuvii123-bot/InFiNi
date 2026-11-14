@@ -182,6 +182,21 @@ class Training(unittest.TestCase):
             self.assertEqual(os.path.getsize(os.path.join(out, "weights.bin")), exp["params"] * 4)
             self.assertEqual(len(meta["reference"]["tokens"]), len(meta["reference"]["argmax"]))
 
+    def test_compare_models_on_the_same_context_windows(self):
+        with tempfile.TemporaryDirectory() as d:
+            make_dataset(d)
+            checkpoints = []
+            for context in (16, 32):
+                cfg = ModelConfig.from_dict({**TINY, "context": context})
+                model = InfinityLM(cfg, seed=1)
+                ckpt = os.path.join(d, f"{context}.pt")
+                torch.save({"model": model.state_dict(), "model_config": cfg.to_dict()}, ckpt)
+                checkpoints.append(ckpt)
+            results = run("llm.evaluate", "--data", d, "--ckpt", checkpoints[0], "--ckpt", checkpoints[1], "--context", "16", "--windows", "5", "--threads", "1")[0]["results"]
+            self.assertEqual([r["context"] for r in results], [16, 16])
+            self.assertEqual([r["tokens"] for r in results], [80, 80])
+            self.assertTrue(all(math.isfinite(r["val_loss"]) for r in results))
+
     def test_a_checkpoint_from_another_tokenizer_is_refused(self):
         with tempfile.TemporaryDirectory() as d:
             make_dataset(d)

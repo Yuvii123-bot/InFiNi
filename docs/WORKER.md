@@ -372,9 +372,16 @@ These are the things that are not solved, or not verified.
   free runners for a permanent workload. A machine that stays on (section 8) has neither problem.
 - A running session keeps the code it started with. A fix reaches it when the session ends: by itself between two
   steps once it notices the newer commit (sessions started from this version on), otherwise after at most five hours.
-- The state travels as one archive (24 MB after the first session, 41 MB after the first cycle). What a session
-  did after its last upload (every 15 minutes, after every cycle, and at the end) is lost if the runner dies; the
-  next session then repeats that work.
+- The state travels as one archive. Checkpoints are uploaded between steps and at shutdown, not in the middle of a
+  training cycle. If a runner dies before the next successful upload, work since the last archive is lost. For the
+  117M challenger an AdamW checkpoint alone is roughly 1.4 GB uncompressed; compression and upload can take substantial
+  time, and GitHub release-asset size limits may prevent state persistence. The new archive is uploaded before the old
+  one is removed, with a staging-asset fallback if its final rename fails. Monitor the worker's checkpoint errors.
+- The configured `xl` architecture has 117,203,712 parameters with a 4096-token vocabulary. It is trained from scratch
+  as a persistent challenger, not grown from the production weights. It continues across cycles even without new docs;
+  production is retained until the challenger passes the same comparative quality gate. Training uses batch size one,
+  with a 10.5 GB RSS safety threshold. These are not a guarantee that a particular runner will fit or finish in two days.
+  The state directory's `config.json` overrides repository settings; inspect it when the runner behaves differently.
 - Job logs are not readable from outside GitHub without signing in; the release text of `infinity-model` and the
   dashboard are the windows into a session.
 
