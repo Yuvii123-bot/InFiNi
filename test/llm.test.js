@@ -8,6 +8,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import http from 'node:http';
+import crypto from 'node:crypto';
 import { fileURLToPath } from 'node:url';
 
 import { trainBPE, createTokenizer, tokenizerSpec, T, SPECIALS } from '../engine/neural/tokenizer.js';
@@ -56,6 +57,38 @@ test('inference engine: the exported weights reproduce the reference outputs wri
   assert.equal(st.argmaxAgree, st.positions);
   assert.match(model.meta.initialisation || model.meta.init || 'random', /random/);
   assert.ok(model.meta.params > 10000);
+});
+
+test('inference engine: split q8 weights load accurately and reject damaged or unsafe parts', () => {
+  const original = loadModel(MODEL);
+  const meta = structuredClone(original.meta);
+  const bytes = Buffer.alloc(meta.tensors.reduce((sum, t) => sum + t.size, 0));
+  for (const t of meta.tensors) {
+    const values = original.W[t.name];
+    let max = 0;
+    for (const v of values) max = Math.max(max, Math.abs(v));
+    t.scale = max ? max / 127 : 1;
+    for (let i = 0; i < t.size; i++) bytes.writeInt8(Math.max(-127, Math.min(127, Math.round(values[i] / t.scale))), t.offset + i);
+  }
+  meta.dtype = 'q8';
+  meta.sha256 = crypto.createHash('sha256').update(bytes).digest('hex');
+  meta.weight_parts = ['weights.0.bin', 'weights.1.bin'];
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'infini-q8-'));
+  try {
+    const middle = Math.floor(bytes.length / 2);
+    fs.writeFileSync(path.join(dir, meta.weight_parts[0]), bytes.subarray(0, middle));
+    fs.writeFileSync(path.join(dir, meta.weight_parts[1]), bytes.subarray(middle));
+    const save = () => fs.writeFileSync(path.join(dir, 'model.json'), JSON.stringify(meta));
+    save();
+    const decoded = loadModel(dir);
+    for (const t of meta.tensors) {
+      for (let i = 0; i < t.size; i++) assert.ok(Math.abs(decoded.W[t.name][i] - original.W[t.name][i]) <= t.scale * 0.501 + 1e-7);
+    }
+    fs.appendFileSync(path.join(dir, meta.weight_parts[1]), 'x');
+    assert.throws(() => loadModel(dir), /checksum/);
+    meta.weight_parts = ['../escape.bin']; save();
+    assert.throws(() => loadModel(dir), /invalid model weight parts/);
+  } finally { fs.rmSync(dir, { recursive: true, force: true }); }
 });
 
 test('inference engine: cached generation equals recomputation, greedy decoding is deterministic', async () => {
