@@ -121,6 +121,27 @@ test('pinned channel verifies every file and keeps a failed download inactive', 
   } finally { fs.rmSync(dir, { recursive: true, force: true }); }
 });
 
+test('pinned GitHub release files are verified and arbitrary release paths are refused', async () => {
+  const data = {
+    'model.json': Buffer.from(JSON.stringify({ dtype: 'q8', sha256: 'b'.repeat(64), weight_parts: ['weights.0.bin'] })),
+    'tokenizer.json': Buffer.from('{"merges":[]}'), 'weights.0.bin': Buffer.from([1, 2, 3]),
+  };
+  const files = Object.entries(data).map(([name, bytes]) => ({ name, size: bytes.length, sha256: crypto.createHash('sha256').update(bytes).digest('hex') }));
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'infini-release-test-'));
+  let fetched = 0;
+  try {
+    const fetchImpl = async (url) => { fetched++; const u = new URL(url); assert.equal(u.hostname, 'github.com'); return new Response(data[u.pathname.split('/').pop()]); };
+    const manifest = { version: 'qa-test', release: 'infinity-qa-more-123', sha256: 'b'.repeat(64), files };
+    const channel = createPinnedChannel({ manifest, dir, fetchImpl });
+    assert.equal(await channel.sync(), true);
+    assert.equal(fetched, 3);
+    const bad = createPinnedChannel({ manifest: { ...manifest, version: 'bad', release: '../../evil' }, dir, fetchImpl });
+    assert.equal(await bad.sync(), false);
+    assert.match(bad.info().error, /invalid pinned manifest/);
+    assert.equal(fetched, 3);
+  } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+});
+
 test('a pinned selection never silently serves the older state or bundled model', () => {
   let current = null;
   const channel = { pinned: true, current: () => current };

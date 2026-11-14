@@ -88,6 +88,7 @@ export function loadConfig(env = (typeof process !== 'undefined' ? process.env :
       // the learning worker's model channel (a URL under which channel.json and the model files are served, for example
       // https://github.com/<owner>/<repo>/releases/download/infinity-model): approved models arrive here without a redeploy
       pinnedModel: env.INFINI_PINNED_MODEL === '1',
+      pinnedVersion: String(env.INFINI_PINNED_VERSION || ''),
       channel: /^https?:\/\//.test(String(env.INFINI_MODEL_CHANNEL || '')) ? String(env.INFINI_MODEL_CHANNEL).trim() : '',
       channelSeconds: num(env.INFINI_MODEL_CHANNEL_SECONDS, 300, 5, 86400),
       channelDir: String(env.INFINI_MODEL_CHANNEL_DIR || ''),

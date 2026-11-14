@@ -16,13 +16,27 @@ export const XL_STEP110 = {
   ],
 };
 
-export function createPinnedChannel({ manifest = XL_STEP110, dir = path.join(os.tmpdir(), 'infini-pinned-xl-step110'), fetchImpl = (...a) => fetch(...a), timeoutMs = 180000, log = () => {} } = {}) {
+export const XL_STEP2110 = {
+  version: 'xl-qa-step2110',
+  release: 'infinity-qa-more-43593739051',
+  sha256: 'c2a221ead1bc3acc741e1e575e1faacc7b236ed4ca101a4045157a71bffb115b',
+  files: [
+    { name: 'model.json', size: 17253, sha256: 'ea1bab66308f0cb70b34e1fd21c0f308140f855f730d6b2730fdd65f10bbb638' },
+    { name: 'tokenizer.json', size: 93560, sha256: '3c5373f704c5191c66819c1114c642efc0b54bbede23b337623ce8e3f93f1ce8' },
+    { name: 'weights.0.bin', size: 66000000, sha256: 'b4e7b5209bc77f2c4107e7070b47a2ac1e126846f5c9b3c29fd1f01ae5db8d87' },
+    { name: 'weights.1.bin', size: 51203712, sha256: '74fa6cb978071d70f364cf0bb5e3c1b819f818550ac5772cd990e4a8188e71b1' },
+  ],
+};
+
+export function createPinnedChannel({ manifest = XL_STEP2110, dir = path.join(os.tmpdir(), 'infini-pinned-models'), fetchImpl = (...a) => fetch(...a), timeoutMs = 180000, log = () => {} } = {}) {
   const dest = path.join(dir, manifest.version);
   let active = null, inflight = null, lastCheck = 0, lastOk = 0, error = '', checks = 0;
   const validName = (name) => /^(model\.json|tokenizer\.json|weights\.\d+\.bin)$/.test(name);
+  // Release tags are deliberately constrained to this repository; manifest input cannot pick arbitrary hosts.
+  const validFile = (f) => validName(f.name) && (manifest.release ? /^infinity-qa-more-\d+$/.test(manifest.release) : /^[A-Za-z0-9_-]+$/.test(f.id)) && /^[a-f0-9]{64}$/.test(f.sha256) && Number.isSafeInteger(f.size) && f.size >= 0 && f.size <= 100_000_000;
   function verifyFiles(where) {
     for (const f of manifest.files) {
-      if (!validName(f.name) || !/^[A-Za-z0-9_-]+$/.test(f.id) || !/^[a-f0-9]{64}$/.test(f.sha256) || !Number.isSafeInteger(f.size) || f.size < 0 || f.size > 100_000_000) throw new Error('invalid pinned manifest');
+      if (!validFile(f)) throw new Error('invalid pinned manifest');
       const file = path.join(where, f.name);
       if (fs.statSync(file).size !== f.size || crypto.createHash('sha256').update(fs.readFileSync(file)).digest('hex') !== f.sha256) throw new Error(`${f.name}: checksum or size mismatch`);
     }
@@ -34,7 +48,9 @@ export function createPinnedChannel({ manifest = XL_STEP110, dir = path.join(os.
     const timeout = setTimeout(() => ac.abort(), timeoutMs);
     const filename = path.join(where, f.name);
     try {
-      const url = `https://drive.usercontent.google.com/download?id=${encodeURIComponent(f.id)}&export=download&confirm=t`;
+      const url = manifest.release
+        ? `https://github.com/Yuvii123-bot/InFiNi/releases/download/${manifest.release}/${f.name}`
+        : `https://drive.usercontent.google.com/download?id=${encodeURIComponent(f.id)}&export=download&confirm=t`;
       const res = await fetchImpl(url, { signal: ac.signal, redirect: 'follow' });
       if (!res.ok || !res.body) throw new Error(`${f.name}: HTTP ${res.status}`);
       const hash = crypto.createHash('sha256'); let size = 0;
@@ -57,7 +73,7 @@ export function createPinnedChannel({ manifest = XL_STEP110, dir = path.join(os.
         const tmp = fs.mkdtempSync(path.join(dir, 'incoming-'));
         try {
           for (const f of manifest.files) {
-            if (!validName(f.name) || !/^[A-Za-z0-9_-]+$/.test(f.id) || !/^[a-f0-9]{64}$/.test(f.sha256) || !Number.isSafeInteger(f.size) || f.size < 0 || f.size > 100_000_000) throw new Error('invalid pinned manifest');
+            if (!validFile(f)) throw new Error('invalid pinned manifest');
             await download(f, tmp);
           }
           verifyFiles(tmp);
