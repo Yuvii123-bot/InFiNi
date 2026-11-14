@@ -46,6 +46,16 @@ def run(mod: str, *args: str) -> list[dict]:
 
 
 class Architecture(unittest.TestCase):
+    def test_tiny75k_config_has_exactly_75040_parameters(self):
+        root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+        with open(os.path.join(root, 'llm', 'tiny75k.json')) as f:
+            cfg = ModelConfig.from_dict(json.load(f)['model'])
+        model = InfinityLM(cfg, seed=3)
+        self.assertEqual(model.num_params(), 75040)
+        self.assertEqual(cfg.vocab_size, 672)
+        logits, _ = model(torch.randint(0, cfg.vocab_size, (1, 8)))
+        self.assertEqual(logits.shape, (1, 8, 672))
+
     def test_is_a_decoder_only_transformer(self):
         m = InfinityLM(ModelConfig.from_dict(TINY), seed=1)
         names = [n for n, _ in m.named_parameters()]
