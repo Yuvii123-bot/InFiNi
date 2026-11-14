@@ -182,6 +182,28 @@ class Training(unittest.TestCase):
             self.assertEqual(os.path.getsize(os.path.join(out, "weights.bin")), exp["params"] * 4)
             self.assertEqual(len(meta["reference"]["tokens"]), len(meta["reference"]["argmax"]))
 
+    def test_split_q8_export_import_and_shorter_training_window(self):
+        with tempfile.TemporaryDirectory() as d:
+            make_dataset(d)
+            cfg = ModelConfig.from_dict(TINY)
+            model = InfinityLM(cfg, seed=3)
+            source = os.path.join(d, "source.pt")
+            torch.save({"model": model.state_dict(), "model_config": cfg.to_dict(), "step": 7, "tokenizer_sha": "toy"}, source)
+            out = os.path.join(d, "q8")
+            exported = run("llm.export_int8", "--ckpt", source, "--out", out, "--part-bytes", "10000")[0]
+            self.assertGreater(len(exported["parts"]), 1)
+            imported = os.path.join(d, "imported.pt")
+            result = run("llm.import_weights", "--model", out, "--out", imported)[0]
+            self.assertEqual(result["step"], 7)
+            self.assertTrue(result["reference"]["ok"])
+            runp = os.path.join(d, "continued")
+            events = run("llm.train", "--data", d, "--run", runp, "--init-from", imported, "--steps", "1", "--cycle", "short", "--set", "batch_size=1", "--set", "sequence_length=16", "--set", "eval_windows=2", "--set", "nice=0", "--set", "threads=1")
+            self.assertEqual(events[-1]["step"], 8)
+            self.assertEqual(events[-1]["tokens_seen"], 16)
+            saved = torch.load(os.path.join(runp, "ckpt.pt"), map_location="cpu", weights_only=False)
+            self.assertEqual(saved["model_config"]["context"], 32)
+            self.assertEqual(saved["train_config"]["sequence_length"], 16)
+
     def test_compare_models_on_the_same_context_windows(self):
         with tempfile.TemporaryDirectory() as d:
             make_dataset(d)

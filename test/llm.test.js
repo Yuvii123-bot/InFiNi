@@ -21,6 +21,7 @@ import { licenceFromUrl, detectLicence, permitted } from '../learning/licence.mj
 import { inspectText, simhash, hamming, languageOf } from '../learning/process.mjs';
 import { verifyDocuments } from '../learning/verify.mjs';
 import { buildDialogue } from '../learning/dataset.mjs';
+import { addSimpleQA } from '../learning/qa-dataset.mjs';
 import { promotionGate } from '../learning/evalsuite.mjs';
 import { DEFAULTS } from '../learning/store.mjs';
 import { loadRegistry, registerModel, promote, reject, rollback, resolveProduction } from '../learning/registry.mjs';
@@ -129,6 +130,19 @@ test('a pinned selection never silently serves the older state or bundled model'
   neural.refresh(true);
   assert.equal(neural.info().version, 'pinned-test');
   assert.equal(neural.info().source, 'pinned');
+});
+
+test('simple Q&A data includes identity and thousands of correct additions with separate holdouts', () => {
+  const source = { train: [[['What is your name?', 'Wrong name.', 'identity']], [['What do people call you?', 'Wrong.', 'identity']]], val: [], probes: [], stats: {} };
+  const { dialogue, identityVal } = addSimpleQA(source);
+  assert.ok(dialogue.train.length > 4000);
+  assert.ok(dialogue.train.some((c) => c[0][0] === 'What is your name?' && c[0][1] === "I'm Infini."));
+  assert.ok(!dialogue.train.some((c) => c[0][1] === 'Wrong name.'));
+  const train = new Set(dialogue.train.map((c) => c[0][0].toLowerCase()));
+  for (const q of identityVal) assert.ok(!train.has(q.toLowerCase()));
+  assert.ok(dialogue.val.length > 300);
+  assert.ok(dialogue.train.some((c) => c[0][0] === 'What is 2 plus 3?' && c[0][1] === '2 plus 3 is 5.'));
+  assert.equal(dialogue.stats.valPhrasingsInTrain, 0);
 });
 
 test('inference engine: cached generation equals recomputation, greedy decoding is deterministic', async () => {
