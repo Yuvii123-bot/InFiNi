@@ -49,7 +49,20 @@ export function createPendingPinnedChannel({ fetchImpl = (...a) => fetch(...a), 
       const res = await fetchImpl(API + BOOKS_RELEASE, { headers: { 'User-Agent': 'Infini-model-channel', Accept: 'application/vnd.github+json' }, signal: AbortSignal.timeout(15000) });
       if (!res.ok) throw Error(`training release HTTP ${res.status}`);
       const release = await res.json();
-      const assetNames = new Set((release.assets || []).map(a => a.name));
+      if (!Number.isSafeInteger(release.id) || release.id < 1 || release.tag_name !== BOOKS_RELEASE) throw Error('invalid training release');
+      // The embedded asset list may be truncated. Follow the documented paginated endpoint.
+      release.assets = [];
+      for (let page = 1; page <= 5; page++) {
+        const ar = await fetchImpl(`https://api.github.com/repos/Yuvii123-bot/InFiNi/releases/${release.id}/assets?per_page=100&page=${page}`,
+          { headers: { 'User-Agent': 'Infini-model-channel', Accept: 'application/vnd.github+json' }, signal: AbortSignal.timeout(15000) });
+        if (!ar.ok) throw Error(`training assets HTTP ${ar.status}`);
+        const items = await ar.json();
+        if (!Array.isArray(items)) throw Error('invalid training assets');
+        release.assets.push(...items);
+        if (items.length < 100) break;
+        if (page === 5) throw Error('too many training assets');
+      }
+      const assetNames = new Set(release.assets.map(a => a.name));
       if (![...NAMES, 'checkpoint-name.txt', 'books-evaluation.json', 'replay-evaluation.json', 'probes.json'].every(n => assetNames.has(n))) return false;
       const mr = await fetchImpl(BASE + BOOKS_RELEASE + '/model.json', { signal: AbortSignal.timeout(15000) });
       if (!mr.ok) throw Error(`model metadata HTTP ${mr.status}`);

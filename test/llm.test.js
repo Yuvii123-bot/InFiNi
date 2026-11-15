@@ -148,7 +148,7 @@ test('pending 100M training release activates only with a complete correctly ide
   const meta = Buffer.from(JSON.stringify({ format: 'infinity-llm/1', dtype: 'q8', params: 74727168, step: 781750, tokens_seen: 100064000,
     dataset: 'books100m-v1', sha256: 'a'.repeat(64), weight_parts: ['weights.0.bin', 'weights.1.bin'] }));
   const asset = (name, size, digest) => ({ name, size, digest: 'sha256:' + digest });
-  const release = { tag_name: BOOKS_RELEASE, assets: [
+  const release = { id: 123, tag_name: BOOKS_RELEASE, assets: [
     asset('model.json', meta.length, crypto.createHash('sha256').update(meta).digest('hex')),
     asset('tokenizer.json', 93560, '3c5373f704c5191c66819c1114c642efc0b54bbede23b337623ce8e3f93f1ce8'),
     asset('weights.0.bin', 40000000, 'b'.repeat(64)), asset('weights.1.bin', 34727168, 'c'.repeat(64)),
@@ -166,8 +166,8 @@ test('pending 100M training release activates only with a complete correctly ide
   const next = { sync: async () => true, current: () => ({ id: 'books100m-step781750' }), stale: () => false, info: () => ({ version: 'books100m-step781750' }) };
   let published = false, parityPass = false;
   const fetchImpl = async url => url.includes('/releases/tags/')
-    ? new Response(JSON.stringify(published ? release : { ...release, assets: [] }))
-    : new Response(meta);
+    ? new Response(JSON.stringify(release))
+    : url.includes('/assets?') ? new Response(JSON.stringify(published ? release.assets : [])) : new Response(meta);
   const channel = createPendingPinnedChannel({ baseChannel: base, makeChannel: () => next, fetchImpl, intervalMs: 0,
     validate: () => { if (!parityPass) throw Error('self-test failed'); } });
   await channel.sync();
