@@ -16,6 +16,7 @@ import { loadModel, selfTest, createSession } from '../engine/neural/model.js';
 import { createRuntime } from '../engine/neural/generate.js';
 import { createNeural } from '../engine/neural/service.js';
 import { createPinnedChannel, pinnedManifest } from '../engine/neural/pinned-channel.js';
+import { BOOKS_RELEASE, completedManifest, createPendingPinnedChannel } from '../engine/neural/pending-pinned-channel.js';
 import { createBrain } from '../engine/brain/index.js';
 import { licenceFromUrl, detectLicence, permitted } from '../learning/licence.mjs';
 import { inspectText, simhash, hamming, languageOf } from '../learning/process.mjs';
@@ -141,6 +142,42 @@ test('pinned GitHub release files are verified and arbitrary release paths are r
     assert.match(bad.info().error, /invalid pinned manifest/);
     assert.equal(fetched, 3);
   } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+});
+
+test('pending 100M training release activates only with a complete correctly identified export', async () => {
+  const meta = Buffer.from(JSON.stringify({ format: 'infinity-llm/1', dtype: 'q8', params: 74727168, step: 781750, tokens_seen: 100064000,
+    dataset: 'books100m-v1', sha256: 'a'.repeat(64), weight_parts: ['weights.0.bin', 'weights.1.bin'] }));
+  const asset = (name, size, digest) => ({ name, size, digest: 'sha256:' + digest });
+  const release = { tag_name: BOOKS_RELEASE, assets: [
+    asset('model.json', meta.length, crypto.createHash('sha256').update(meta).digest('hex')),
+    asset('tokenizer.json', 93560, '3c5373f704c5191c66819c1114c642efc0b54bbede23b337623ce8e3f93f1ce8'),
+    asset('weights.0.bin', 40000000, 'b'.repeat(64)), asset('weights.1.bin', 34727168, 'c'.repeat(64)),
+    ...['checkpoint-name.txt', 'books-evaluation.json', 'replay-evaluation.json', 'probes.json'].map(n => asset(n, 2, 'd'.repeat(64))),
+  ] };
+  assert.equal(completedManifest(release, meta).version, 'books100m-step781750');
+  assert.equal(completedManifest({ ...release, assets: release.assets.slice(0, 4) }, meta), null);
+  assert.throws(() => completedManifest({ ...release, tag_name: 'another-release' }, meta), /wrong training release/);
+  assert.throws(() => completedManifest(release, Buffer.from('changed')), /checksum/);
+  const short = Buffer.from(meta.toString().replace('100064000', '100000000'));
+  const bad = structuredClone(release); bad.assets[0].size = short.length; bad.assets[0].digest = 'sha256:' + crypto.createHash('sha256').update(short).digest('hex');
+  assert.throws(() => completedManifest(bad, short), /not the completed/);
+
+  const base = { sync: async () => true, current: () => ({ id: 'qa75m-step500' }), stale: () => false, everChecked: () => true, info: () => ({ version: 'qa75m-step500' }) };
+  const next = { sync: async () => true, current: () => ({ id: 'books100m-step781750' }), stale: () => false, info: () => ({ version: 'books100m-step781750' }) };
+  let published = false, parityPass = false;
+  const fetchImpl = async url => url.includes('/releases/tags/')
+    ? new Response(JSON.stringify(published ? release : { ...release, assets: [] }))
+    : new Response(meta);
+  const channel = createPendingPinnedChannel({ baseChannel: base, makeChannel: () => next, fetchImpl, intervalMs: 0,
+    validate: () => { if (!parityPass) throw Error('self-test failed'); } });
+  await channel.sync();
+  assert.equal(channel.current().id, 'qa75m-step500');
+  published = true;
+  await channel.sync();
+  assert.equal(channel.current().id, 'qa75m-step500', 'bad numerical parity must not replace the starter');
+  parityPass = true;
+  await channel.sync();
+  assert.equal(channel.current().id, 'books100m-step781750');
 });
 
 test('75M is the default pinned model, with explicit 117M rollback selections', () => {

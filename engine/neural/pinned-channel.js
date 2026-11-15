@@ -53,7 +53,7 @@ export function createPinnedChannel({ manifest = QA75M_STEP500, dir = path.join(
   let active = null, inflight = null, lastCheck = 0, lastOk = 0, error = '', checks = 0;
   const validName = (name) => /^(model\.json|tokenizer\.json|weights\.\d+\.bin)$/.test(name);
   // Release tags are deliberately constrained to this repository; manifest input cannot pick arbitrary hosts.
-  const validFile = (f) => validName(f.name) && (manifest.release ? /^infinity-(?:qa-more|qa75m)-\d+$/.test(manifest.release) : /^[A-Za-z0-9_-]+$/.test(f.id)) && /^[a-f0-9]{64}$/.test(f.sha256) && Number.isSafeInteger(f.size) && f.size >= 0 && f.size <= 100_000_000;
+  const validFile = (f) => validName(f.name) && (manifest.release ? /^infinity-(?:qa-more|qa75m|books100m-training)-\d+$/.test(manifest.release) : /^[A-Za-z0-9_-]+$/.test(f.id)) && /^[a-f0-9]{64}$/.test(f.sha256) && Number.isSafeInteger(f.size) && f.size >= 0 && f.size <= 100_000_000;
   function verifyFiles(where) {
     for (const f of manifest.files) {
       if (!validFile(f)) throw new Error('invalid pinned manifest');
