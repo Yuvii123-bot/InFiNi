@@ -40,15 +40,29 @@ export const QA75M_STEP500 = {
   ],
 };
 
+// Explicit snapshot of the still-running books training cycle. The release also retains its full checkpoint.
+export const BOOKS75M_STEP21299 = {
+  version: 'books75m-step21299',
+  release: 'infinity-qa75m-43714520168',
+  sha256: 'f473bc1db9643db9d113d28f9ebc99265132d8deb75086b15a461678576ac3f3',
+  files: [
+    { name: 'model.json', size: 11610, sha256: 'd8208f9f9ccd71dd821b5c70623fd847d8dbe1f3db872fa86fc4761c41c6b653' },
+    { name: 'tokenizer.json', size: 93560, sha256: '3c5373f704c5191c66819c1114c642efc0b54bbede23b337623ce8e3f93f1ce8' },
+    { name: 'weights.0.bin', size: 40000000, sha256: 'a84bd29b825c64ac5b8d1a6890c17a452a5cdf473682ab0e109cfb69af2cdb67' },
+    { name: 'weights.1.bin', size: 34727168, sha256: '77e6482f04871a58e2cbcdf44ac3b3b7281aeab62d1f44ddc1b3d4882ef7dc43' },
+  ],
+};
+
 /** Explicit selections only: an invalid version must not silently select another model. */
 export function pinnedManifest(version = '') {
-  if (!version || version === 'qa75m-step500') return QA75M_STEP500;
+  if (!version || version === 'books75m-step21299') return BOOKS75M_STEP21299;
+  if (version === 'qa75m-step500') return QA75M_STEP500;
   if (version === 'xl-qa-step2110') return XL_STEP2110;
   if (version === 'xl-step110') return XL_STEP110;
   throw new Error(`unknown pinned model version: ${version}`);
 }
 
-export function createPinnedChannel({ manifest = QA75M_STEP500, dir = path.join(os.tmpdir(), 'infini-pinned-models'), fetchImpl = (...a) => fetch(...a), timeoutMs = 180000, log = () => {} } = {}) {
+export function createPinnedChannel({ manifest = BOOKS75M_STEP21299, dir = path.join(os.tmpdir(), 'infini-pinned-models'), fetchImpl = (...a) => fetch(...a), timeoutMs = 180000, log = () => {} } = {}) {
   const dest = path.join(dir, manifest.version);
   let active = null, inflight = null, lastCheck = 0, lastOk = 0, error = '', checks = 0;
   const validName = (name) => /^(model\.json|tokenizer\.json|weights\.\d+\.bin)$/.test(name);
