@@ -281,6 +281,8 @@ test('licences: only an allow-listed licence admits a document; opt-outs are hon
   assert.equal(detectLicence({ html: page(''), url: 'https://example.org/a' }).id, '', 'no licence found means not permitted');
   assert.equal(permitted(detectLicence({ html: page('<link rel="license" href="https://creativecommons.org/licenses/by-nc/4.0/">'), url: 'https://example.org/a' }).id, allow), false);
   assert.equal(detectLicence({ html: page(''), url: 'https://en.wikipedia.org/wiki/Nepal' }).basis, 'site-terms');
+  assert.equal(detectLicence({ html: page(''), url: 'https://en.wikinews.org/wiki/Old_article' }).id, '', 'Wikinews must not receive a blanket licence');
+  assert.equal(detectLicence({ html: page('<link rel="license" href="https://creativecommons.org/licenses/by/2.5/">'), url: 'https://en.wikinews.org/wiki/Article' }).id, 'CC-BY-2.5', 'an explicit declaration can still be identified');
   assert.ok(detectLicence({ html: page('<link rel="license" href="https://creativecommons.org/licenses/by/4.0/">'), url: 'https://example.org/a', headers: { 'x-robots-tag': 'noai' } }).optOut);
   assert.ok(detectLicence({ html: page('<meta name="tdm-reservation" content="1">'), url: 'https://example.org/a' }).optOut);
 });
