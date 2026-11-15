@@ -1,6 +1,6 @@
 # 75,040-parameter Infini experiment
 
-This is a separate model trained from random initialization; it is **not** a compressed version of the 117M weights. The currently pinned production model is untouched. The small model uses a new 672-token byte-level BPE vocabulary learned only from its training text, a 128-token context, four 32-wide layers and tied embeddings. `llm/tiny75k.json` specifies the architecture. The precise count is 75,040 trainable parameters; tokenizer data is separate from that count.
+This is a separate model trained from random initialization; it is **not** a compressed version of the 117M weights, and it is not the pinned production model. The small model uses a new 672-token byte-level BPE vocabulary learned only from its training text, a 128-token context, four 32-wide layers and tied embeddings. `llm/tiny75k.json` specifies the architecture. The precise count is 75,040 trainable parameters; tokenizer data is separate from that count.
 
 `learning/tiny75k-dataset.mjs` builds an approximately 25,000-conversation training corpus from synthetic teacher dialogues and repeated hand-written short conversational lessons. It excludes all exact held-out greeting phrasings from training and verifies that the existing fixed benchmark does not appear in the training shards. These are synthetic, narrow examples, not a general language corpus; repetition for many steps does not create new knowledge. The reported token count is exposure, not unique text. Long conversations exceeding the context are dropped and counted in the dataset manifest.
 

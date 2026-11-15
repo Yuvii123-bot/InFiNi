@@ -15,7 +15,7 @@ import { trainBPE, createTokenizer, tokenizerSpec, T, SPECIALS } from '../engine
 import { loadModel, selfTest, createSession } from '../engine/neural/model.js';
 import { createRuntime } from '../engine/neural/generate.js';
 import { createNeural } from '../engine/neural/service.js';
-import { createPinnedChannel } from '../engine/neural/pinned-channel.js';
+import { createPinnedChannel, pinnedManifest } from '../engine/neural/pinned-channel.js';
 import { createBrain } from '../engine/brain/index.js';
 import { licenceFromUrl, detectLicence, permitted } from '../learning/licence.mjs';
 import { inspectText, simhash, hamming, languageOf } from '../learning/process.mjs';
@@ -132,7 +132,7 @@ test('pinned GitHub release files are verified and arbitrary release paths are r
   let fetched = 0;
   try {
     const fetchImpl = async (url) => { fetched++; const u = new URL(url); assert.equal(u.hostname, 'github.com'); return new Response(data[u.pathname.split('/').pop()]); };
-    const manifest = { version: 'qa-test', release: 'infinity-qa-more-123', sha256: 'b'.repeat(64), files };
+    const manifest = { version: 'qa-test', release: 'infinity-qa75m-123', sha256: 'b'.repeat(64), files };
     const channel = createPinnedChannel({ manifest, dir, fetchImpl });
     assert.equal(await channel.sync(), true);
     assert.equal(fetched, 3);
@@ -141,6 +141,14 @@ test('pinned GitHub release files are verified and arbitrary release paths are r
     assert.match(bad.info().error, /invalid pinned manifest/);
     assert.equal(fetched, 3);
   } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+});
+
+test('75M is the default pinned model, with explicit 117M rollback selections', () => {
+  assert.equal(pinnedManifest().version, 'qa75m-step500');
+  assert.equal(pinnedManifest('qa75m-step500').version, 'qa75m-step500');
+  assert.equal(pinnedManifest('xl-qa-step2110').version, 'xl-qa-step2110');
+  assert.equal(pinnedManifest('xl-step110').version, 'xl-step110');
+  assert.throws(() => pinnedManifest('unrecognized'), /unknown pinned model/);
 });
 
 test('a pinned selection never silently serves the older state or bundled model', () => {

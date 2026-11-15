@@ -28,12 +28,32 @@ export const XL_STEP2110 = {
   ],
 };
 
-export function createPinnedChannel({ manifest = XL_STEP2110, dir = path.join(os.tmpdir(), 'infini-pinned-models'), fetchImpl = (...a) => fetch(...a), timeoutMs = 180000, log = () => {} } = {}) {
+export const QA75M_STEP500 = {
+  version: 'qa75m-step500',
+  release: 'infinity-qa75m-43662976189',
+  sha256: '15ca8c07f8b94fba0c4af2a6e5012d7eb888b85695a06defdafdb577213be0b2',
+  files: [
+    { name: 'model.json', size: 11593, sha256: 'be9ab915804f99373bab34a1a901de514b8a4ff22f6d89c1749211a455621629' },
+    { name: 'tokenizer.json', size: 93560, sha256: '3c5373f704c5191c66819c1114c642efc0b54bbede23b337623ce8e3f93f1ce8' },
+    { name: 'weights.0.bin', size: 40000000, sha256: '94a57d8c40c1f069fd4ddc713200f7b0f90b50c5e889dfde539d4871eecfaf83' },
+    { name: 'weights.1.bin', size: 34727168, sha256: 'fadf93872478cbe27ab1efb0c34e871db3a4197800b28668677adb171e5a55f9' },
+  ],
+};
+
+/** Explicit selections only: an invalid version must not silently select another model. */
+export function pinnedManifest(version = '') {
+  if (!version || version === 'qa75m-step500') return QA75M_STEP500;
+  if (version === 'xl-qa-step2110') return XL_STEP2110;
+  if (version === 'xl-step110') return XL_STEP110;
+  throw new Error(`unknown pinned model version: ${version}`);
+}
+
+export function createPinnedChannel({ manifest = QA75M_STEP500, dir = path.join(os.tmpdir(), 'infini-pinned-models'), fetchImpl = (...a) => fetch(...a), timeoutMs = 180000, log = () => {} } = {}) {
   const dest = path.join(dir, manifest.version);
   let active = null, inflight = null, lastCheck = 0, lastOk = 0, error = '', checks = 0;
   const validName = (name) => /^(model\.json|tokenizer\.json|weights\.\d+\.bin)$/.test(name);
   // Release tags are deliberately constrained to this repository; manifest input cannot pick arbitrary hosts.
-  const validFile = (f) => validName(f.name) && (manifest.release ? /^infinity-qa-more-\d+$/.test(manifest.release) : /^[A-Za-z0-9_-]+$/.test(f.id)) && /^[a-f0-9]{64}$/.test(f.sha256) && Number.isSafeInteger(f.size) && f.size >= 0 && f.size <= 100_000_000;
+  const validFile = (f) => validName(f.name) && (manifest.release ? /^infinity-(?:qa-more|qa75m)-\d+$/.test(manifest.release) : /^[A-Za-z0-9_-]+$/.test(f.id)) && /^[a-f0-9]{64}$/.test(f.sha256) && Number.isSafeInteger(f.size) && f.size >= 0 && f.size <= 100_000_000;
   function verifyFiles(where) {
     for (const f of manifest.files) {
       if (!validFile(f)) throw new Error('invalid pinned manifest');
