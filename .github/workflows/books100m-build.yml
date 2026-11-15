@@ -1,0 +1,39 @@
+name: Prepare 100M-token English corpus
+on:
+  push:
+    paths: ['.github/workflows/books100m-build.yml']
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  prepare:
+    runs-on: ubuntu-latest
+    timeout-minutes: 100
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Download and verify historical books and modern dialogues
+        run: |
+          set -euo pipefail
+          mkdir -p data/llm/books100m data/llm/books100m-replay
+          gh api 'repos/google-deepmind/pg19/contents/metadata.csv?ref=b0e1f2925359688af19f8784c23c3deeda52d3ea' -H 'Accept: application/vnd.github.raw+json' > data/llm/books100m/metadata.csv
+          python3 learning/download-pg19.py --metadata data/llm/books100m/metadata.csv --out data/llm/books100m/raw
+          git clone -q https://github.com/radi-cho/botbots.git data/llm/books100m/botbots
+          git -C data/llm/books100m/botbots checkout -q fa2a674b9a5f79980a4af7307f0ee6eb5b9a1461
+          gh release download infinity-qa75m-43662976189 --repo "$GITHUB_REPOSITORY" -p dataset.tar.gz -D data/llm/books100m-replay
+          echo '86eaa2ba0d8bf0c66bb70493d29dc6030cb4568e19c6330720d2d4e8b8a778b1  data/llm/books100m-replay/dataset.tar.gz' | sha256sum -c
+          tar -xzf data/llm/books100m-replay/dataset.tar.gz -C data/llm/books100m-replay
+      - name: Tokenize, split and package
+        run: |
+          set -euo pipefail
+          node learning/books100m-dataset.mjs data/llm/books100m/raw data/llm/books100m/botbots data/llm/books100m-replay/qa75m-starter data/llm/datasets/books100m > data/llm/books100m/report.json
+          python3 -c 'import json; m=json.load(open("data/llm/books100m/report.json")); assert m["shards"][0]["tokens"]==100000000 and m["grammar_books"]; print("train:",m["tokens"]["train"],"validation:",m["tokens"]["validation"],"grammar books:",m["grammar_books"])'
+          tar -C data/llm/datasets -czf data/llm/books100m/dataset-books100m.tar.gz books100m
+          (cd data/llm/books100m && sha256sum dataset-books100m.tar.gz > dataset-books100m.tar.gz.sha256)
+      - name: Publish fixed source manifest and token dataset
+        run: |
+          set -euo pipefail
+          tag="infinity-books100m-data-${GITHUB_RUN_ID}"
+          gh release create "$tag" --repo "$GITHUB_REPOSITORY" --prerelease --title "100M English training corpus ${GITHUB_RUN_ID}" --notes 'Historical PG-19 books (US public-domain works, modern rights may differ by jurisdiction), Botbots generated dialogues (MIT), and replay from Infini. PG-19 text is historical, may contain bias, and is not representative of modern speech. See dataset report and book manifest. Tokenized corpus only; the model is not trained or deployed by this job.'
+          gh release upload "$tag" --repo "$GITHUB_REPOSITORY" data/llm/books100m/dataset-books100m.tar.gz data/llm/books100m/dataset-books100m.tar.gz.sha256 data/llm/books100m/report.json data/llm/datasets/books100m/books-sources.json
