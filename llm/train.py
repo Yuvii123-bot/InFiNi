@@ -219,6 +219,7 @@ def main(argv=None) -> int:
             "train_seconds": train_seconds, "cycle": cycle, "np_rng": rng.bit_generator.state, "torch_rng": torch.get_rng_state(),
             "tokenizer_sha": manifest.get("tokenizer_sha", ""), "dataset": manifest.get("version", ""),
             "val_loss": val_loss, "saved": now_iso(), "reason": reason, "framework": "torch " + torch.__version__,
+            "initialisation": (state or {}).get("initialisation", "random (seeded); no pretrained weights"),
         }, ckpt_path)
 
     def status(state_name: str, **extra) -> None:

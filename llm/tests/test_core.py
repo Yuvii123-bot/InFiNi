@@ -16,6 +16,7 @@ import numpy as np
 import torch
 
 from llm.model import InfinityLM, ModelConfig, PRESETS
+from llm.prune_layers import prune
 
 TINY = dict(vocab_size=96, context=32, n_layer=2, n_head=2, d_model=32)
 
@@ -46,6 +47,26 @@ def run(mod: str, *args: str) -> list[dict]:
 
 
 class Architecture(unittest.TestCase):
+    def test_layer_pruning_preserves_selected_weights_and_resets_state(self):
+        cfg = ModelConfig.from_dict({**TINY, 'n_layer': 4})
+        model = InfinityLM(cfg, seed=5)
+        state = {'model': model.state_dict(), 'model_config': cfg.to_dict(), 'step': 77, 'tokens_seen': 1234,
+                 'optimizer': {'unsafe_to_copy': True}, 'tokenizer_sha': 'tok'}
+        child, count = prune(state, [0, 2, 3])
+        self.assertEqual(child['step'], 0)
+        self.assertEqual(child['parent_step'], 77)
+        self.assertEqual(child['tokenizer_sha'], 'tok')
+        self.assertNotIn('optimizer', child)
+        self.assertTrue(child['optimizer_reset'])
+        smaller = InfinityLM(ModelConfig.from_dict(child['model_config']))
+        smaller.load_state_dict(child['model'])
+        self.assertEqual(count, smaller.num_params())
+        self.assertTrue(torch.equal(smaller.blocks[1].attn.qkv.weight, model.blocks[2].attn.qkv.weight))
+        self.assertEqual(smaller.tok_emb.weight.data_ptr(), smaller.head.weight.data_ptr())
+        for bad in ([], [1, 1], [3, 1], [-1], [4]):
+            with self.assertRaises(ValueError):
+                prune(state, bad)
+
     def test_tiny75k_config_has_exactly_75040_parameters(self):
         root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
         with open(os.path.join(root, 'llm', 'tiny75k.json')) as f:

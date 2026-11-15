@@ -82,7 +82,7 @@ def main():
             'step': int(state.get('step', 0)), 'tokens_seen': int(state.get('tokens_seen', 0)),
             'train_seconds': float(state.get('train_seconds', 0.0)), 'val_loss': state.get('val_loss'),
             'dataset': state.get('dataset', ''), 'tokenizer_sha': state.get('tokenizer_sha', ''),
-            'framework': state.get('framework', ''), 'initialisation': 'random (seeded); no pretrained weights',
+            'framework': state.get('framework', ''), 'initialisation': state.get('initialisation', 'random (seeded); no pretrained weights'),
             'exported': now_iso(), 'reference': reference}
     write_json_atomic(os.path.join(args.out, 'model.json'), meta)
     print(json.dumps({'out': args.out, 'params': meta['params'], 'bytes': offset, 'parts': parts, 'step': meta['step'], 'sha256': meta['sha256']}))

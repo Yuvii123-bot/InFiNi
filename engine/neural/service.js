@@ -57,7 +57,7 @@ export function createNeural({ root = '', enabled = true, minLogProb = -1.6, min
       available: true, name: 'Infinity LLM', version: cur.id, source: cur.source, architecture: 'decoder-only Transformer', parameters: cur.model.params,
       layers: c.n_layer, heads: c.n_head, width: c.d_model, context: c.context, vocabulary: c.vocab_size, norm: c.norm, precision: m.dtype,
       trainedSteps: m.step, trainedTokens: m.tokens_seen, validationLoss: card.val_loss ?? m.val_loss ?? null, dataset: m.dataset || card.dataset || null,
-      initialisation: 'random; no pretrained weights', inference: 'own JavaScript engine in this server; no external model or API',
+      initialisation: m.initialisation || 'random; no pretrained weights', inference: 'own JavaScript engine in this server; no external model or API',
       selfTest: cur.parity, loadedAt: cur.loadedAt, probes: card.probes || null, served: { ...stats, acceptedShare: stats.checked ? +(stats.accepted / stats.checked).toFixed(3) : null, tokensPerSecond: stats.ms ? Math.round(stats.tokens / (stats.ms / 1000)) : null }, note: lastError || undefined,
     };
   }
