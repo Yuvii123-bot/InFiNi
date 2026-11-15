@@ -1,0 +1,217 @@
+name: Train 75M on 100M English tokens
+on:
+  push:
+    paths: ['.github/workflows/books100m-train.yml']
+  workflow_dispatch:
+permissions:
+  contents: write
+concurrency:
+  group: infini-books100m-training
+  cancel-in-progress: false
+jobs:
+  init:
+    runs-on: ubuntu-latest
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - name: Create training release
+        run: |
+          set -euo pipefail
+          tag="infinity-books100m-training-${GITHUB_RUN_ID}"
+          if ! gh release view "$tag" --repo "$GITHUB_REPOSITORY" > /dev/null 2>&1; then
+            gh release create "$tag" --repo "$GITHUB_REPOSITORY" --prerelease --title "75M 100M-token training ${GITHUB_RUN_ID}" --notes 'Resumable 75M training, 100 million token positions sampled with replacement from the documented English data mixture. This release is not production until explicitly deployed.'
+          fi
+  stage01:
+    needs: init
+    uses: ./.github/workflows/books100m-stage.yml
+    with:
+      stage: '01'
+      previous: 'start'
+  stage02:
+    needs: stage01
+    uses: ./.github/workflows/books100m-stage.yml
+    with:
+      stage: '02'
+      previous: '01'
+  stage03:
+    needs: stage02
+    uses: ./.github/workflows/books100m-stage.yml
+    with:
+      stage: '03'
+      previous: '02'
+  stage04:
+    needs: stage03
+    uses: ./.github/workflows/books100m-stage.yml
+    with:
+      stage: '04'
+      previous: '03'
+  stage05:
+    needs: stage04
+    uses: ./.github/workflows/books100m-stage.yml
+    with:
+      stage: '05'
+      previous: '04'
+  stage06:
+    needs: stage05
+    uses: ./.github/workflows/books100m-stage.yml
+    with:
+      stage: '06'
+      previous: '05'
+  stage07:
+    needs: stage06
+    uses: ./.github/workflows/books100m-stage.yml
+    with:
+      stage: '07'
+      previous: '06'
+  stage08:
+    needs: stage07
+    uses: ./.github/workflows/books100m-stage.yml
+    with:
+      stage: '08'
+      previous: '07'
+  stage09:
+    needs: stage08
+    uses: ./.github/workflows/books100m-stage.yml
+    with:
+      stage: '09'
+      previous: '08'
+  stage10:
+    needs: stage09
+    uses: ./.github/workflows/books100m-stage.yml
+    with:
+      stage: '10'
+      previous: '09'
+  stage11:
+    needs: stage10
+    uses: ./.github/workflows/books100m-stage.yml
+    with:
+      stage: '11'
+      previous: '10'
+  stage12:
+    needs: stage11
+    uses: ./.github/workflows/books100m-stage.yml
+    with:
+      stage: '12'
+      previous: '11'
+  stage13:
+    needs: stage12
+    uses: ./.github/workflows/books100m-stage.yml
+    with:
+      stage: '13'
+      previous: '12'
+  stage14:
+    needs: stage13
+    uses: ./.github/workflows/books100m-stage.yml
+    with:
+      stage: '14'
+      previous: '13'
+  stage15:
+    needs: stage14
+    uses: ./.github/workflows/books100m-stage.yml
+    with:
+      stage: '15'
+      previous: '14'
+  stage16:
+    needs: stage15
+    uses: ./.github/workflows/books100m-stage.yml
+    with:
+      stage: '16'
+      previous: '15'
+  stage17:
+    needs: stage16
+    uses: ./.github/workflows/books100m-stage.yml
+    with:
+      stage: '17'
+      previous: '16'
+  stage18:
+    needs: stage17
+    uses: ./.github/workflows/books100m-stage.yml
+    with:
+      stage: '18'
+      previous: '17'
+  stage19:
+    needs: stage18
+    uses: ./.github/workflows/books100m-stage.yml
+    with:
+      stage: '19'
+      previous: '18'
+  stage20:
+    needs: stage19
+    uses: ./.github/workflows/books100m-stage.yml
+    with:
+      stage: '20'
+      previous: '19'
+  stage21:
+    needs: stage20
+    uses: ./.github/workflows/books100m-stage.yml
+    with:
+      stage: '21'
+      previous: '20'
+  stage22:
+    needs: stage21
+    uses: ./.github/workflows/books100m-stage.yml
+    with:
+      stage: '22'
+      previous: '21'
+  stage23:
+    needs: stage22
+    uses: ./.github/workflows/books100m-stage.yml
+    with:
+      stage: '23'
+      previous: '22'
+  stage24:
+    needs: stage23
+    uses: ./.github/workflows/books100m-stage.yml
+    with:
+      stage: '24'
+      previous: '23'
+  require-completion:
+    needs: stage24
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check that 100 million positions were processed
+        env:
+          COMPLETE: ${{ needs.stage24.outputs.complete }}
+        run: |
+          if [ "$COMPLETE" != true ]; then
+            echo 'Training did not reach its target within the allotted stages; preserve the last checkpoint and resume.' >&2
+            exit 1
+          fi
+  export:
+    needs: require-completion
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    env:
+      GH_TOKEN: ${{ github.token }}
+      TAG: infinity-books100m-training-${{ github.run_id }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install and restore completed checkpoint
+        run: |
+          set -euo pipefail
+          python3 -m venv .venv
+          .venv/bin/pip install --quiet --index-url https://download.pytorch.org/whl/cpu torch
+          .venv/bin/pip install --quiet numpy
+          mkdir -p data/llm/final data/llm/datasets
+          asset=$(gh release view "$TAG" --repo "$GITHUB_REPOSITORY" --json assets --jq '[.assets[].name | select(test("^checkpoint-[0-9][0-9]-[1-4]\\.pt$"))] | sort | last // empty')
+          [ -n "$asset" ]
+          gh release download "$TAG" --repo "$GITHUB_REPOSITORY" -p "$asset" -p "$asset.sha256" -D data/llm/final
+          (cd data/llm/final && sha256sum -c "$asset.sha256")
+          echo "$asset" > data/llm/final/checkpoint-name.txt
+          .venv/bin/python -c 'import sys,torch; s=torch.load(sys.argv[1],map_location="cpu",weights_only=False,mmap=True); assert s["cycle"]["id"]=="books100m-v1" and s["step"]==s["cycle"]["start_step"]+781250 and s["tokens_seen"]>=100064000; print("step",s["step"],"tokens",s["tokens_seen"])' "data/llm/final/$asset"
+          gh release download infinity-books100m-data-43697791940 --repo "$GITHUB_REPOSITORY" -p dataset-books100m.tar.gz -p dataset-books100m.tar.gz.sha256 -D data/llm/final
+          (cd data/llm/final && sha256sum -c dataset-books100m.tar.gz.sha256)
+          tar -xzf data/llm/final/dataset-books100m.tar.gz -C data/llm/datasets
+          gh release download infinity-qa75m-43662976189 --repo "$GITHUB_REPOSITORY" -p dataset.tar.gz -D data/llm/final
+          echo '86eaa2ba0d8bf0c66bb70493d29dc6030cb4568e19c6330720d2d4e8b8a778b1  data/llm/final/dataset.tar.gz' | sha256sum -c
+          tar -xzf data/llm/final/dataset.tar.gz -C data/llm/datasets
+      - name: Evaluate and export
+        run: |
+          set -euo pipefail
+          asset=$(cat data/llm/final/checkpoint-name.txt)
+          .venv/bin/python -m llm.evaluate --data data/llm/datasets/books100m --ckpt "data/llm/final/$asset" --context 128 --windows 32 --threads 2 > data/llm/final/books-evaluation.json
+          .venv/bin/python -m llm.evaluate --data data/llm/datasets/qa75m-starter --ckpt "data/llm/final/$asset" --context 128 --windows 32 --threads 2 > data/llm/final/replay-evaluation.json
+          .venv/bin/python -m llm.export_int8 --ckpt "data/llm/final/$asset" --out data/llm/final/model --part-bytes 40000000
+          cp data/llm/datasets/books100m/tokenizer.json data/llm/final/model/tokenizer.json
+          node learning/tiny75k-probe.mjs data/llm/final/model data/llm/datasets/qa75m-starter > data/llm/final/probes.json
+          gh release upload "$TAG" --repo "$GITHUB_REPOSITORY" data/llm/final/model/model.json data/llm/final/model/tokenizer.json data/llm/final/model/weights.0.bin data/llm/final/model/weights.1.bin data/llm/final/books-evaluation.json data/llm/final/replay-evaluation.json data/llm/final/probes.json data/llm/final/checkpoint-name.txt
