@@ -53,16 +53,30 @@ export const BOOKS75M_STEP21299 = {
   ],
 };
 
+// User-selected snapshot: 11,557,248 additional sampled positions into the 100M cycle.
+export const BOOKS75M_STEP90791 = {
+  version: 'books75m-step90791',
+  release: 'infinity-qa75m-43774917836',
+  sha256: '7b3f7280eec984803dd14f59fc89997f4f03dfacbffa46c1eba2a29c7c21450e',
+  files: [
+    { name: 'model.json', size: 11603, sha256: '750d02ecff7d9274fbe2029f30af1589639b9294e784457d68a15a178c38f42f' },
+    { name: 'tokenizer.json', size: 93560, sha256: '3c5373f704c5191c66819c1114c642efc0b54bbede23b337623ce8e3f93f1ce8' },
+    { name: 'weights.0.bin', size: 40000000, sha256: 'f0d77241f3146a82bbb73853411e48c10932488eada61139877d317f5e14a75a' },
+    { name: 'weights.1.bin', size: 34727168, sha256: '426f7ead80713e81fdfc151c8b58912038a657fbe31c892ac7afb7e405575d17' },
+  ],
+};
+
 /** Explicit selections only: an invalid version must not silently select another model. */
 export function pinnedManifest(version = '') {
-  if (!version || version === 'books75m-step21299') return BOOKS75M_STEP21299;
+  if (!version || version === 'books75m-step90791') return BOOKS75M_STEP90791;
+  if (version === 'books75m-step21299') return BOOKS75M_STEP21299;
   if (version === 'qa75m-step500') return QA75M_STEP500;
   if (version === 'xl-qa-step2110') return XL_STEP2110;
   if (version === 'xl-step110') return XL_STEP110;
   throw new Error(`unknown pinned model version: ${version}`);
 }
 
-export function createPinnedChannel({ manifest = BOOKS75M_STEP21299, dir = path.join(os.tmpdir(), 'infini-pinned-models'), fetchImpl = (...a) => fetch(...a), timeoutMs = 180000, log = () => {} } = {}) {
+export function createPinnedChannel({ manifest = BOOKS75M_STEP90791, dir = path.join(os.tmpdir(), 'infini-pinned-models'), fetchImpl = (...a) => fetch(...a), timeoutMs = 180000, log = () => {} } = {}) {
   const dest = path.join(dir, manifest.version);
   let active = null, inflight = null, lastCheck = 0, lastOk = 0, error = '', checks = 0;
   const validName = (name) => /^(model\.json|tokenizer\.json|weights\.\d+\.bin)$/.test(name);
