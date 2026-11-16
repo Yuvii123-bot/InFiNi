@@ -25,6 +25,14 @@ const ROOT = path.join(path.dirname(fileURLToPath(import.meta.url)), '..', 'publ
 const MIME = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.css': 'text/css; charset=utf-8', '.json': 'application/json; charset=utf-8', '.webmanifest': 'application/manifest+json; charset=utf-8', '.svg': 'image/svg+xml', '.png': 'image/png', '.ico': 'image/x-icon', '.txt': 'text/plain; charset=utf-8' };
 const MAX_BODY = 64 * 1024;
 
+// The deployed model's greeting training is case- and punctuation-sensitive.
+// Normalize only standalone greetings, never answers or multi-part questions.
+function conversationPrompt(question) {
+  const q = String(question).trim();
+  const greeting = q.match(/^(hi|hello)[!]?$/i);
+  return greeting ? greeting[1][0].toUpperCase() + greeting[1].slice(1).toLowerCase() + '!' : question;
+}
+
 let REGION = null;
 function countryName(code) {
   if (!/^[A-Z]{2}$/.test(code) || code === 'XX') return '';
@@ -176,7 +184,7 @@ export function createApp(cfg = loadConfig()) {
           ];
           result = { ...lean(held), answer: { blocks, text: blocksToText(blocks) }, neural: { used: !!rawText, mode: 'web-draft', ...(g.model ? { model: g.model } : {}), ...(rawText ? { tokens: g.tokens, ms: g.ms, ended: g.ended, excerpts: selected.length, matchedVerbatim: matched, ...(!matched ? { rawDraft: rawText } : {}) } : { reason: g.reason || 'No excerpt fit the model context.' }) } };
         } else if (modelTurn) {
-          const g = useNeural ? await neural.chat({ user: body.question, history: chatHistory, signal: ac.signal, temperature: 0, maxNew: 48, calculateRoute: false }) : null;
+          const g = useNeural ? await neural.chat({ user: conversationPrompt(body.question), history: chatHistory, signal: ac.signal, temperature: 0, maxNew: 48, calculateRoute: false }) : null;
           const usable = !!(g && typeof g.text === 'string' && g.text.trim() && !g.loop && !ac.signal.aborted);
           const text = usable ? g.text.trim() : 'The language model could not generate a reply. Please try again.';
           const context = held.context?.brain ? { ...held.context, brain: { ...held.context.brain, lastText: usable ? text.slice(0, 400) : '', expect: null } } : held.context;

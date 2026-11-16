@@ -39,6 +39,7 @@ jobs:
               c=r.get('combined',{}); n=r.get('neural',{})
               if question in ('Hi','Hello!'):
                   assert c.get('mode')=='chat' and n.get('used') and not r['sources'] and not [e for e in events if e['type']=='search'],r
+                  assert 'reservation' not in r['answer']['text'].lower(),r
               else:
                   assert r['kind']=='retrieval' and r['sources'],r
                   if mode=='combined':
