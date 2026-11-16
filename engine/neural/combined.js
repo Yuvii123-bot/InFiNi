@@ -59,6 +59,14 @@ export function webModelEvidence(result) {
   return out.slice(0, 2);
 }
 
+// A deliberately conservative display gate, not fact-checking. It accepts only a
+// complete text fragment present verbatim in an excerpt; correct paraphrases can fail.
+export function matchesWebExcerpt(draft, excerpts) {
+  const norm = text => String(text || '').normalize('NFKC').toLocaleLowerCase().replace(/\s+/g, ' ').trim().replace(/^[\s"“”']+|[\s"“”']+$/g, '');
+  const text = norm(draft);
+  return text.length >= 20 && (excerpts || []).some(e => norm(e.text).includes(text));
+}
+
 // Only remove clearly broken or promotional list fragments, and never remove the only
 // answer. Keep the original evidence and citations available in the research record.
 const FRAGMENT = /^(?:best of luck\b|good luck (?:with|on)\b|if this were the case\b|as (?:mentioned|shown|discussed) (?:above|earlier)\b|(?:click here|subscribe|sign up|read more)\b)/i;
@@ -72,6 +80,23 @@ export function polishCombined(result, question, blocksToText, now = Date.now())
       if (it.code?.length) return true;
       const text = (it.spans || []).map(s => s.text || '').join('').trim();
       return !FRAGMENT.test(text) && !/:\s*$/.test(text);
+    });
+    return items.length === b.items.length ? b : { ...b, items };
+  });
+  // Remove only verbatim list duplicates whose citations are already present in a
+  // preceding single-span answer. Never discard an independent source or nested/code item.
+  const prior = [];
+  blocks = blocks.map(b => {
+    if (b.type === 'paragraph' && b.spans?.length === 1 && b.spans[0].text && b.spans[0].cites?.length) prior.push(b.spans[0]);
+    if (b.type !== 'list' || !Array.isArray(b.items)) return b;
+    const items = b.items.filter(item => {
+      if (item.depth || item.code?.length || item.spans?.length !== 1) return true;
+      const s = item.spans[0];
+      if (!s.text || !s.cites?.length || s.more?.length) return true;
+      const key = s.text.trim().toLocaleLowerCase().replace(/\s+/g, ' ');
+      const duplicate = prior.some(p => p.text.trim().toLocaleLowerCase().replace(/\s+/g, ' ') === key && s.cites.every(id => p.cites.includes(id)));
+      if (!duplicate) prior.push(s);
+      return !duplicate;
     });
     return items.length === b.items.length ? b : { ...b, items };
   });

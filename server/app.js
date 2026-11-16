@@ -12,7 +12,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { createEngine, loadConfig, VERSION, blocksToText } from '../engine/index.js';
-import { polishCombined, webModelEvidence } from '../engine/neural/combined.js';
+import { polishCombined, webModelEvidence, matchesWebExcerpt } from '../engine/neural/combined.js';
 import { BlockedError } from '../engine/net/guard.js';
 import crypto from 'node:crypto';
 import { createNeural, lean } from '../engine/neural/service.js';
@@ -164,16 +164,17 @@ export function createApp(cfg = loadConfig()) {
           if (evidence.length && useNeural) send({ type: 'note', stage: 'constructing', text: 'Infinity LLM is reading short retrieved excerpts. Its draft is experimental and may be inaccurate.' });
           const g = evidence.length && useNeural ? await neural.webAnswer({ question: held.interpretation?.resolved || body.question, evidence, signal: ac.signal }) : { ok: false, reason: !evidence.length ? 'No suitable cited web excerpts were available.' : 'Infinity LLM is unavailable.' };
           const selected = g.ok ? (g.usedIndices || []).map(i => evidence[i]).filter(Boolean) : [];
-          const safeText = g.ok && selected.length ? String(g.text).replace(/\[\s*\d+(?:\s*,\s*\d+)*\s*\]/g, '') : '';
+          const rawText = g.ok && selected.length ? String(g.text).replace(/\[\s*\d+(?:\s*,\s*\d+)*\s*\]/g, '').trim() : '';
+          const matched = !!rawText && matchesWebExcerpt(rawText, selected);
           const blocks = [
             { type: 'heading', text: 'Model draft', level: 2 },
             { type: 'note', tone: 'warn', text: 'Experimental model output: it may be incorrect or ignore the excerpts. Citations below apply to the web findings, not the model draft.' },
-            { type: 'paragraph', spans: [{ text: safeText || 'The model could not generate an answer from the retrieved excerpts.', cites: [] }] },
-            ...(safeText && !g.ended ? [{ type: 'note', tone: 'warn', text: 'The model stopped before completing its reply.' }] : []),
+            { type: 'paragraph', spans: [{ text: matched ? rawText : rawText ? 'The model draft was withheld because it did not match an excerpt verbatim. This conservative check can also reject correct paraphrases. You can expand the unverified draft below.' : 'The model could not generate an answer from the retrieved excerpts.', cites: [] }] },
+            ...(matched && !g.ended ? [{ type: 'note', tone: 'warn', text: 'The model stopped before completing its reply.' }] : []),
             ...(selected.length ? [{ type: 'heading', text: 'Excerpts sent to the model', level: 2 }, { type: 'list', ordered: false, items: selected.map(e => ({ spans: [{ text: e.text, cites: e.cites }] })) }] : []),
             { type: 'heading', text: 'Web findings', level: 2 }, ...held.answer.blocks,
           ];
-          result = { ...lean(held), answer: { blocks, text: blocksToText(blocks) }, neural: { used: !!safeText, mode: 'web-draft', ...(g.model ? { model: g.model } : {}), ...(safeText ? { tokens: g.tokens, ms: g.ms, ended: g.ended, excerpts: selected.length } : { reason: g.reason || 'No excerpt fit the model context.' }) } };
+          result = { ...lean(held), answer: { blocks, text: blocksToText(blocks) }, neural: { used: !!rawText, mode: 'web-draft', ...(g.model ? { model: g.model } : {}), ...(rawText ? { tokens: g.tokens, ms: g.ms, ended: g.ended, excerpts: selected.length, matchedVerbatim: matched, ...(!matched ? { rawDraft: rawText } : {}) } : { reason: g.reason || 'No excerpt fit the model context.' }) } };
         } else if (modelTurn) {
           const g = useNeural ? await neural.chat({ user: body.question, history: chatHistory, signal: ac.signal, temperature: 0, maxNew: 48, calculateRoute: false }) : null;
           const usable = !!(g && typeof g.text === 'string' && g.text.trim() && !g.loop && !ac.signal.aborted);

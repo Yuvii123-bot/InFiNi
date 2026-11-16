@@ -21,4 +21,9 @@ for (const p of questions) {
   const g = await rt.webAnswer({ ...p, maxNew: 48 });
   results.push({ ...p, result: g });
 }
-console.log(JSON.stringify({ step: model.meta.step, params: model.params, parity, results }, null, 2));
+const chatResults = [];
+for (const question of ['Hi', 'Hi!', 'hello', 'hello!', 'Thanks', 'Thanks!']) {
+  const g = await rt.chat({ user: question, temperature: 0, maxNew: 48 });
+  chatResults.push({ question, text: g.text, ended: g.ended, tokens: g.tokens });
+}
+console.log(JSON.stringify({ step: model.meta.step, params: model.params, parity, results, chatResults }, null, 2));

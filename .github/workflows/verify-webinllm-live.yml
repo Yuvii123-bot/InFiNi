@@ -1,0 +1,57 @@
+name: Verify web-informed LLM mode in production
+on:
+  push:
+    paths: ['.github/workflows/verify-webinllm-live.yml']
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - name: Exercise both production modes
+        run: |
+          python3 - <<'PY'
+          import json, time, urllib.request
+          base='https://infini-eta.vercel.app'
+          for attempt in range(50):
+              try:
+                  page=urllib.request.urlopen(base+'/?mode=webinllm',timeout=30).read().decode()
+                  model=json.load(urllib.request.urlopen(base+'/api/llm/status?webinllm=1',timeout=180))['model']
+                  if 'webInLlmBanner' in page and model.get('version')=='books75m-step224813' and model.get('selfTest',{}).get('ok'): break
+              except Exception as e: print('Waiting:',e,flush=True)
+              time.sleep(10)
+          else: raise RuntimeError('production deployment not ready')
+          def ask(question,mode):
+              body=json.dumps({'question':question,'settings':{'mode':mode,'depth':'balanced'}}).encode()
+              req=urllib.request.Request(base+'/api/ask',data=body,headers={'Content-Type':'application/json'})
+              start=time.monotonic()
+              with urllib.request.urlopen(req,timeout=250) as r: events=[json.loads(x) for x in r.read().decode().splitlines() if x.strip()]
+              errors=[e for e in events if e['type']=='error']; assert not errors,errors
+              result=next(e['result'] for e in events if e['type']=='answer')
+              return result,events,round(time.monotonic()-start,2)
+          rows=[]
+          for mode,question in [('combined','Hi'),('combined','What is the capital of Nepal?'),('webinllm','Hello!'),('webinllm','What is the capital of Nepal?'),('webinllm','Can penguins fly?')]:
+              r,events,seconds=ask(question,mode)
+              c=r.get('combined',{}); n=r.get('neural',{})
+              if question in ('Hi','Hello!'):
+                  assert c.get('mode')=='chat' and n.get('used') and not r['sources'] and not [e for e in events if e['type']=='search'],r
+              else:
+                  assert r['kind']=='retrieval' and r['sources'],r
+                  if mode=='combined':
+                      assert c['mode']=='web' and any(b['type']=='heading' and b['text']=='Answer' for b in r['answer']['blocks']),r
+                  else:
+                      assert c['mode']=='web-draft' and n.get('used') and n.get('model',{}).get('version')=='books75m-step224813',r
+                      assert any(b['type']=='heading' and b['text']=='Excerpts sent to the model' for b in r['answer']['blocks']),r
+                      assert not [e for e in events if e['type']=='token'],events
+                      if not n.get('matchedVerbatim'):
+                          assert n.get('rawDraft') and n['rawDraft'] not in r['answer']['text'],r
+                          assert 'withheld' in r['answer']['text'],r
+              rows.append({'mode':mode,'question':question,'seconds':seconds,'answer':r['answer']['text'],'combined':c,'neural':n,'sources':[{'id':s['id'],'title':s['title'],'url':s['url']} for s in r.get('sources',[])]})
+          with open('webinllm-live.json','w') as f: json.dump({'model':model['version'],'results':rows},f,indent=2)
+          print(json.dumps({'model':model['version'],'results':rows},indent=2))
+          PY
+          gh release upload infinity-qa75m-43850778510 --repo "$GITHUB_REPOSITORY" webinllm-live.json --clobber

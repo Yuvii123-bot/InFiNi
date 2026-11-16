@@ -435,6 +435,7 @@ function fillBot(m) {
       body.append(h('div', { class: 'combined-status' + (['fallback', 'error', 'web-error', 'web-draft'].includes(r.combined.mode) ? ' fallback' : ''), role: 'status', text: label }));
     }
     body.append(answerEl(r));
+    if (r.combined?.mode === 'web-draft' && r.neural?.rawDraft) body.append(h('details', { class: 'model-raw' }, h('summary', { text: 'Show unverified model draft' }), h('p', { text: 'This output did not match the supplied excerpts verbatim and may be unrelated or false. It is not cited or fact-checked.' }), h('p', { class: 'model-raw-text', text: r.neural.rawDraft }), !r.neural.ended ? h('p', { text: 'The model stopped before completing this draft.' }) : null));
     if (isBrain && ORIGIN[r.origin]) body.append(h('div', { class: 'origin' }, icon(ORIGIN[r.origin][0], 13), r.origin === 'neural' && r.neural && r.neural.model ? neuralLine(r.neural) : ORIGIN[r.origin][1]));
     else if (isBrain && !r.combined && r.neural && r.neural.used === false && r.neural.reason) body.append(h('div', { class: 'origin' }, icon('spark', 13), `Reply from the built-in rules: ${r.neural.reason}.`));
     const conf = confidenceEl(r.confidence); if (conf) { if (r.combined && ['web-draft', 'web-error'].includes(r.combined.mode)) body.append(h('div', { class: 'origin', text: 'Confidence below describes the web findings, not the model draft.' })); body.append(conf); }

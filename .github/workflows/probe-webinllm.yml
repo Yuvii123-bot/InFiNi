@@ -1,7 +1,7 @@
 name: Probe web-informed model generation
 on:
   push:
-    paths: ['.github/workflows/probe-webinllm.yml']
+    paths: ['.github/workflows/probe-webinllm.yml', 'scripts/probe-webinllm.mjs']
   workflow_dispatch:
 permissions:
   contents: write

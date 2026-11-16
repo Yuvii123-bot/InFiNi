@@ -449,6 +449,10 @@ a.link-btn { text-decoration: none; }
 .combined-banner { flex: 0 0 auto; padding: 8px 16px; font-size: 12.5px; line-height: 1.45; color: var(--text); background: var(--accent-soft); border-bottom: 1px solid var(--border); }
 .combined-status { margin: 0 0 10px; padding: 8px 11px; border-radius: 10px; background: var(--accent-soft); font-size: 13px; line-height: 1.45; }
 .combined-status.fallback { background: var(--warn-soft); color: var(--warn); }
+.model-raw { margin: 12px 0; padding: 12px 14px; border: 1px solid var(--border); border-radius: 12px; background: var(--surface-2); font-size: 13px; line-height: 1.5; }
+.model-raw summary { cursor: pointer; font-weight: 700; }
+.model-raw p { margin: 10px 0 0; }
+.model-raw-text { white-space: pre-wrap; overflow-wrap: anywhere; }
 @media (max-width: 519px) {
   .mode-switch a { min-width: 0; padding-left: 5px; padding-right: 5px; font-size: 11px; }
   .combined-banner { padding: 6px 12px; font-size: 12px; }

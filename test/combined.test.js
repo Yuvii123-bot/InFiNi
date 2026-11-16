@@ -8,7 +8,7 @@ import http from 'node:http';
 import { createApp } from '../server/app.js';
 import { fakeConfig } from './helpers/fake-web.mjs';
 import { installDom } from './helpers/fake-dom.mjs';
-import { combinedCandidates, polishCombined, webModelEvidence } from '../engine/neural/combined.js';
+import { combinedCandidates, polishCombined, webModelEvidence, matchesWebExcerpt } from '../engine/neural/combined.js';
 import { blocksToText } from '../engine/index.js';
 import { analyze } from '../engine/nlp/analyze.js';
 import { explicitCapability } from '../engine/synth/synth.js';
@@ -114,8 +114,11 @@ test('combined mode searches, selects cited evidence, handles fallbacks and is r
     assert.equal(modelWeb.combined.mode, 'web-draft'); assert.equal(modelWeb.neural.used, true);
     assert.match(offered.question, /capital of Nepal/i);
     assert.ok(offered.evidence.length && offered.evidence.every(e => e.cites.every(id => modelWeb.sources.some(s => s.id === id))));
-    assert.match(modelWeb.answer.text, /Model draft/); assert.match(modelWeb.answer.text, /The model says Kathmandu/);
-    assert.doesNotMatch(modelWeb.answer.text, /\[42\]/, 'unverified model citation numbers are not presented as real citations');
+    assert.match(modelWeb.answer.text, /Model draft/); assert.match(modelWeb.answer.text, /draft was withheld/);
+    assert.doesNotMatch(modelWeb.answer.text, /The model says Kathmandu/, 'unsupported draft is not put in the answer');
+    assert.equal(modelWeb.neural.rawDraft, 'The model says Kathmandu.');
+    assert.equal(modelWeb.neural.matchedVerbatim, false);
+    assert.doesNotMatch(modelWeb.neural.rawDraft, /\[42\]/, 'unverified model citation numbers are not presented as real citations');
     assert.match(modelWeb.answer.text, /Citations below apply to the web findings, not the model draft/);
     assert.match(modelWeb.answer.text, /Excerpts sent to the model/); assert.match(modelWeb.answer.text, /Web findings/);
     assert.equal(modelEvents.filter(e => e.type === 'token').length, 0, 'unverified generated text is never streamed prematurely');
@@ -151,6 +154,9 @@ test('combined mode searches, selects cited evidence, handles fallbacks and is r
     document.getElementById('q').value = 'What is the capital of Nepal?'; await document.getElementById('askForm').fire('submit');
     for (let i = 0; i < 300 && !document.getElementById('stopBtn').hidden; i++) await sleep(20);
     assert.match(dom2.text(document.getElementById('thread')), /experimental draft, not verified/i);
+    assert.match(dom2.text(document.getElementById('thread')), /Show unverified model draft/);
+    const details = dom2.find(document.getElementById('thread'), 'details');
+    assert.ok(details.length && details.some(d => !d.getAttribute('open')), 'unsupported text stays collapsed by default');
     assert.match(dom2.text(document.getElementById('thread')), /Experimental draft/);
     rt2.webAnswer = originalWeb;
   } finally { await new Promise(r => server.close(r)); await app.close(); fs.rmSync(root, { recursive: true, force: true }); }
@@ -168,6 +174,9 @@ test('combined guards preserve source context and flag stale current information
   assert.deepEqual(combinedCandidates(r).map(c => c.text), [good]);
   assert.deepEqual(webModelEvidence(r), [{ text: good, cites: [1] }], 'reject injected instructions and unsourced passages');
   assert.deepEqual(webModelEvidence({ ...r, confidence: { level: 'insufficient' } }), []);
+  assert.equal(matchesWebExcerpt(good, [{ text: good }]), true);
+  assert.equal(matchesWebExcerpt('Kathmandu is not the capital of Nepal.', [{ text: good }]), false);
+  assert.equal(matchesWebExcerpt('The capital is Kathmandu.', [{ text: good }]), false, 'paraphrases are conservatively withheld');
   const stale = polishCombined(r, 'What are the latest updates?', blocksToText, Date.parse('2026-01-01'));
   assert.match(stale.answer.blocks[0].text, /could not verify a recently published update/);
   assert.equal(stale.confidence.level, 'low');
@@ -178,6 +187,20 @@ test('combined guards preserve source context and flag stale current information
   assert.match(recent.answer.blocks[0].text, /do not guarantee/);
   assert.equal(recent.confidence.level, 'high');
   assert.equal(r.answer.blocks.length, 3, 'input is not mutated');
+});
+
+test('structured web answers suppress only exact duplicate citations', () => {
+  const text = 'Kathmandu is the capital of Nepal.';
+  const result = { kind: 'retrieval', sources: [{ id: 1 }, { id: 2 }], confidence: { level: 'high' }, answer: { blocks: [
+    { type: 'paragraph', spans: [{ text, cites: [1] }] },
+    { type: 'heading', text: 'Details' },
+    { type: 'list', items: [{ spans: [{ text, cites: [1] }] }, { spans: [{ text, cites: [2] }] }] },
+  ] } };
+  const out = polishCombined(result, 'What is the capital of Nepal?', blocksToText);
+  assert.equal(out.answer.blocks[0].text, 'Answer');
+  const list = out.answer.blocks.find(b => b.type === 'list');
+  assert.equal(list.items.length, 1);
+  assert.deepEqual(list.items[0].spans[0].cites, [2], 'do not erase distinct citations');
 });
 
 test('conflicting Earth tilt reference frames do not leave a misleading angle in the lead', () => {
