@@ -443,3 +443,14 @@ a.link-btn { text-decoration: none; }
 .side-pure-dot { flex: 0 0 auto; width: 10px; height: 10px; border-radius: 50%; background: #6d3df5; }
 .side-pure b { display: block; font-size: 13.5px; font-weight: 650; }
 .side-pure small { display: block; font-size: 12px; color: var(--muted); }
+
+/* Web + LLM mode: evidence selection is distinct from unconstrained neural chat. */
+.mode-switch a.on[href="/?mode=combined"] { background: #4056c8; color: #fff; }
+.combined-banner { flex: 0 0 auto; padding: 8px 16px; font-size: 12.5px; line-height: 1.45; color: var(--text); background: var(--accent-soft); border-bottom: 1px solid var(--border); }
+.combined-status { margin: 0 0 10px; padding: 8px 11px; border-radius: 10px; background: var(--accent-soft); font-size: 13px; line-height: 1.45; }
+.combined-status.fallback { background: var(--warn-soft); color: var(--warn); }
+@media (max-width: 519px) {
+  .mode-switch a { padding-left: 8px; padding-right: 8px; font-size: 12px; }
+  .combined-banner { padding: 6px 12px; font-size: 12px; }
+  .p-top .mode-switch { min-width: 0; }
+}

@@ -893,7 +893,6 @@ export function createBrain(opts = {}) {
     const pending = st.expect;
     st.expect = null;                                                       // a pending question only waits for one turn
 
-    if (req.route === 'web' || n.hasUrl) return passOn();
     if (!n.tokens.length) return passOn();
     // explicit instruction to search
     const sm = raw.match(/^\s*(?:please\s+)?(?:search(?:\s+(?:on|in))?(?:\s+the)?\s+(?:web|internet|net|online|google)(?:\s+(?:for|about))?|search\s+(?:for|about|up)|google(?:\s+(?:for|about))?|look\s*up|web\s+search(?:\s+(?:for|about))?|search)\s*[:\-–]?\s+(\S.*)$/i);
@@ -911,6 +910,9 @@ export function createBrain(opts = {}) {
     }
     if (/\bhow (?:to|do i|can i|do you|can you|would i|could i) (?:make|build|create|assemble|cook|synthesi[sz]e) (?:a |an |some |homemade |the )?(?:bomb|explosive|explosives|pipe bomb|grenade|nerve gas|poison gas|meth|methamphetamine|cocaine|heroin|napalm|molotov)\b/.test(t) || /\bhow (?:to|do i|can i) (?:kill|murder|poison|stab|strangle|kidnap|rape|hurt) (?:a person|someone|somebody|people|my|him|her|them|a man|a woman|a child|a kid)\b/.test(t) || /\bhow (?:to|do i|can i) (?:hack|break into|get into) (?:someone|somebody|my (?:gf|bf|girlfriend|boyfriend|wife|husband|friend|ex)|his|her|their|a|an|another)\b.*\b(?:account|facebook|instagram|whatsapp|phone|wifi|email|password|snapchat|messenger)\b/.test(t) || /\b(?:child porn|child pornography|cp links)\b/.test(t)) return reply('safety.harmful', { origin: 'safety' });
     if (SEXUAL.test(t) && (n.tokens.length <= 2 || n.tokens.some((w) => /^(you|your|me|my|i|us|we|u)$/.test(w))) && !/^(what|why|how|when|where|who|which|is|are|does|do|can) (is|are|does|do|the|a|an)\b/.test(t)) return reply('safety.sexual', { origin: 'safety' });
+
+    // Explicit web routing must not bypass the safety responses above.
+    if (req.route === 'web' || n.hasUrl) return passOn();
 
     // an answer to my own question
     if (pending) { const r = resolveExpect(c, pending); if (r) return r; }

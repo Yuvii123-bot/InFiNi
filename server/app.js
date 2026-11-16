@@ -137,13 +137,26 @@ export function createApp(cfg = loadConfig()) {
       // the device's time zone (for "what time is it") and the country the edge reports (only used to phrase a helpline search)
       const tz = typeof body.tz === 'string' && /^[A-Za-z_+\-/0-9]{2,48}$/.test(body.tz) ? body.tz : '';
       const cc = cfg.trustProxy ? String(req.headers['x-vercel-ip-country'] || '').toUpperCase() : '';
-      // With the model switched on, the engine's finished answer is held back for a moment: the model writes its part
-      // (streamed as "token" events) and the combined answer is sent. A client can opt out per request (settings.neural === false).
-      const useNeural = !!(neural && neural.ready() && !(body.settings && typeof body.settings === 'object' && body.settings.neural === false));
+      // Combined mode explicitly requests web retrieval and model-assisted evidence selection. The
+      // model can only select source sentences, not invent a synthesis with unverified citations.
+      // Local safety/calculator paths remain authoritative. If either side is unavailable, label it.
+      const settings = body.settings && typeof body.settings === 'object' && !Array.isArray(body.settings) ? { ...body.settings } : {};
+      const combined = settings.mode === 'combined';
+      if (combined) { settings.route = 'web'; settings.neural = true; }
+      const useNeural = !!(neural && neural.ready() && settings.neural !== false);
+      const holdAnswer = useNeural || combined;
       let held = null;
-      const onEvent = useNeural ? (ev) => { if (ev && ev.type === 'answer') held = ev.result; else send(ev); } : (ev) => send(ev && ev.type === 'answer' ? { ...ev, result: lean(ev.result) } : ev);
-      let result = await engine.ask({ question: body.question, context: body.context, settings: body.settings, learned: body.learned, regenerate: body.regenerate === true, tz, country: countryName(cc), researchAllowed: () => researchAllowed(ip) }, { signal: ac.signal, onEvent });
-      if (useNeural && held) { result = await neural.enhance({ result: held, question: body.question, history: body.history, send, signal: ac.signal }); send({ type: 'answer', result }); }
+      const onEvent = holdAnswer ? (ev) => { if (ev && ev.type === 'answer') held = ev.result; else send(ev); } : (ev) => send(ev && ev.type === 'answer' ? { ...ev, result: lean(ev.result) } : ev);
+      let result = await engine.ask({ question: body.question, context: body.context, settings, learned: body.learned, regenerate: body.regenerate === true, tz, country: countryName(cc), researchAllowed: () => researchAllowed(ip) }, { signal: ac.signal, onEvent });
+      if (holdAnswer && held) {
+        result = useNeural ? await neural.enhance({ result: held, question: body.question, history: body.history, send, signal: ac.signal }) : lean(held);
+        if (combined) {
+          result.combined = { used: !!(result.neural && result.neural.used && result.neural.mode === 'grounded'),
+            reason: !useNeural ? 'Infinity LLM is unavailable; showing the Internet AI result.' : result.neural?.reason || (result.kind !== 'retrieval' ? 'This request used a local or safety response, not web evidence.' : 'There was not enough usable retrieved evidence for the model to select from.') };
+          if (result.combined.used) delete result.combined.reason;
+        }
+        send({ type: 'answer', result });
+      }
       send({ type: 'done', ms: Date.now() - t0 });
       log({ ev: 'ask', ms: Date.now() - t0, kind: result.kind, neural: result.neural ? (result.neural.used ? result.neural.mode : 'fallback') : undefined, depth: result.depth ? result.depth.used : null, pages: result.run ? result.run.pages : undefined, confidence: result.confidence ? result.confidence.level : null, sources: result.sources.length, ...(process.env.LOG_QUESTIONS === '1' ? { q: body.question.slice(0, 200) } : {}) });
     } catch (e) {

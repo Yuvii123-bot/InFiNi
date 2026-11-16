@@ -82,6 +82,7 @@ const idb = (() => {
   };
 })();
 
+const COMBINED = new URLSearchParams(location.search || '').get('mode') === 'combined';
 const DEFAULTS = { depth: 'auto', theme: 'light', autoExpand: false, providersOff: [], feeds: [], neural: true };
 const state = { chats: [], chat: null, busy: false, abort: null, settings: { ...DEFAULTS, ...LS.get('infini.settings', {}) }, learned: { domains: {}, providers: {}, vocab: {}, ...LS.get('infini.learned', {}) }, status: null, filter: '' };
 const saveSettings = () => LS.set('infini.settings', state.settings);
@@ -98,7 +99,7 @@ function toast(msg) { const t = $('toast'); t.textContent = msg; t.hidden = fals
 async function copyText(text, okMsg) { try { await navigator.clipboard.writeText(text); toast(okMsg); } catch { toast('Copy is not available in this browser'); } }
 
 // ---------------- conversations ----------------
-function newChat() { state.chat = { id: uid(), title: 'New chat', named: false, createdAt: Date.now(), updatedAt: Date.now(), context: {}, messages: [] }; renderAll(); closeNav(); $('q').focus(); }
+function newChat() { state.chat = { id: uid(), mode: COMBINED ? 'combined' : 'internet', title: 'New chat', named: false, createdAt: Date.now(), updatedAt: Date.now(), context: {}, messages: [] }; renderAll(); closeNav(); $('q').focus(); }
 async function saveChat() {
   const c = state.chat;
   if (!c || !c.messages.length) return;
@@ -160,8 +161,8 @@ function renderAll() {
   if (!state.chat.messages.length) {
     thread.append(h('section', { class: 'welcome' },
       h('img', { class: 'hero-mark', src: '/icons/icon.svg', width: '64', height: '64', alt: '' }),
-      h('h2', { text: 'Talk to me, or ask me anything.' }),
-      h('p', { text: 'I chat, remember what you tell me and use everyday common sense on my own. For facts I search the live web and show my sources.' }),
+      h('h2', { text: COMBINED ? 'Explore the web with Infinity LLM.' : 'Talk to me, or ask me anything.' }),
+      h('p', { text: COMBINED ? 'Ask a question to search the web. Infinity LLM selects relevant source sentences when it can; the cited Internet AI answer remains below.' : 'I chat, remember what you tell me and use everyday common sense on my own. For facts I search the live web and show my sources.' }),
       h('div', { class: 'trust' }, TRUST.map(([ic, t]) => h('span', null, icon(ic, 14), t))),
       h('div', { class: 'suggest' }, SUGGESTIONS.map(([k, q, ic]) => h('button', { type: 'button', onclick: () => ask(q) }, h('small', null, icon(ic, 15), k), q)))));
   } else for (const m of state.chat.messages) thread.append(m.role === 'user' ? userEl(m) : botEl(m));
@@ -425,6 +426,7 @@ function fillBot(m) {
   if (m.status === 'stopped') body.append(h('div', { class: 'note' + (r ? ' warn' : ''), text: r ? `Stopped early. This is the draft that had been built until then${r.run && r.run.pages ? ` (${plural(r.run.pages, 'page')} read)` : ''}; the run was not finished, so it may be incomplete.` : 'Stopped. Retrieval was cancelled, so no answer was built.' }));
   const isBrain = !!r && r.kind === 'brain';
   if (r) {
+    if (r.combined) body.append(h('div', { class: 'combined-status' + (r.combined.used ? '' : ' fallback'), role: 'status', text: r.combined.used ? 'Web + LLM: the model selected cited source sentences; the Internet AI answer follows.' : `Web + LLM fallback: ${r.combined.reason}` }));
     body.append(answerEl(r));
     if (isBrain && ORIGIN[r.origin]) body.append(h('div', { class: 'origin' }, icon(ORIGIN[r.origin][0], 13), r.origin === 'neural' && r.neural && r.neural.model ? neuralLine(r.neural) : ORIGIN[r.origin][1]));
     else if (isBrain && r.neural && r.neural.used === false && r.neural.reason) body.append(h('div', { class: 'origin' }, icon('spark', 13), `Reply from the built-in rules: ${r.neural.reason}.`));
@@ -666,7 +668,7 @@ async function run(question, { regenerate: regen = false, replace = null, contex
     chat.messages.push(m); $('thread').append(botEl(m));
   }
   // saved knowledge: reuse only for questions that are not time-sensitive, and say so
-  if (!regen && !route) {
+  if (!COMBINED && !regen && !route) {
     const hit = await idb.get('knowledge', normQ(question));
     if (hit && !TIMEY.test(question) && !hit.result.timeSensitive) { Object.assign(m, { status: 'done', result: hit.result, cached: hit.savedAt, saved: true, events: [] }); chat.context = withOwnMemory(hit.result.context, chat.context); fillBot(m); scrollDown(); return saveChat(); }
   }
@@ -688,7 +690,7 @@ async function run(question, { regenerate: regen = false, replace = null, contex
   setBusy(true);
   state.abort = new AbortController();
   try {
-    const res = await fetch('/api/ask', { method: 'POST', headers: { 'Content-Type': 'application/json' }, signal: state.abort.signal, body: JSON.stringify({ question, context: ctxBefore, history: historyFor(chat, m), regenerate: regen, tz: deviceTz(), learned: learnedPayload(), settings: { neural: state.settings.neural !== false, depth: state.settings.depth, providersOff: state.settings.providersOff, feeds: state.settings.feeds, ...(route ? { route } : {}) } }) });
+    const res = await fetch('/api/ask', { method: 'POST', headers: { 'Content-Type': 'application/json' }, signal: state.abort.signal, body: JSON.stringify({ question, context: ctxBefore, history: historyFor(chat, m), regenerate: regen, tz: deviceTz(), learned: learnedPayload(), settings: { neural: COMBINED || state.settings.neural !== false, depth: state.settings.depth, providersOff: state.settings.providersOff, feeds: state.settings.feeds, ...(COMBINED ? { mode: 'combined' } : {}), ...(route ? { route } : {}) } }) });
     if (!res.ok || !res.body) { let msg = `The server answered ${res.status}.`; try { msg = (await res.json()).message || msg; } catch { /* not JSON */ } throw new Error(msg); }
     const reader = res.body.getReader(), dec = new TextDecoder();
     let buf = '';
@@ -706,7 +708,7 @@ async function run(question, { regenerate: regen = false, replace = null, contex
         else if (ev.type === 'progress') prog.onEvent(ev);                               // live counters only: not kept with the conversation
         else if (ev.type === 'draft') { draft = ev.result; renderDraft(draftBox, ev); }
         else if (ev.type === 'token') {
-          if (ev.start) { streamText.textContent = ''; streamTag.replaceChildren(icon('spark', 13), `Infinity LLM${ev.model ? ' ' + ev.model.version : ''} is writing${ev.mode === 'grounded' ? ' from the sources' : ''}…`); streamBox.hidden = false; typing.hidden = true; draftBox.hidden = true; }
+          if (ev.start) { streamText.textContent = ''; streamTag.replaceChildren(icon('spark', 13), `Infinity LLM${ev.model ? ' ' + ev.model.version : ''} is ${ev.mode === 'grounded' ? 'selecting source text' : 'writing'}…`); streamBox.hidden = false; typing.hidden = true; draftBox.hidden = true; }
           else if (ev.reset) { streamText.textContent = ''; streamBox.hidden = true; if (act.el.hidden) typing.hidden = false; }
           else if (ev.text) { streamText.textContent += ev.text; scrollDown(); }
         }
@@ -740,12 +742,24 @@ function autoGrow() { const q = $('q'); q.style.height = 'auto'; q.style.height 
 function describeModel() {
   const llm = state.status && state.status.llm && state.status.llm.available ? state.status.llm : null;
   const hint = document.querySelector('.composer-hint'), fine = document.querySelector('.fineprint');
+  if (COMBINED) {
+    if (hint) hint.textContent = 'Live web · neural evidence selection';
+    if (fine) fine.textContent = 'The model selects quoted source sentences, not a free-form synthesis. Check the citations; local safety and exact skills may answer without web search.';
+    return;
+  }
   if (hint) hint.textContent = llm ? 'Infinity LLM for chat · live web for facts' : 'Own brain for chat · live web for facts';
   if (fine) fine.textContent = llm ? `Chat replies are written by Infinity LLM ${llm.version}, a small neural model trained from scratch, when they pass a check against the built-in rules; otherwise the rules reply. Facts come from pages retrieved just now — check the citations.` : 'Chat comes from a built-in brain. Facts come from pages retrieved just now — check the citations.';
 }
 // ---------------- wiring ----------------
 async function init() {
   applyTheme();
+  if (COMBINED) {
+    $('combinedBanner').hidden = false;
+    $('modeInternet').classList.remove('on'); $('modeInternet').removeAttribute('aria-current');
+    $('modeCombined').classList.add('on'); $('modeCombined').setAttribute('aria-current', 'page');
+    $('q').setAttribute('placeholder', 'Ask Web + LLM');
+    describeModel();
+  }
   $('askForm').addEventListener('submit', (e) => { e.preventDefault(); ask(); });
   $('q').addEventListener('input', autoGrow);
   $('q').addEventListener('keydown', (e) => { if (e.key === 'Enter' && !e.shiftKey && !e.isComposing) { e.preventDefault(); ask(); } });
@@ -766,12 +780,12 @@ async function init() {
   $('clearBtn').addEventListener('click', async () => { if (state.busy || !state.chat.messages.length) return; if (!confirm('Clear this conversation and its context?')) return; await idb.del('chats', state.chat.id); state.chats = state.chats.filter((c) => c.id !== state.chat.id); newChat(); });
   document.addEventListener('keydown', (e) => { if (e.key === 'Escape') { closeDepthMenu(); closeDrawer(); closeModal(); closeNav(); } });
   const stored = await idb.all('chats');
-  state.chats = stored.map((c) => ({ id: c.id, title: c.title, updatedAt: c.updatedAt, text: c.messages.map((m) => m.text || (m.result && m.result.answer.text) || '').join(' ').slice(0, 4000).toLowerCase() })).sort((a, b) => b.updatedAt - a.updatedAt);
+  state.chats = stored.filter((c) => COMBINED ? c.mode === 'combined' : c.mode !== 'combined').map((c) => ({ id: c.id, title: c.title, updatedAt: c.updatedAt, text: c.messages.map((m) => m.text || (m.result && m.result.answer.text) || '').join(' ').slice(0, 4000).toLowerCase() })).sort((a, b) => b.updatedAt - a.updatedAt);
   newChat();
   autoGrow();
   // a link such as /?q=Why+do+stars+shine%3F opens the app and asks that question once
   const linked = new URLSearchParams(location.search).get('q');
-  if (linked) { history.replaceState(null, '', location.pathname); if (linked.trim() && linked.length <= 600) ask(linked); }
+  if (linked) { history.replaceState(null, '', location.pathname + (COMBINED ? '?mode=combined' : '')); if (linked.trim() && linked.length <= 600) ask(linked); }
   if ('serviceWorker' in navigator && location.protocol === 'https:') navigator.serviceWorker.register('/sw.js').catch(() => { /* PWA install is optional */ });
 }
 init();

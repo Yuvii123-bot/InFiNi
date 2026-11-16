@@ -61,7 +61,10 @@ body.pure .send { flex: 0 0 40px; width: 40px; height: 40px; box-shadow: 0 2px 8
   .p-brand-name { display: none; }
   .p-new span { display: none; }
   .p-new { padding: 8px 10px; }
-  .p-top { gap: 8px; }
+  .p-top { gap: 8px; flex-wrap: wrap; }
+  .p-new { margin-left: auto; }
+  .p-top .mode-switch { order: 3; flex: 1 0 100%; }
+  .p-top .mode-switch a { flex: 1; }
   .p-banner { padding: 6px 12px; font-size: 12px; }
   .p-banner-more { display: none; }
   #pThread { padding: 6px 12px 18px; }
