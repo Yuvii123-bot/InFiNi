@@ -162,7 +162,7 @@ function renderAll() {
     thread.append(h('section', { class: 'welcome' },
       h('img', { class: 'hero-mark', src: '/icons/icon.svg', width: '64', height: '64', alt: '' }),
       h('h2', { text: COMBINED ? 'Explore the web with Infinity LLM.' : 'Talk to me, or ask me anything.' }),
-      h('p', { text: COMBINED ? 'Ask a question to search the web. Infinity LLM selects relevant source sentences when it can; the cited Internet AI answer remains below.' : 'I chat, remember what you tell me and use everyday common sense on my own. For facts I search the live web and show my sources.' }),
+      h('p', { text: COMBINED ? 'Chat naturally or ask a factual question. The web answer includes citations, and Infinity LLM can highlight one of its source sentences.' : 'I chat, remember what you tell me and use everyday common sense on my own. For facts I search the live web and show my sources.' }),
       h('div', { class: 'trust' }, TRUST.map(([ic, t]) => h('span', null, icon(ic, 14), t))),
       h('div', { class: 'suggest' }, SUGGESTIONS.map(([k, q, ic]) => h('button', { type: 'button', onclick: () => ask(q) }, h('small', null, icon(ic, 15), k), q)))));
   } else for (const m of state.chat.messages) thread.append(m.role === 'user' ? userEl(m) : botEl(m));
@@ -218,6 +218,7 @@ function spansEl(spans, result) {
   spans.forEach((s, i) => {
     if (!s.text && !(s.cites && s.cites.length)) return;
     const cls = [s.meta ? 'meta-span' : '', s.nature === 'hedged' || s.nature === 'opinion' ? 'hedged' : ''].join(' ').trim();
+    if (s.neuralHighlight) out.push(h('span', { class: 'neural-highlight-label', title: 'Infinity LLM selected this cited passage using short excerpts. This is not an independent fact check.' }, icon('spark', 12), ' LLM highlight '));
     if (s.text) out.push(s.strong ? h('strong', { class: cls || null, text: s.text }) : cls ? h('span', { class: cls, title: s.nature ? `The source states this as ${s.nature === 'opinion' ? 'an opinion' : 'likely/possible, not certain'}` : null, text: s.text }) : s.text);
     const citeBtn = (c) => { const src = result.sources.find((x) => x.id === c); return h('button', { class: 'cite', type: 'button', title: src ? `${src.title} — ${src.domain}` : 'Source', 'aria-label': `Source ${c}`, onclick: () => src && openSource(src, result), text: String(c) }); };
     for (const c of s.cites || []) out.push(citeBtn(c));
@@ -426,7 +427,10 @@ function fillBot(m) {
   if (m.status === 'stopped') body.append(h('div', { class: 'note' + (r ? ' warn' : ''), text: r ? `Stopped early. This is the draft that had been built until then${r.run && r.run.pages ? ` (${plural(r.run.pages, 'page')} read)` : ''}; the run was not finished, so it may be incomplete.` : 'Stopped. Retrieval was cancelled, so no answer was built.' }));
   const isBrain = !!r && r.kind === 'brain';
   if (r) {
-    if (r.combined) body.append(h('div', { class: 'combined-status' + (r.combined.used ? '' : ' fallback'), role: 'status', text: r.combined.used ? 'Web + LLM: the model selected cited source sentences; the Internet AI answer follows.' : `Web + LLM fallback: ${r.combined.reason}` }));
+    if (r.combined) {
+      const label = r.combined.mode === 'highlight' ? 'Web + LLM · cited answer with a model-selected highlight (not a fact check)' : r.combined.mode === 'chat' ? 'Web + LLM · model-generated chat, checked against local replies' : `Web + LLM · ${r.combined.reason}`;
+      body.append(h('div', { class: 'combined-status' + (r.combined.mode === 'fallback' ? ' fallback' : ''), role: 'status', text: label }));
+    }
     body.append(answerEl(r));
     if (isBrain && ORIGIN[r.origin]) body.append(h('div', { class: 'origin' }, icon(ORIGIN[r.origin][0], 13), r.origin === 'neural' && r.neural && r.neural.model ? neuralLine(r.neural) : ORIGIN[r.origin][1]));
     else if (isBrain && r.neural && r.neural.used === false && r.neural.reason) body.append(h('div', { class: 'origin' }, icon('spark', 13), `Reply from the built-in rules: ${r.neural.reason}.`));
@@ -744,7 +748,7 @@ function describeModel() {
   const hint = document.querySelector('.composer-hint'), fine = document.querySelector('.fineprint');
   if (COMBINED) {
     if (hint) hint.textContent = 'Live web · neural evidence selection';
-    if (fine) fine.textContent = 'The model selects quoted source sentences, not a free-form synthesis. Check the citations; local safety and exact skills may answer without web search.';
+    if (fine) fine.textContent = 'For web answers, the model highlights a cited source sentence; it does not write a free-form synthesis. Chat and exact skills may answer locally. Check the sources.';
     return;
   }
   if (hint) hint.textContent = llm ? 'Infinity LLM for chat · live web for facts' : 'Own brain for chat · live web for facts';

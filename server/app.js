@@ -11,7 +11,8 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { createEngine, loadConfig, VERSION } from '../engine/index.js';
+import { createEngine, loadConfig, VERSION, blocksToText } from '../engine/index.js';
+import { polishCombined } from '../engine/neural/combined.js';
 import { BlockedError } from '../engine/net/guard.js';
 import crypto from 'node:crypto';
 import { createNeural, lean } from '../engine/neural/service.js';
@@ -137,23 +138,27 @@ export function createApp(cfg = loadConfig()) {
       // the device's time zone (for "what time is it") and the country the edge reports (only used to phrase a helpline search)
       const tz = typeof body.tz === 'string' && /^[A-Za-z_+\-/0-9]{2,48}$/.test(body.tz) ? body.tz : '';
       const cc = cfg.trustProxy ? String(req.headers['x-vercel-ip-country'] || '').toUpperCase() : '';
-      // Combined mode explicitly requests web retrieval and model-assisted evidence selection. The
-      // model can only select source sentences, not invent a synthesis with unverified citations.
-      // Local safety/calculator paths remain authoritative. If either side is unavailable, label it.
+      // Combined mode routes conversational turns to the brain/model and factual turns to
+      // retrieval. For web answers the model highlights only an already-cited sentence;
+      // local safety/calculator paths remain authoritative, and failures are labelled.
       const settings = body.settings && typeof body.settings === 'object' && !Array.isArray(body.settings) ? { ...body.settings } : {};
       const combined = settings.mode === 'combined';
-      if (combined) { settings.route = 'web'; settings.neural = true; }
+      if (combined) settings.neural = true;
       const useNeural = !!(neural && neural.ready() && settings.neural !== false);
       const holdAnswer = useNeural || combined;
       let held = null;
       const onEvent = holdAnswer ? (ev) => { if (ev && ev.type === 'answer') held = ev.result; else send(ev); } : (ev) => send(ev && ev.type === 'answer' ? { ...ev, result: lean(ev.result) } : ev);
       let result = await engine.ask({ question: body.question, context: body.context, settings, learned: body.learned, regenerate: body.regenerate === true, tz, country: countryName(cc), researchAllowed: () => researchAllowed(ip) }, { signal: ac.signal, onEvent });
       if (holdAnswer && held) {
-        result = useNeural ? await neural.enhance({ result: held, question: body.question, history: body.history, send, signal: ac.signal }) : lean(held);
+        if (combined) held = polishCombined(held, body.question, blocksToText);
+        if (combined && useNeural && held.kind === 'retrieval') send({ type: 'note', stage: 'constructing', text: 'Infinity LLM is comparing short excerpts from the cited answer.' });
+        const chatHistory = combined && Array.isArray(body.history) ? body.history.slice(-2).filter(t => Array.isArray(t) && typeof t[0] === 'string' && typeof t[1] === 'string').map(t => [t[0].slice(0, 160), t[1].slice(0, 240)]) : body.history;
+        result = useNeural ? (combined && held.kind === 'retrieval' ? await neural.enhanceCombined({ result: held, question: body.question, signal: ac.signal }) : await neural.enhance({ result: held, question: body.question, history: chatHistory, send, signal: ac.signal, ...(combined ? { maxAttempts: 1, maxNew: 32, calculateRoute: false } : {}) })) : lean(held);
         if (combined) {
-          result.combined = { used: !!(result.neural && result.neural.used && result.neural.mode === 'grounded'),
-            reason: !useNeural ? 'Infinity LLM is unavailable; showing the Internet AI result.' : result.neural?.reason || (result.kind !== 'retrieval' ? 'This request used a local or safety response, not web evidence.' : 'There was not enough usable retrieved evidence for the model to select from.') };
-          if (result.combined.used) delete result.combined.reason;
+          const used = !!result.neural?.used;
+          const mode = used && result.neural.mode === 'highlight' ? 'highlight' : used && result.neural.mode === 'chat' ? 'chat' : result.kind !== 'retrieval' && result.kind !== 'brain' || result.origin === 'safety' ? 'local' : 'fallback';
+          result.combined = { used, mode };
+          if (!used) result.combined.reason = mode === 'local' ? 'Answered locally; web evidence was not needed.' : !useNeural ? 'Infinity LLM is unavailable; showing the Internet AI result.' : result.neural?.reason || (result.kind === 'brain' ? 'Answered by the built-in conversation rules.' : 'No eligible cited evidence was available for model selection.');
         }
         send({ type: 'answer', result });
       }

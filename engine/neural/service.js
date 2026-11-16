@@ -8,6 +8,7 @@ import path from 'node:path';
 import { loadModel, selfTest } from './model.js';
 import { createTokenizer } from './tokenizer.js';
 import { createRuntime, replyCheck } from './generate.js';
+import { combinedCandidates, markCombinedPick } from './combined.js';
 import { resolveProduction } from '../../learning/registry.mjs';
 import { stateDir } from '../../learning/store.mjs';
 
@@ -65,14 +66,14 @@ export function createNeural({ root = '', enabled = true, minLogProb = -1.6, min
   const cleanHistory = (h) => (Array.isArray(h) ? h : []).filter((t) => Array.isArray(t) && typeof t[0] === 'string' && typeof t[1] === 'string' && t[0].trim() && t[1].trim()).slice(-8).map((t) => [t[0].slice(0, 500), t[1].slice(0, 700)]);
 
   /** A reply generated from the model's own weights. Never throws; ok=false says why the reply should not be shown. */
-  async function chat({ user, history = [], onToken = null, signal = null, temperature = 0.6, maxNew = 120, seed = null } = {}) {
+  async function chat({ user, history = [], onToken = null, signal = null, temperature = 0.6, maxNew = 120, seed = null, calculateRoute = true } = {}) {
     if (!ready()) return { ok: false, reason: lastError || 'no model' };
     const me = cur;
     try {
       const g = await me.rt.chat({ user: String(user).slice(0, 1200), history: cleanHistory(history), onToken, signal, temperature, maxNew, seed });
       stats.chats++; stats.tokens += g.tokens + g.promptTokens; stats.ms += g.ms;
       const reason = !g.text ? 'the model produced no text' : g.loop ? 'the model started repeating itself' : !g.ended ? 'the model did not finish its reply' : g.meanLogProb < minLogProb ? 'the model was unsure of its own reply' : '';
-      return { ok: !reason, reason, text: g.text, model: { name: 'Infinity LLM', version: me.id, parameters: me.model.params }, tokens: g.tokens, promptTokens: g.promptTokens, usedTurns: g.usedTurns, ended: g.ended, loop: g.loop, context: me.model.config.context, ms: g.ms, tokensPerSecond: g.ms ? Math.round((g.tokens + g.promptTokens) / (g.ms / 1000)) : null, meanLogProb: +g.meanLogProb.toFixed(3), route: me.rt.route(String(user).slice(0, 600)) };
+      return { ok: !reason, reason, text: g.text, model: { name: 'Infinity LLM', version: me.id, parameters: me.model.params }, tokens: g.tokens, promptTokens: g.promptTokens, usedTurns: g.usedTurns, ended: g.ended, loop: g.loop, context: me.model.config.context, ms: g.ms, tokensPerSecond: g.ms ? Math.round((g.tokens + g.promptTokens) / (g.ms / 1000)) : null, meanLogProb: +g.meanLogProb.toFixed(3), ...(calculateRoute ? { route: me.rt.route(String(user).slice(0, 600)) } : {}) };
     } catch (e) { return { ok: false, reason: `generation failed: ${String(e && e.message).slice(0, 120)}` }; }
   }
 
@@ -83,7 +84,7 @@ export function createNeural({ root = '', enabled = true, minLogProb = -1.6, min
    *                   the engine's own evidence-based answer stays below it, so retrieval works however weak the model is
    */
   const enhance = async (args) => lean(await enhanceFull(args));
-  async function enhanceFull({ result, question, history = [], send = () => {}, signal = null } = {}) {
+  async function enhanceFull({ result, question, history = [], send = () => {}, signal = null, maxAttempts = 3, maxNew = 120, calculateRoute = true } = {}) {
     if (!ready() || !result || !result.answer) return result;
     const me = cur;
     try {
@@ -96,8 +97,8 @@ export function createNeural({ root = '', enabled = true, minLogProb = -1.6, min
         const expected = result.brain && Array.isArray(result.brain.alternatives) ? result.brain.alternatives : [];
         if (!expected.length) return { ...result, neural: { used: false, mode: 'chat', reason: 'this reply carries details from the conversation that only the rule-based reply holds', model: tag() } };
         let best = null, why = '';
-        for (let attempt = 1; attempt <= 3 && !(signal && signal.aborted); attempt++) {
-          const g = await chat({ user: question, history, signal, temperature: attempt === 1 ? 0 : 0.7 });   // first the most likely reply, then two samples
+        for (let attempt = 1; attempt <= maxAttempts && !(signal && signal.aborted); attempt++) {
+          const g = await chat({ user: question, history, signal, maxNew, calculateRoute, temperature: attempt === 1 ? 0 : 0.7 });   // first the most likely reply, then two samples
           if (!g.ok) { why = why || g.reason; continue; }
           const check = replyCheck(g.text, expected, minAgreement);
           if (!best || check.ok || (!best.check.ok && check.agreement > best.check.agreement)) best = { ...g, check, agreement: check.agreement, attempt };
@@ -107,7 +108,7 @@ export function createNeural({ root = '', enabled = true, minLogProb = -1.6, min
         if (!best || !best.check.ok) {
           stats.fallbacks++;
           const reason = best ? `the model's own reply was not shown because ${best.check.reason}` : why || 'the model produced no usable reply';
-          return { ...result, neural: { used: false, mode: 'chat', reason, model: tag(), agreement: best ? +best.agreement.toFixed(2) : null, attempts: best ? best.attempt : 3 } };
+          return { ...result, neural: { used: false, mode: 'chat', reason, model: tag(), agreement: best ? +best.agreement.toFixed(2) : null, attempts: best ? best.attempt : maxAttempts } };
         }
         stats.accepted++;
         const g = best;
@@ -132,5 +133,22 @@ export function createNeural({ root = '', enabled = true, minLogProb = -1.6, min
     } catch (e) { stats.fallbacks++; send({ type: 'token', reset: true }); log({ ev: 'llm_error', message: String(e && e.message).slice(0, 200) }); return { ...result, neural: { used: false, reason: 'the model failed on this message; the engine\'s own answer is shown' } }; }
     return result;
   }
-  return { ready, info, chat, enhance, refresh, get runtime() { return cur ? cur.rt : null; } };
+  // Web + LLM: choose among the engine's already-cited answer sentences rather than
+  // prepending a duplicate, potentially tangential paragraph. The complete answer and
+  // its context, order, qualifications and citations are never changed by this step.
+  async function enhanceCombined({ result, question, signal = null } = {}) {
+    if (!ready()) return lean({ ...result, neural: { used: false, mode: 'highlight', reason: 'Infinity LLM is unavailable' } });
+    const me = cur, candidates = combinedCandidates(result);
+    if (candidates.length < 2) return lean({ ...result, neural: { used: false, mode: 'highlight', reason: 'not enough eligible cited sentences to compare', model: tag() } });
+    try {
+      const g = await me.rt.chooseEvidence({ question: result.interpretation?.resolved || question, evidence: candidates, signal });
+      stats.grounded++; stats.tokens += g.tokens || 0; stats.ms += g.ms || 0;
+      if (!Number.isInteger(g.pick) || !candidates[g.pick]) return lean({ ...result, neural: { used: false, mode: 'highlight', reason: g.reason || 'the model could not select a passage', model: tag() } });
+      return lean({ ...markCombinedPick(result, candidates[g.pick]), neural: { used: true, mode: 'highlight', model: { name: 'Infinity LLM', version: me.id, parameters: me.model.params }, candidates: g.used, tokens: g.tokens, ms: g.ms, note: 'model-selected highlight based on short candidate excerpts within the cited answer; no generated facts' } });
+    } catch (e) {
+      stats.fallbacks++; log({ ev: 'llm_error', message: String(e && e.message).slice(0, 200) });
+      return lean({ ...result, neural: { used: false, mode: 'highlight', reason: 'the model failed on this message; the cited answer is shown' } });
+    }
+  }
+  return { ready, info, chat, enhance, enhanceCombined, refresh, get runtime() { return cur ? cur.rt : null; } };
 }

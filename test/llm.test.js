@@ -181,7 +181,8 @@ test('pending 100M training release activates only with a complete correctly ide
 });
 
 test('saved 75M progress is the default pinned model, with explicit rollback selections', () => {
-  assert.equal(pinnedManifest().version, 'books75m-step105000');
+  assert.equal(pinnedManifest().version, 'books75m-step111248');
+  assert.equal(pinnedManifest('books75m-step111248').version, 'books75m-step111248');
   assert.equal(pinnedManifest('books75m-step105000').version, 'books75m-step105000');
   assert.equal(pinnedManifest('books75m-step90791').version, 'books75m-step90791');
   assert.equal(pinnedManifest('books75m-step21299').version, 'books75m-step21299');
