@@ -340,7 +340,14 @@ export function createEngine(userCfg) {
             const d = docs[news];
             const lead = page.blocks.find((b) => b.type === 'p' && b.text.length >= 80);
             Object.assign(d, { blocks: page.blocks, verified: true, partial: false, evidenceLevel: 'page', extraction: page.quality, author: page.author, leadSentence: lead ? truncate(splitSentences(lead.text).slice(0, 2).join(' '), 300) : d.summary, published: d.published || page.published });
-          } else addDoc({ url: res.url, title: page.title, site: page.site, author: page.author, published: page.published, modified: page.modified, blocks: page.blocks, extraction: page.quality, lang: page.lang, pageType: page.pageType, evidenceLevel: 'page', kind: 'web', partial: false });
+          } else {
+            // A dated NewsArticle discovered by web search is eligible for the news digest,
+            // not just stories that happened to appear in our fixed feed list. An undated
+            // page, generic article, or ordinary search result is never treated as news here.
+            const isDatedNews = analysis.parts.some(p => p.answerType === 'news') && page.pageType === 'news' && !!page.published && Number.isFinite(Date.parse(page.published));
+            const lead = isDatedNews ? page.blocks.find(b => b.type === 'p' && b.text.length >= 80) : null;
+            addDoc({ url: res.url, title: page.title, site: page.site, author: page.author, published: page.published, modified: page.modified, blocks: page.blocks, extraction: page.quality, lang: page.lang, pageType: page.pageType, evidenceLevel: 'page', kind: 'web', partial: false, ...(isDatedNews ? { news: true, verified: true, summary: lead ? truncate(splitSentences(lead.text).slice(0, 2).join(' '), 300) : '' } : {}) });
+          }
         }
       } catch (e) { ev.error = e.code === 'aborted' ? 'stopped' : /EPROTO|SSL|TLS|CERT/i.test(e.message || '') ? 'Secure connection failed (TLS error)' : truncate(String(e.message || 'failed').split('\n')[0], 160); ev.code = e.code || 'error'; }
       ev.ms = Date.now() - t;

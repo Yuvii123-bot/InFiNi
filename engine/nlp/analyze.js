@@ -214,7 +214,7 @@ function classify(l, hint) {
   }
   // "What happened to the temple in the 2015 earthquake?", "what happened at the Battle of Hastings": history, not this week's news
   if (/^what (?:happened|occurred|took place|went on)\b/.test(l2) && ((l2.match(/\b(1[0-9]{3}|20[0-9]{2})\b/g) || []).some((y) => Number(y) < new Date().getUTCFullYear()) || /\b(?:centur(?:y|ies)|ancient|medieval|world war|civil war|war of|battle of|siege of|revolution|dynasty|empire|bce?|decades? ago|years ago|in history|historically|in the past)\b/.test(l2))) return R('what', 'description');
-  if (/^what (?:happened|is happening|has happened|happens|is going on|went on|is new|occurred|took place)\b/.test(l2) || /^(?:any |the )?(?:latest |recent |top |breaking )?(?:news|headlines)\b/.test(l2) || /\b(?:latest|recent|today's|top|breaking) (?:news|headlines|developments|updates)\b/.test(l2) || /^what is (?:the )?(?:latest|new)\b/.test(l2)) return R('what', 'news');
+  if (/^what (?:happened|is happening|has happened|happens|is going on|went on|is new|occurred|took place)\b/.test(l2) || /^(?:any |the )?(?:latest |recent |top |breaking )?(?:news|headlines)\b/.test(l2) || /\b(?:latest|recent|today's|top|breaking|current|newest)\b[^?]{0,80}\b(?:news|headlines|developments|updates)\b/.test(l2) || /^what is (?:the )?(?:latest|new)\b/.test(l2)) return R('what', 'news');
   if (/^which\b/.test(l2)) {
     const noun = (l2.match(/^which (?:of the |of these |of those )?(\w+)/) || [])[1] || '';
     if (/^(person|president|scientist|author|king|queen|leader|actor|actress|player|artist|inventor|director|writer|singer|company|team)s?$/.test(noun)) return R('which', 'person');
@@ -285,7 +285,12 @@ function analyzePart(text, { now = Date.now(), hint = null } = {}) {
   // focus selection
   const NEWSW = /^(latest|news|headlines?|recent|today's|top|breaking|updates?|developments?|new|current|events?|stories|story)$/;
   for (const np of nps) {
-    if (cls.answerType === 'news') { const keep = tokens.slice(np.start, np.end + 1).filter((t) => !NEWSW.test(t.l)); if (!keep.length) np.generic = true; else if (keep.length < np.end - np.start + 1) np.text = keep.map((t) => t.t).join(' '); }
+    if (cls.answerType === 'news') {
+      const keep = tokens.slice(np.start, np.end + 1).filter((t) => !NEWSW.test(t.l));
+      if (!keep.length) np.generic = true;
+      else if (keep.length < np.end - np.start + 1) np.text = keep.map((t) => t.t).join(' ');
+      if (/^research$/i.test(np.text) && nps.some(other => other.start > np.end)) np.generic = true;
+    }
     // "Is the Great Wall of China visible …" / "Is machine learning hard?" → subject | predicate adjective
     const beAt = BE.has(tokens[0].l) ? 0 : tokens.length > 1 && BE.has(tokens[1].l) && /^(why|how)$/.test(tokens[0].l) ? 1 : -1;      // "Is X adj?", "Why is X adj?"
     if (beAt >= 0 && (cls.answerType === 'yesno' || cls.answerType === 'reason' || cls.answerType === 'mechanism' || cls.answerType === 'description') && np === nps[0] && np.start <= beAt + 2 && np.end > np.start && (np.end === tokens.length - 1 || tags[np.end + 1] === 'PREP')) {

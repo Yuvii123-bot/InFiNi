@@ -101,3 +101,34 @@ test('combined guards preserve source context and flag stale current information
   assert.equal(recent.confidence.level, 'high');
   assert.equal(r.answer.blocks.length, 3, 'input is not mutated');
 });
+
+test('latest topical updates use dated web news articles, not stale background', async () => {
+  const cfg = fakeConfig({ INFINI_LLM: '0', INFINI_LEARNING_SCHEDULER: '0' });
+  const date = new Date().toISOString();
+  const article = (published, type = 'NewsArticle') => `<html><head><title>NASA Artemis mission update</title><script type="application/ld+json">${JSON.stringify({ '@context': 'https://schema.org', '@type': type, headline: 'NASA Artemis mission update', datePublished: published })}</script></head><body><article><h1>NASA Artemis mission update</h1><p>NASA has announced a new test for the Artemis mission to prepare for the next stage of the lunar program. Engineers are conducting safety checks and evaluating the spacecraft before the upcoming mission. The agency said the schedule remains subject to change after testing.</p></article></body></html>`;
+  let html = article(date);
+  cfg.http.transport = async u => {
+    if (u.pathname === '/robots.txt') return { status: 404, headers: {}, body: Buffer.alloc(0), truncated: false };
+    if (u.hostname === 'api.mwmbl.org') return { status: 200, headers: { 'content-type': 'application/json' }, body: Buffer.from(JSON.stringify([{ url: 'https://space-news.org/news/artemis', title: [{ value: 'NASA Artemis mission update' }], extract: [{ value: 'NASA Artemis mission update' }] }])), truncated: false };
+    return { status: 200, headers: { 'content-type': 'text/html' }, body: Buffer.from(html), truncated: false };
+  };
+  const app = createApp(cfg);
+  try {
+    const question = 'What are the latest NASA Artemis mission updates?';
+    const fresh = await app.engine.ask({ question, settings: { depth: 'fast' } });
+    assert.equal(fresh.interpretation.parts[0].answerType, 'news');
+    assert.match(fresh.interpretation.parts[0].focus, /NASA Artemis/);
+    assert.match(fresh.answer.text, /NASA Artemis mission update/);
+    assert.ok(fresh.sources.some(s => s.url === 'https://space-news.org/news/artemis' && s.published));
+    html = article('2010-01-01T00:00:00Z');
+    const stale = await app.engine.ask({ question, settings: { depth: 'fast' }, regenerate: true });
+    assert.match(stale.answer.text, /no item|could not verify/i);
+    assert.equal(stale.confidence.level, 'insufficient', 'old articles are not passed off as current news');
+    assert.doesNotMatch(stale.answer.text, /These are the main stories/);
+    html = article(date, 'Article');
+    const generic = await app.engine.ask({ question, settings: { depth: 'fast' }, regenerate: true });
+    assert.match(generic.answer.text, /no item|could not verify/i);
+    assert.equal(generic.confidence.level, 'insufficient', 'a non-news page is not passed off as current news');
+    assert.doesNotMatch(generic.answer.text, /These are the main stories/);
+  } finally { await app.close(); }
+});
