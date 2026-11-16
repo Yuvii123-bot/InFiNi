@@ -1,0 +1,60 @@
+name: Export 27.4M-position 75M checkpoint
+on:
+  push:
+    paths: ['.github/workflows/deploy-273m-progress.yml']
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  export:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    env:
+      GH_TOKEN: ${{ github.token }}
+      SOURCE_TAG: infinity-books100m-training-43698262111
+      CHECKPOINT: checkpoint-06-4.pt
+      CHECKPOINT_SHA: 9495a094551b4b18f0417d47b13c7a4499d5880dd93f98de8e22c08b22435094
+      OMP_NUM_THREADS: '2'
+      MKL_NUM_THREADS: '2'
+    steps:
+      - uses: actions/checkout@v4
+      - name: Preserve the exact checkpoint before training rotates it
+        run: |
+          set -euo pipefail
+          mkdir -p data/llm/progress data/llm/datasets
+          gh release download "$SOURCE_TAG" --repo "$GITHUB_REPOSITORY" -p "$CHECKPOINT" -D data/llm/progress
+          echo "$CHECKPOINT_SHA  data/llm/progress/$CHECKPOINT" | sha256sum -c
+          tag="infinity-qa75m-${GITHUB_RUN_ID}"
+          gh release create "$tag" --repo "$GITHUB_REPOSITORY" --prerelease --title "75M saved training progress ${GITHUB_RUN_ID}" --notes 'Snapshot of the 75M 100M-run checkpoint 06-4, not a completed 100M or 500M run. Training positions are sampled with replacement. Source: PG-19 historical books, synthetic Botbots dialogue, and replay. This snapshot contains no news corpus. Retains the checkpoint for later resume and the prior 75M release remains available for rollback.'
+          gh release upload "$tag" --repo "$GITHUB_REPOSITORY" "data/llm/progress/$CHECKPOINT"
+      - name: Install dependencies and restore evaluation datasets
+        run: |
+          set -euo pipefail
+          python3 -m venv .venv
+          .venv/bin/pip install --quiet --index-url https://download.pytorch.org/whl/cpu torch
+          .venv/bin/pip install --quiet numpy
+          gh release download infinity-books100m-data-43697791940 --repo "$GITHUB_REPOSITORY" -p dataset-books100m.tar.gz -D data/llm/progress
+          echo 'bc73cd70757479c21da2bbbcfcd0d36b3c374ed126a35668cb0c295c274d30e3  data/llm/progress/dataset-books100m.tar.gz' | sha256sum -c
+          tar -xzf data/llm/progress/dataset-books100m.tar.gz -C data/llm/datasets
+          gh release download infinity-qa75m-43662976189 --repo "$GITHUB_REPOSITORY" -p dataset.tar.gz -D data/llm/progress
+          echo '86eaa2ba0d8bf0c66bb70493d29dc6030cb4568e19c6330720d2d4e8b8a778b1  data/llm/progress/dataset.tar.gz' | sha256sum -c
+          tar -xzf data/llm/progress/dataset.tar.gz -C data/llm/datasets
+      - name: Check provenance, evaluate and export
+        run: |
+          set -euo pipefail
+          .venv/bin/python - <<'PY'
+          import json, os, torch
+          s = torch.load('data/llm/progress/' + os.environ['CHECKPOINT'], map_location='cpu', weights_only=False, mmap=True)
+          assert s['cycle']['id'] == 'books100m-v1' and s['cycle']['start_step'] == 500
+          assert s['step'] == 213965 and s['tokens_seen'] == 27387520
+          assert (s['step'] - 500) * 128 == 27323520
+          with open('data/llm/progress/provenance.json', 'w') as f:
+              json.dump({'source_release': os.environ['SOURCE_TAG'], 'checkpoint': os.environ['CHECKPOINT'], 'checkpoint_sha256': os.environ['CHECKPOINT_SHA'], 'step': s['step'], 'tokens_seen': s['tokens_seen'], 'additional_positions': (s['step'] - 500) * 128, 'dataset': 'books100m-v1', 'sampling': 'random windows with replacement', 'news_included': False}, f, indent=2)
+          PY
+          .venv/bin/python -m llm.evaluate --data data/llm/datasets/books100m --ckpt "data/llm/progress/$CHECKPOINT" --context 128 --windows 32 --threads 2 > data/llm/progress/books-evaluation.json
+          .venv/bin/python -m llm.evaluate --data data/llm/datasets/qa75m-starter --ckpt "data/llm/progress/$CHECKPOINT" --context 128 --windows 32 --threads 2 > data/llm/progress/replay-evaluation.json
+          .venv/bin/python -m llm.export_int8 --ckpt "data/llm/progress/$CHECKPOINT" --out data/llm/progress/model --part-bytes 40000000
+          cp data/llm/datasets/books100m/tokenizer.json data/llm/progress/model/tokenizer.json
+          node learning/tiny75k-probe.mjs data/llm/progress/model data/llm/datasets/qa75m-starter > data/llm/progress/probes.json
+          (cd data/llm/progress/model && sha256sum model.json tokenizer.json weights.0.bin weights.1.bin > ../export-sha256.txt && wc -c model.json tokenizer.json weights.0.bin weights.1.bin > ../export-sizes.txt)
+          gh release upload "infinity-qa75m-${GITHUB_RUN_ID}" --repo "$GITHUB_REPOSITORY" data/llm/progress/model/model.json data/llm/progress/model/tokenizer.json data/llm/progress/model/weights.0.bin data/llm/progress/model/weights.1.bin data/llm/progress/books-evaluation.json data/llm/progress/replay-evaluation.json data/llm/progress/probes.json data/llm/progress/provenance.json data/llm/progress/export-sha256.txt data/llm/progress/export-sizes.txt
