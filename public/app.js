@@ -427,8 +427,8 @@ function fillBot(m) {
   if (m.status === 'stopped') body.append(h('div', { class: 'note' + (r ? ' warn' : ''), text: r ? `Stopped early. This is the draft that had been built until then${r.run && r.run.pages ? ` (${plural(r.run.pages, 'page')} read)` : ''}; the run was not finished, so it may be incomplete.` : 'Stopped. Retrieval was cancelled, so no answer was built.' }));
   const isBrain = !!r && r.kind === 'brain';
   if (r) {
-    if (r.combined) {
-      const label = r.combined.mode === 'highlight' ? 'Web + LLM · cited answer with a model-selected highlight (not a fact check)' : r.combined.mode === 'chat' ? 'Web + LLM · model-generated chat, checked against local replies' : `Web + LLM · ${r.combined.reason}`;
+    if (r.combined && r.combined.mode !== 'local') {
+      const label = r.combined.mode === 'highlight' ? 'Web search · cited answer with an experimental model highlight (not a fact check)' : r.combined.mode === 'chat' ? 'Local model reply, checked against conversation rules' : r.combined.mode === 'web' ? 'Web search · cited answer' : r.combined.reason;
       body.append(h('div', { class: 'combined-status' + (r.combined.mode === 'fallback' ? ' fallback' : ''), role: 'status', text: label }));
     }
     body.append(answerEl(r));

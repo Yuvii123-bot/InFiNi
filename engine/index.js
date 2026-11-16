@@ -199,13 +199,17 @@ export function createEngine(userCfg) {
         try {
           b = brain.respond({ question, state: brainState, now, tz: req.tz, country: req.country, health: { resting: resting() }, ctxTurn: context.turn || 0, regenerate: !!req.regenerate, route: settings.route === 'web' ? 'web' : '', strict: pre.intent === 'meta' || pre.intent === 'calc' });
         } catch (e) { emit({ type: 'note', stage: 'understanding', text: `The built-in brain could not process this message (${truncate(String(e && e.message), 120)}); using web search instead.` }); }
-        if (b && b.handled) {
+        // In combined mode, ordinary world-knowledge questions should use the web even
+        // when the common-sense store knows an answer. Keep conversation, safety,
+        // private memory and local skills on their existing paths.
+        const searchCommonSense = settings.mode === 'combined' && b?.handled && b.origin === 'commonsense';
+        if (b && b.handled && !searchCommonSense) {
           totals.brain++;
           emit({ type: 'stage', stage: 'understanding', status: 'start' });
           emit({ type: 'stage', stage: 'understanding', status: 'done', ms: Date.now() - s0, detail: { intent: 'conversation', followUp: false, rewrites: [], resolved: '', parts: [], brain: { intent: b.intent, origin: b.origin } } });
           return local('brain', b.blocks, null, { context: { ...context, brain: b.state, turn: (context.turn || 0) + 1 }, suggestions: b.suggestions, origin: b.origin, brain: { intent: b.intent, group: b.group, sure: b.sure, alternatives: b.alternatives || [] } });
         }
-        if (b) {
+        if (b && !searchCommonSense) {
           brainState = b.state; preface = b.preface || '';
           if (b.question && b.question !== question) {
             const why = b.why === 'spelling' ? 'spelling corrected by the built-in brain' : 'understood by the built-in brain';

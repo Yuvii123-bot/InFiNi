@@ -214,7 +214,7 @@ function classify(l, hint) {
   }
   // "What happened to the temple in the 2015 earthquake?", "what happened at the Battle of Hastings": history, not this week's news
   if (/^what (?:happened|occurred|took place|went on)\b/.test(l2) && ((l2.match(/\b(1[0-9]{3}|20[0-9]{2})\b/g) || []).some((y) => Number(y) < new Date().getUTCFullYear()) || /\b(?:centur(?:y|ies)|ancient|medieval|world war|civil war|war of|battle of|siege of|revolution|dynasty|empire|bce?|decades? ago|years ago|in history|historically|in the past)\b/.test(l2))) return R('what', 'description');
-  if (/^what (?:happened|is happening|has happened|happens|is going on|went on|is new|occurred|took place)\b/.test(l2) || /^(?:any |the )?(?:latest |recent |top |breaking )?(?:news|headlines)\b/.test(l2) || /\b(?:latest|recent|today's|top|breaking|current|newest)\b[^?]{0,80}\b(?:news|headlines|developments|updates)\b/.test(l2) || /^what is (?:the )?(?:latest|new)\b/.test(l2)) return R('what', 'news');
+  if (/^what (?:happened|is happening|has happened|happens|is going on|went on|is new|occurred|took place)\b/.test(l2) || /^(?:any |the )?(?:latest |recent |top |breaking )?(?:news|headlines)\b/.test(l2) || /\b(?:latest|recent|today's|top|breaking|current|newest)\b[^?]{0,80}\b(?:news|headlines|developments|updates)\b/.test(l2) || /^what is (?:the )?(?:latest|new)(?:\s+(?:on|about|with)\b|$)/.test(l2)) return R('what', 'news');
   if (/^which\b/.test(l2)) {
     const noun = (l2.match(/^which (?:of the |of these |of those )?(\w+)/) || [])[1] || '';
     if (/^(person|president|scientist|author|king|queen|leader|actor|actress|player|artist|inventor|director|writer|singer|company|team)s?$/.test(noun)) return R('which', 'person');

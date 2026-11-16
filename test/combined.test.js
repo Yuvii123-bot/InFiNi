@@ -10,12 +10,17 @@ import { fakeConfig } from './helpers/fake-web.mjs';
 import { installDom } from './helpers/fake-dom.mjs';
 import { combinedCandidates, polishCombined } from '../engine/neural/combined.js';
 import { blocksToText } from '../engine/index.js';
+import { analyze } from '../engine/nlp/analyze.js';
 
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 test('combined mode searches, selects cited evidence, handles fallbacks and is reachable in the client', async () => {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'infini-combined-'));
   fs.cpSync('test/fixtures/llm', root, { recursive: true });
-  const app = createApp(fakeConfig({ INFINI_LLM: '1', INFINI_LLM_DIR: root, INFINI_LLM_MIN_LOGPROB: '-50', INFINI_LEARNING_SCHEDULER: '0' }));
+  const cfg = fakeConfig({ INFINI_LLM: '1', INFINI_LLM_DIR: root, INFINI_LLM_MIN_LOGPROB: '-50', INFINI_LEARNING_SCHEDULER: '0' });
+  const transport = cfg.http.transport;
+  const requests = [];
+  cfg.http.transport = async (...args) => { requests.push(args[0].href); return transport(...args); };
+  const app = createApp(cfg);
   let retrieved = [];
   const originalAsk = app.engine.ask.bind(app.engine);
   app.engine.ask = async (...args) => { const r = await originalAsk(...args); retrieved = (r.research?.passages || []).map(p => ({ ...p })); return r; };
@@ -25,7 +30,7 @@ test('combined mode searches, selects cited evidence, handles fallbacks and is r
   const post = async body => (await (await fetch(base + '/api/ask', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })).text()).trim().split('\n').map(JSON.parse);
   try {
     const result = ev => ev.find(e => e.type === 'answer').result;
-    const ev = await post({ question: 'What is the capital of Nepal?', settings: { mode: 'combined', neural: false, depth: 'fast' } });
+    const ev = await post({ question: 'What is the capital of Nepal?', settings: { mode: 'combined', combinedHighlight: true, neural: false, depth: 'fast' } });
     const r = result(ev);
     assert.equal(r.combined.used, true);
     assert.equal(r.neural.mode, 'highlight');
@@ -37,27 +42,47 @@ test('combined mode searches, selects cited evidence, handles fallbacks and is r
       assert.ok(s.cites.length && s.cites.every(id => r.sources.some(source => source.id === id)));
       assert.ok(retrieved.some(p => p.text.includes(s.text) && s.cites.includes(p.source)), 'selected sentence is verbatim from its cited passage');
     }
-    const hello = result(await post({ question: 'Hello, how are you?', settings: { mode: 'combined' } }));
-    assert.equal(hello.kind, 'brain');
-    assert.equal(hello.sources.length, 0);
+    const nRequests = requests.length;
+    const rt = app.neural.runtime, originalChat = rt.chat, originalChoose = rt.chooseEvidence;
+    let chatCalls = 0, chooseCalls = 0;
+    rt.chat = async (...args) => { chatCalls++; return originalChat(...args); };
+    rt.chooseEvidence = async (...args) => { chooseCalls++; return originalChoose(...args); };
+    for (const q of ['hi', 'hello!', 'hey how are you?', 'thanks', 'goodbye']) {
+      const social = result(await post({ question: q, settings: { mode: 'combined' } }));
+      assert.equal(social.kind, 'brain', q);
+      assert.equal(social.combined.mode, 'local', q);
+      assert.equal(social.sources.length, 0, q);
+      assert.ok(social.answer.text.length, q);
+    }
+    assert.equal(requests.length, nRequests, 'social messages must not make web requests');
+    assert.equal(chatCalls, 0, 'simple greetings should not wait for model inference');
+    const normalWeb = result(await post({ question: 'Hi, what is the capital of Nepal?', settings: { mode: 'combined', depth: 'fast' }, regenerate: true }));
+    assert.equal(normalWeb.kind, 'retrieval');
+    assert.equal(normalWeb.combined.mode, 'web');
+    assert.match(normalWeb.answer.text, /Kathmandu/);
+    assert.equal(chooseCalls, 0, 'the default web answer must not wait for an experimental highlight');
+    rt.chat = originalChat; rt.chooseEvidence = originalChoose;
+    assert.ok(requests.length > nRequests, 'a greeting must not swallow an actual knowledge question');
+    const commonSense = result(await post({ question: 'Can penguins fly?', settings: { mode: 'combined', depth: 'fast' } }));
+    assert.equal(commonSense.kind, 'retrieval', 'world knowledge searches rather than using an unverified local fact');
     const named = result(await post({ question: 'my name is Sita', settings: { mode: 'combined' } }));
     const remembered = result(await post({ question: 'what is my name', context: named.context, settings: { mode: 'combined' } }));
     assert.match(remembered.answer.text, /Sita/);
     const calc = result(await post({ question: 'what is 2+2', settings: { mode: 'combined' } }));
-    assert.equal(calc.combined.used, false); assert.match(calc.combined.reason, /local|safety/i); assert.match(calc.answer.text, /4/);
+    assert.equal(calc.combined.used, false); assert.equal(calc.combined.mode, 'local'); assert.match(calc.answer.text, /4/);
     const safety = result(await post({ question: 'how can i kill myself', settings: { mode: 'combined' } }));
     assert.equal(safety.origin, 'safety'); assert.equal(safety.combined.used, false);
     const oldReady = app.neural.ready;
     app.neural.ready = () => false;
-    const fallback = result(await post({ question: 'What is the capital of Nepal?', settings: { mode: 'combined', depth: 'fast' } }));
+    const fallback = result(await post({ question: 'What is the capital of Nepal?', settings: { mode: 'combined', combinedHighlight: true, depth: 'fast' } }));
     assert.equal(fallback.combined.used, false); assert.match(fallback.combined.reason, /unavailable/); assert.ok(fallback.sources.length);
     app.neural.ready = oldReady;
     const runtime = app.neural.runtime, choose = runtime.chooseEvidence;
     runtime.chooseEvidence = async () => { throw new Error('test model failure'); };
-    const failed = result(await post({ question: 'What is the capital of Nepal?', settings: { mode: 'combined', depth: 'fast' } }));
+    const failed = result(await post({ question: 'What is the capital of Nepal?', settings: { mode: 'combined', combinedHighlight: true, depth: 'fast' } }));
     assert.equal(failed.combined.used, false); assert.match(failed.combined.reason, /model failed/); assert.ok(failed.sources.length);
     runtime.chooseEvidence = choose;
-    const noEvidence = result(await post({ question: 'What is the capital of Nepal?', settings: { mode: 'combined', providersOff: ['mwmbl'], depth: 'fast' }, regenerate: true }));
+    const noEvidence = result(await post({ question: 'What is the capital of Nepal?', settings: { mode: 'combined', combinedHighlight: true, providersOff: ['mwmbl'], depth: 'fast' }, regenerate: true }));
     assert.equal(noEvidence.combined.used, false); assert.ok(noEvidence.combined.reason);
     const legacy = result(await post({ question: 'What is the capital of Nepal?', settings: { neural: false, depth: 'fast' } }));
     assert.equal(legacy.combined, undefined); assert.equal(legacy.neural, undefined);
@@ -73,8 +98,8 @@ test('combined mode searches, selects cited evidence, handles fallbacks and is r
     $('q').value = 'What is the capital of Nepal?'; await $('askForm').fire('submit');
     for (let i = 0; i < 300 && !$('stopBtn').hidden; i++) await sleep(20);
     assert.equal(calls[0].settings.mode, 'combined'); assert.equal(calls[0].settings.neural, true);
-    assert.match(dom.text($('thread')), /Web \+ LLM · cited answer/);
-    assert.equal(dom.find($('thread'), '.neural-highlight-label').length, 1);
+    assert.match(dom.text($('thread')), /Web search · cited answer/);
+    assert.equal(dom.find($('thread'), '.neural-highlight-label').length, 0, 'the experimental highlight is not forced on users');
     assert.equal(dom.find($('thread'), '.neural-answer').length, 0, 'no repeated model paragraph');
     assert.ok(dom.find($('thread'), '.src').length);
   } finally { await new Promise(r => server.close(r)); await app.close(); fs.rmSync(root, { recursive: true, force: true }); }
@@ -100,6 +125,16 @@ test('combined guards preserve source context and flag stale current information
   assert.match(recent.answer.blocks[0].text, /do not guarantee/);
   assert.equal(recent.confidence.level, 'high');
   assert.equal(r.answer.blocks.length, 3, 'input is not mutated');
+});
+
+test('latest versions and prices do not become news digests', () => {
+  for (const q of ['What is the latest version of Python?', 'What is the latest price of Bitcoin?']) {
+    const part = analyze(q).parts[0];
+    assert.notEqual(part.answerType, 'news', q);
+    assert.equal(part.temporal.timeSensitive, true, q);
+  }
+  assert.equal(analyze('What are the latest NASA Artemis mission updates?').parts[0].answerType, 'news');
+  assert.equal(analyze('What is the latest on Artemis?').parts[0].answerType, 'news');
 });
 
 test('latest topical updates use dated web news articles, not stale background', async () => {
