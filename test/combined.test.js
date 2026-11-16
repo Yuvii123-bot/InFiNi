@@ -119,16 +119,17 @@ test('latest topical updates use dated web news articles, not stale background',
     assert.equal(fresh.interpretation.parts[0].answerType, 'news');
     assert.match(fresh.interpretation.parts[0].focus, /NASA Artemis/);
     assert.match(fresh.answer.text, /NASA Artemis mission update/);
+    assert.match(fresh.answer.text, /Here are dated items/);
     assert.ok(fresh.sources.some(s => s.url === 'https://space-news.org/news/artemis' && s.published));
     html = article('2010-01-01T00:00:00Z');
     const stale = await app.engine.ask({ question, settings: { depth: 'fast' }, regenerate: true });
     assert.match(stale.answer.text, /no item|could not verify/i);
     assert.equal(stale.confidence.level, 'insufficient', 'old articles are not passed off as current news');
-    assert.doesNotMatch(stale.answer.text, /These are the main stories/);
+    assert.doesNotMatch(stale.answer.text, /Here are dated items/);
     html = article(date, 'Article');
     const generic = await app.engine.ask({ question, settings: { depth: 'fast' }, regenerate: true });
     assert.match(generic.answer.text, /no item|could not verify/i);
     assert.equal(generic.confidence.level, 'insufficient', 'a non-news page is not passed off as current news');
-    assert.doesNotMatch(generic.answer.text, /These are the main stories/);
+    assert.doesNotMatch(generic.answer.text, /Here are dated items/);
   } finally { await app.close(); }
 });

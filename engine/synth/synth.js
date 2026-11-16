@@ -648,7 +648,7 @@ function composeNews(env) {
     stories = gather(50);
     if (stories.length) { hours = 50; windowLabel = 'in the last two days (I found nothing dated within the last 24 hours)'; }
   }
-  if (!stories.length) return insufficient(env, `I read the available news feeds but found no item ${part.focus ? `about ${part.focus} ` : ''}published ${windowLabel}.`);
+  if (!stories.length) return insufficient(env, `I searched the available sources but found no dated news item ${part.focus ? `about ${part.focus} ` : ''}published ${windowLabel}.`);
   // cluster the same story across publishers
   const clusters = [];
   for (const s of stories.sort((a, b) => a.age - b.age)) {
@@ -679,7 +679,7 @@ function composeNews(env) {
   });
   const publishers = uniq(stories.map((s) => s.doc.site));
   const blocks = [
-    para([span(`These are the main stories ${part.focus ? `about ${part.focus} ` : ''}that news publishers reported ${windowLabel} (checked ${formatDate(new Date(ctx.now).toISOString().slice(0, 10))}, ${new Date(ctx.now).toISOString().slice(11, 16)} UTC):`)]),
+    para([span(`Here are dated items ${part.focus ? `about ${part.focus} ` : ''}found in the available sources ${windowLabel} (checked ${formatDate(new Date(ctx.now).toISOString().slice(0, 10))}, ${new Date(ctx.now).toISOString().slice(11, 16)} UTC):`)]),
     { type: 'list', ordered: false, items },
     note(`Based on ${stories.length} dated item${stories.length > 1 ? 's' : ''} from ${publishers.length} publisher${publishers.length > 1 ? 's' : ''} (${publishers.slice(0, 6).join(', ')}). This reflects what those outlets published, not a complete picture; stories carried by several outlets are listed first.`, 'info'),
   ];
