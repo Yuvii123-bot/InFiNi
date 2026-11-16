@@ -37,7 +37,7 @@ jobs:
               if result['kind']=='retrieval': assert not [e for e in events if e['type']=='token']
               return result, round(time.monotonic()-start, 2)
           def summarize(q, r, seconds):
-              return {'question':q, 'seconds':seconds, 'kind':r['kind'], 'combined':r.get('combined'), 'neural':r.get('neural'), 'answer':r['answer'], 'interpretation':r.get('interpretation'), 'sources':[{'id':s['id'],'title':s['title'],'url':s['url'],'published':s.get('published')} for s in r.get('sources',[])]}
+              return {'question':q, 'seconds':seconds, 'kind':r['kind'], 'combined':r.get('combined'), 'neural':r.get('neural'), 'answer':r['answer'], 'interpretation':r.get('interpretation'), 'searches':r.get('research',{}).get('searches',[]) if r.get('research') else [], 'sources':[{'id':s['id'],'title':s['title'],'url':s['url'],'published':s.get('published')} for s in r.get('sources',[])]}
           rows=[]
           for q in ['Hi', 'Hello, how are you?', 'Thanks']:
               r,secs=ask(q); assert r['kind']=='brain' and r['combined']['mode']=='local' and not r['sources'], r
@@ -51,7 +51,7 @@ jobs:
               assert r['kind']=='retrieval' and r['combined']['mode']=='web', r
               if 'latest' in q and r.get('sources'): assert any(b.get('tone')=='warn' for b in r['answer']['blocks'])
               if 'version of Python' in q: assert r['interpretation']['parts'][0]['answerType'] != 'news', r
-          with open('combined-routing-live.json','w') as f: json.dump({'model':model['version'],'results':rows},f,indent=2)
+          with open('combined-quality-routing-final.json','w') as f: json.dump({'model':model['version'],'results':rows},f,indent=2)
           print(json.dumps({'model':model['version'],'results':[{k:v for k,v in row.items() if k not in ('answer','sources')} for row in rows]},indent=2))
           PY
-          gh release upload infinity-qa75m-43788993113 --repo "$GITHUB_REPOSITORY" combined-routing-live.json --clobber
+          gh release upload infinity-qa75m-43788993113 --repo "$GITHUB_REPOSITORY" combined-quality-routing-final.json --clobber
