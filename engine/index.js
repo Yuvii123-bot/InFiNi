@@ -210,7 +210,7 @@ export function createEngine(userCfg) {
           return local('brain', b.blocks, null, { context: { ...context, brain: b.state, turn: (context.turn || 0) + 1 }, suggestions: b.suggestions, origin: b.origin, brain: { intent: b.intent, group: b.group, sure: b.sure, alternatives: b.alternatives || [] } });
         }
         if (b && !searchCommonSense) {
-          brainState = b.state; preface = b.preface || '';
+          brainState = b.state; preface = settings.mode === 'combined' ? '' : b.preface || '';
           if (b.question && b.question !== question) {
             const why = b.why === 'spelling' ? 'spelling corrected by the built-in brain' : 'understood by the built-in brain';
             reworded = reworded ? { ...reworded, to: b.question, reason: `${reworded.reason}; ${why}` } : { from: question.slice(0, 300), to: b.question, reason: why };

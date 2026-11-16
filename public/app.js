@@ -428,12 +428,12 @@ function fillBot(m) {
   const isBrain = !!r && r.kind === 'brain';
   if (r) {
     if (r.combined && r.combined.mode !== 'local') {
-      const label = r.combined.mode === 'highlight' ? 'Web search · cited answer with an experimental model highlight (not a fact check)' : r.combined.mode === 'chat' ? 'Local model reply, checked against conversation rules' : r.combined.mode === 'web' ? 'Web search · cited answer' : r.combined.reason;
-      body.append(h('div', { class: 'combined-status' + (r.combined.mode === 'fallback' ? ' fallback' : ''), role: 'status', text: label }));
+      const label = r.combined.mode === 'highlight' ? 'Web search · cited answer with an experimental model highlight (not a fact check)' : r.combined.mode === 'chat' ? 'Infinity LLM · generated locally, without web search' : r.combined.mode === 'web' ? 'Web search · cited answer' : r.combined.reason;
+      body.append(h('div', { class: 'combined-status' + (['fallback', 'error'].includes(r.combined.mode) ? ' fallback' : ''), role: 'status', text: label }));
     }
     body.append(answerEl(r));
     if (isBrain && ORIGIN[r.origin]) body.append(h('div', { class: 'origin' }, icon(ORIGIN[r.origin][0], 13), r.origin === 'neural' && r.neural && r.neural.model ? neuralLine(r.neural) : ORIGIN[r.origin][1]));
-    else if (isBrain && r.neural && r.neural.used === false && r.neural.reason) body.append(h('div', { class: 'origin' }, icon('spark', 13), `Reply from the built-in rules: ${r.neural.reason}.`));
+    else if (isBrain && !r.combined && r.neural && r.neural.used === false && r.neural.reason) body.append(h('div', { class: 'origin' }, icon('spark', 13), `Reply from the built-in rules: ${r.neural.reason}.`));
     const conf = confidenceEl(r.confidence); if (conf) body.append(conf);
     const runLine = runLineEl(r); if (runLine) body.append(runLine);
     const over = overviewEl(r); if (over) body.append(over);

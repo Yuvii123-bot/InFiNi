@@ -154,17 +154,32 @@ export function createApp(cfg = loadConfig()) {
         const highlight = combined && held.kind === 'retrieval' && settings.combinedHighlight === true;
         if (highlight && useNeural) send({ type: 'note', stage: 'constructing', text: 'Infinity LLM is comparing short excerpts from the cited answer.' });
         const chatHistory = combined && Array.isArray(body.history) ? body.history.slice(-2).filter(t => Array.isArray(t) && typeof t[0] === 'string' && typeof t[1] === 'string').map(t => [t[0].slice(0, 160), t[1].slice(0, 240)]) : body.history;
-        // Simple social turns already have reliable local replies; do not delay or replace
-        // them with a small model's potentially unrelated answer.
-        const social = combined && held.kind === 'brain' && (['greet', 'thanks', 'bye'].includes(held.brain?.group) || held.brain?.intent === 'bot.howareyou');
-        if (!useNeural || social || (combined && held.kind === 'retrieval' && !highlight)) result = lean(held);
+        // In combined mode the brain is a router only: never substitute its canned
+        // conversational answer, even when generation fails. Safety responses remain
+        // authoritative. Source-based retrieval remains separate from chat generation.
+        const modelTurn = combined && held.kind !== 'retrieval' && held.origin !== 'safety';
+        if (modelTurn) {
+          const g = useNeural ? await neural.chat({ user: body.question, history: chatHistory, signal: ac.signal, temperature: 0, maxNew: 48, calculateRoute: false }) : null;
+          const usable = !!(g && typeof g.text === 'string' && g.text.trim() && !g.loop && !ac.signal.aborted);
+          const text = usable ? g.text.trim() : 'The language model could not generate a reply. Please try again.';
+          const context = held.context?.brain ? { ...held.context, brain: { ...held.context.brain, lastText: usable ? text.slice(0, 400) : '', expect: null } } : held.context;
+          const blocks = [{ type: 'paragraph', spans: [{ text, cites: [] }] }, ...(usable && !g.ended ? [{ type: 'note', tone: 'warn', text: 'The model stopped before completing its reply.' }] : [])];
+          result = { ...lean(held), context, suggestions: [], origin: usable ? 'neural' : 'model_unavailable', confidence: null,
+            answer: { blocks, text: blocksToText(blocks) },
+            neural: usable ? { used: true, mode: 'chat', model: g.model, tokens: g.tokens, ms: g.ms, tokensPerSecond: g.tokensPerSecond, ended: g.ended } : { used: false, mode: 'chat', reason: g?.reason || 'model unavailable' } };
+          if (usable) {
+            send({ type: 'token', start: true, mode: 'chat', model: g.model });
+            for (const piece of text.match(/\S+\s*/g) || [text]) send({ type: 'token', text: piece });
+          }
+        } else if (!useNeural || (combined && (held.origin === 'safety' || (held.kind === 'retrieval' && !highlight)))) result = lean(held);
         else if (highlight) result = await neural.enhanceCombined({ result: held, question: body.question, signal: ac.signal });
-        else result = await neural.enhance({ result: held, question: body.question, history: chatHistory, send, signal: ac.signal, ...(combined ? { maxAttempts: 1, maxNew: 32, calculateRoute: false } : {}) });
+        else result = await neural.enhance({ result: held, question: body.question, history: chatHistory, send, signal: ac.signal });
         if (combined) {
           const used = !!result.neural?.used;
-          const mode = used && result.neural.mode === 'highlight' ? 'highlight' : used && result.neural.mode === 'chat' ? 'chat' : result.kind === 'retrieval' ? (highlight ? 'fallback' : 'web') : 'local';
+          const mode = used && result.neural.mode === 'highlight' ? 'highlight' : used && result.neural.mode === 'chat' ? 'chat' : modelTurn ? 'error' : result.kind === 'retrieval' ? (highlight ? 'fallback' : 'web') : 'local';
           result.combined = { used, mode };
           if (mode === 'fallback') result.combined.reason = !useNeural ? 'Model highlight unavailable; showing the cited web answer.' : result.neural?.reason || 'No eligible cited evidence was available for model selection.';
+          if (mode === 'error') result.combined.reason = 'Language model unavailable or unable to finish.';
         }
         send({ type: 'answer', result });
       }
