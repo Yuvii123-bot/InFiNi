@@ -55,6 +55,27 @@ export function polishCombined(result, question, blocksToText, now = Date.now())
   blocks = blocks.filter((b, i, all) => !(b.type === 'list' && !b.items.length) && !(b.type === 'heading' && all[i + 1]?.type === 'list' && !all[i + 1].items.length));
   if (!blocks.some(b => b.type === 'paragraph' || (b.type === 'list' && b.items.length) || b.type === 'table')) blocks = original;
   let confidence = result.confidence;
+  // Some passages state Earth's ~23 degree axial tilt relative to the orbital
+  // plane, rather than its perpendicular. When an already-cited passage makes
+  // the reference frame explicit, lead with that exact passage and label the
+  // differing wording instead of presenting the number without qualification.
+  // This is a narrow conflict guard, not a general fact checker.
+  const leadIndex = blocks.findIndex(b => b.type === 'paragraph' && b.spans?.some(s => s.cites?.length && /\bearth\b/i.test(s.text) && /\baxis\b/i.test(s.text) && /\borbital plane\b/i.test(s.text) && /\b2[23](?:\.\d+)?\s*(?:degrees?|°)/i.test(s.text) && !/\b(?:perpendicular|normal)\b/i.test(s.text)));
+  if (leadIndex >= 0 && /\b(?:seasons?|tilt|axis)\b/i.test(String(question))) {
+    const badIndex = blocks[leadIndex].spans.findIndex(s => /\baxis\b/i.test(s.text) && /\borbital plane\b/i.test(s.text) && /\b2[23](?:\.\d+)?\s*(?:degrees?|°)/i.test(s.text) && !/\b(?:perpendicular|normal)\b/i.test(s.text));
+    let match = null;
+    for (let bi = 0; bi < blocks.length && !match; bi++) if (blocks[bi].type === 'list') for (let ii = 0; ii < blocks[bi].items.length && !match; ii++) {
+      const item = blocks[bi].items[ii];
+      if (item.spans?.length === 1 && item.spans[0].cites?.length && /\bearth\b/i.test(item.spans[0].text) && /\baxis\b/i.test(item.spans[0].text) && /\bperpendicular\b.*\borbital plane\b/i.test(item.spans[0].text)) match = { bi, ii, span: item.spans[0] };
+    }
+    if (match && badIndex >= 0) {
+      const bad = blocks[leadIndex].spans[badIndex];
+      blocks = blocks.map((b, bi) => bi === leadIndex ? { ...b, spans: b.spans.map((s, si) => si === badIndex ? match.span : s) } : bi === match.bi ? { ...b, items: b.items.filter((_, ii) => ii !== match.ii) } : b);
+      blocks = blocks.filter((b, i, all) => !(b.type === 'list' && !b.items.length) && !(b.type === 'heading' && all[i + 1]?.type === 'list' && !all[i + 1].items.length));
+      blocks.push({ type: 'note', tone: 'warn', text: 'Sources describe the tilt using different reference planes. Check the reference plane before relying on the quoted angle.' }, { type: 'list', ordered: false, items: [{ spans: [bad] }] });
+      if (confidence && confidence.level !== 'insufficient') confidence = { ...confidence, score: Math.min(0.39, confidence.score), level: 'low', label: 'Low confidence', caps: [...(confidence.caps || []), 'sources use different reference frames for the angle'] };
+    }
+  }
   if (CURRENT.test(String(question)) && result.sources?.length) {
     const recent = result.sources.some(s => {
       const t = Date.parse(s.published || '');

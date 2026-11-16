@@ -410,6 +410,28 @@ function composeFactoid(env) {
   return { blocks, claims: env.claims, stats: { directness, keyClaims: Math.max(1, env.claims.length), corroborated: env.corroborated + (structuredAgreement ? 1 : 0), structuredAgreement, conflicts }, lead: direct.structured ? direct.text : `${direct.value}`, answerEntity };
 }
 
+// A narrow, explicit subject–capability statement is stronger evidence than a
+// keyword match such as “birds that fly” or “fly underwater”. Do not infer a
+// verdict from a conditional, partial population, object, or qualified claim.
+export function explicitCapability(question, sentence) {
+  const q = String(question).trim().match(/^can\s+(?:a |an |the )?([a-z]+)\s+([a-z]+)[?.!]*$/i);
+  if (!q) return 0;
+  const subject = q[1].toLowerCase(), verb = q[2].toLowerCase();
+  const forms = [subject];
+  if (subject.length > 3 && subject.endsWith('s') && !subject.endsWith('ss')) forms.push(subject.slice(0, -1));
+  else forms.push(subject + 's');
+  const re = new RegExp(`\\b(${forms.join('|')})\\s+(cannot|can't|can not|can)\\s+${verb}\\b`, 'ig');
+  for (const m of String(sentence).matchAll(re)) {
+    const before = sentence.slice(Math.max(0, m.index - 45), m.index).toLowerCase();
+    const after = sentence.slice(m.index + m[0].length).trim();
+    if (/\b(?:if|whether|some|many|most|few|injured|young|not true|not because|false that|no evidence|does not mean|doesn't mean)\b[^.!?]*$/.test(before)) continue;
+    if (after && !/^(?:[.!?,;:]|because\b|due to\b|since\b|is that\b)/i.test(after)) continue;
+    if (/\b(?:except|unless|some can|some cannot|might|may|is false|is untrue)\b/i.test(after)) continue;
+    return /^can$/i.test(m[2]) ? 1 : -1;
+  }
+  return 0;
+}
+
 function composeYesNo(env) {
   const { ranked, part } = env;
   if (isWeak(env)) return insufficient(env, 'None of the retrieved pages states this directly, so I will not guess yes or no.');
@@ -417,6 +439,16 @@ function composeYesNo(env) {
   const wide = !!env.ctx.wide;
   const direct = ranked.sentences.filter((s) => s.directCov >= 0.55 && s.predCov >= 0.6 && s.score >= topScore * 0.45 && !/\?$/.test(s.text) && !(wide && s.proc)).slice(0, 8);
   if (!direct.length) return insufficient(env, 'None of the retrieved passages speaks to this directly, so I will not guess yes or no.');
+  if (!wide && !part.negated) {
+    const explicit = direct.map(s => ({ s, stance: explicitCapability(part.core, s.text) })).filter(x => x.stance);
+    if (explicit.length && explicit[0].stance < 0 && explicit.every(x => x.stance < 0)) {
+      const sp = env.quote(explicit[0].s, { allowDangling: true });
+      if (sp) {
+        const verdict = `A retrieved source says ${explicit[0].stance < 0 ? 'no' : 'yes'}:`;
+        return { blocks: [para([span(verdict), sp])], claims: env.claims, stats: { directness: 0.75, keyClaims: env.claims.length, corroborated: env.corroborated }, lead: `${verdict} ${sp.text}` };
+      }
+    }
+  }
   // After a research run many independent sources speak to the question. Each gets one vote — its most direct sentence —
   // and the answer reports the count instead of leaning on the few best-ranked passages.
   if (wide) {

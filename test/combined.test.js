@@ -11,6 +11,7 @@ import { installDom } from './helpers/fake-dom.mjs';
 import { combinedCandidates, polishCombined } from '../engine/neural/combined.js';
 import { blocksToText } from '../engine/index.js';
 import { analyze } from '../engine/nlp/analyze.js';
+import { explicitCapability } from '../engine/synth/synth.js';
 
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 test('combined mode searches, selects cited evidence, handles fallbacks and is reachable in the client', async () => {
@@ -127,6 +128,34 @@ test('combined guards preserve source context and flag stale current information
   assert.equal(r.answer.blocks.length, 3, 'input is not mutated');
 });
 
+test('conflicting Earth tilt reference frames do not leave a misleading angle in the lead', () => {
+  const misleading = "The seasons result from the Earth's axis of rotation being tilted with respect to its orbital plane by an angle of approximately 23.4 degrees.";
+  const precise = "Earth's axis of rotation is tilted with respect to the perpendicular to its orbital plane around the Sun, producing seasons.";
+  const input = { kind: 'retrieval', sources: [{ id: 1 }, { id: 2 }], confidence: { level: 'high', score: 0.9, caps: [] }, answer: { blocks: [
+    { type: 'paragraph', spans: [{ text: misleading, cites: [1] }] },
+    { type: 'heading', text: 'In more detail' },
+    { type: 'list', items: [{ spans: [{ text: precise, cites: [2] }] }] },
+  ] } };
+  const out = polishCombined(input, 'What causes seasons on Earth?', blocksToText);
+  assert.equal(out.answer.blocks[0].spans[0].text, precise);
+  assert.deepEqual(out.answer.blocks[0].spans[0].cites, [2]);
+  assert.match(out.answer.text, /different reference planes/);
+  assert.match(out.answer.text, /23\.4 degrees/);
+  assert.equal(out.confidence.level, 'low');
+  assert.equal(input.answer.blocks[0].spans[0].text, misleading, 'input remains unchanged');
+  const alone = polishCombined({ ...input, answer: { blocks: [input.answer.blocks[0]] } }, 'What causes seasons?', blocksToText);
+  assert.equal(alone.answer.blocks[0].spans[0].text, misleading, 'do not invent a correction without a cited alternative');
+});
+
+test('explicit capability answers do not mistake background or qualified claims for a verdict', () => {
+  const q = 'Can penguins fly?';
+  assert.equal(explicitCapability(q, 'The primary reason penguins cannot fly is that their wings have evolved into flippers.'), -1);
+  assert.equal(explicitCapability(q, 'Penguins can fly.'), 1);
+  for (const text of ['Birds that fly are light.', 'Penguins fly underwater.', 'Some penguins cannot fly.', 'Penguins cannot fly at night.', 'If penguins cannot fly, they swim.', 'Penguins cannot fly, except in cartoons.']) assert.equal(explicitCapability(q, text), 0, text);
+  assert.equal(explicitCapability('Can penguins fly underwater?', 'Penguins cannot fly.'), 0);
+  assert.equal(explicitCapability('Can penguins not fly?', 'Penguins cannot fly.'), 0);
+});
+
 test('latest versions and prices do not become news digests', () => {
   for (const q of ['What is the latest version of Python?', 'What is the latest price of Bitcoin?']) {
     const part = analyze(q).parts[0];
@@ -166,5 +195,23 @@ test('latest topical updates use dated web news articles, not stale background',
     assert.match(generic.answer.text, /no item|could not verify/i);
     assert.equal(generic.confidence.level, 'insufficient', 'a non-news page is not passed off as current news');
     assert.doesNotMatch(generic.answer.text, /Here are dated items/);
+  } finally { await app.close(); }
+});
+
+test('a direct cited capability denial outranks unrelated positive-looking background', async () => {
+  const cfg = fakeConfig({ INFINI_LLM: '0', INFINI_LEARNING_SCHEDULER: '0' });
+  cfg.http.transport = async u => {
+    if (u.pathname === '/robots.txt') return { status: 404, headers: {}, body: Buffer.alloc(0), truncated: false };
+    if (u.hostname === 'api.mwmbl.org') return { status: 200, headers: { 'content-type': 'application/json' }, body: Buffer.from(JSON.stringify([{ url: 'https://birdinfo.org/penguins', title: [{ value: 'Can penguins fly' }], extract: [{ value: 'Penguins and flight' }] }])), truncated: false };
+    const html = '<html><head><title>Can penguins fly?</title></head><body><article><h1>Penguins and flight</h1><p>Birds that fly in the air have to be light, and penguins are different in many ways. The primary reason penguins cannot fly is that their wings have evolved into flippers optimized for swimming and diving. Their dense bones and strong flippers help penguins move through the water.</p></article></body></html>';
+    return { status: 200, headers: { 'content-type': 'text/html' }, body: Buffer.from(html), truncated: false };
+  };
+  const app = createApp(cfg);
+  try {
+    const r = await app.engine.ask({ question: 'Can penguins fly?', settings: { mode: 'combined', depth: 'fast' } });
+    assert.equal(r.kind, 'retrieval');
+    assert.match(r.answer.text, /source says no/i);
+    assert.match(r.answer.text, /penguins cannot fly/i);
+    assert.ok(r.sources.length && r.answer.blocks[0].spans.some(s => s.cites?.length));
   } finally { await app.close(); }
 });
