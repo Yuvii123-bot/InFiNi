@@ -52,7 +52,7 @@ jobs:
                           assert n.get('rawDraft') and n['rawDraft'] not in r['answer']['text'],r
                           assert 'withheld' in r['answer']['text'],r
               rows.append({'mode':mode,'question':question,'seconds':seconds,'answer':r['answer']['text'],'combined':c,'neural':n,'sources':[{'id':s['id'],'title':s['title'],'url':s['url']} for s in r.get('sources',[])]})
-          with open('webinllm-live.json','w') as f: json.dump({'model':model['version'],'results':rows},f,indent=2)
+          with open('webinllm-live-final.json','w') as f: json.dump({'model':model['version'],'results':rows},f,indent=2)
           print(json.dumps({'model':model['version'],'results':rows},indent=2))
           PY
-          gh release upload infinity-qa75m-43850778510 --repo "$GITHUB_REPOSITORY" webinllm-live.json --clobber
+          gh release upload infinity-qa75m-43850778510 --repo "$GITHUB_REPOSITORY" webinllm-live-final.json --clobber
