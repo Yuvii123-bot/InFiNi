@@ -1,0 +1,37 @@
+name: Combined mode live quality check
+on:
+  push:
+    paths: ['.github/workflows/combined-quality-check.yml']
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  quality:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - name: Probe representative queries and preserve results
+        run: |
+          python3 - <<'PY'
+          import json, urllib.request, time
+          base = 'https://infini-eta.vercel.app'
+          def ask(q, context=None):
+              body = json.dumps({'question': q, 'context': context or {}, 'settings': {'mode': 'combined', 'depth': 'balanced'}}).encode()
+              req = urllib.request.Request(base + '/api/ask', data=body, headers={'Content-Type':'application/json'})
+              with urllib.request.urlopen(req, timeout=240) as r: ev = [json.loads(s) for s in r.read().decode().splitlines() if s.strip()]
+              return next((e['result'] for e in ev if e['type']=='answer'), {'error': ev[-1:]})
+          rows=[]
+          for q in ['Hello, how are you?', 'What is the capital of Nepal?', 'What causes seasons on Earth?', 'Compare Python and JavaScript for beginners.', 'What are the latest NASA Artemis mission updates?']:
+              try:
+                  r=ask(q)
+                  rows.append({'question':q, 'kind':r.get('kind'), 'combined':r.get('combined'), 'neural':r.get('neural'), 'answer':r.get('answer'), 'sources': [{'id':s['id'], 'title':s['title'], 'url':s['url']} for s in r.get('sources',[])], 'confidence':r.get('confidence')})
+                  if 'Nepal' in q:
+                      f=ask('What is its population?', r.get('context'))
+                      rows.append({'question':'What is its population?', 'interpretation':f.get('interpretation'), 'kind':f.get('kind'), 'combined':f.get('combined'), 'neural':f.get('neural'), 'answer':f.get('answer'), 'sources':[{'id':s['id'], 'title':s['title'], 'url':s['url']} for s in f.get('sources',[])]})
+              except Exception as e: rows.append({'question':q, 'error':str(e)})
+          with open('combined-quality.json','w') as f: json.dump(rows, f, indent=2)
+          print(json.dumps(rows, indent=2))
+          PY
+          gh release upload infinity-qa75m-43784785804 --repo "$GITHUB_REPOSITORY" combined-quality.json --clobber
