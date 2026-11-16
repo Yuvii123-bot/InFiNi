@@ -26,7 +26,7 @@ jobs:
           for attempt in range(30):
               try:
                   model = json.load(urllib.request.urlopen(base + '/api/llm/status', timeout=180))['model']
-                  if model.get('available') and model.get('version') == 'books75m-step105000': break
+                  if model.get('available') and model.get('version') == 'books75m-step111248': break
                   print('Waiting for model:', model.get('version'), model.get('available'), flush=True)
               except Exception as e: print('Waiting for model:', e, flush=True)
               time.sleep(10)
@@ -43,10 +43,11 @@ jobs:
           result = ask('What is the capital of Nepal?')
           combined = result['combined']
           if combined['used']:
-              assert result['neural']['model']['version'] == 'books75m-step105000'
-              assert result['neural']['mode'] == 'grounded'
-              blocks = [b for b in result['answer']['blocks'] if b.get('neural')]
-              assert blocks and all(s.get('cites') for b in blocks for s in b['spans'])
+              assert result['neural']['model']['version'] == 'books75m-step111248'
+              assert result['neural']['mode'] == 'highlight'
+              spans = [s for b in result['answer']['blocks'] for s in b.get('spans', [])] + [s for b in result['answer']['blocks'] for it in b.get('items', []) for s in it.get('spans', [])]
+              selected = [s for s in spans if s.get('neuralHighlight')]
+              assert len(selected) == 1 and selected[0].get('cites')
           else:
               assert combined.get('reason')
           print(json.dumps({'model': model['version'], 'combined': combined, 'sources': len(result['sources']), 'answer': result['answer']['text'][:500]}, indent=2))
