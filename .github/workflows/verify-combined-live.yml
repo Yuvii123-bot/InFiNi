@@ -40,15 +40,11 @@ jobs:
               return next(e['result'] for e in events if e['type'] == 'answer')
           calc = ask('what is 2+2')
           assert calc['combined']['used'] is False and '4' in calc['answer']['text']
+          hello = ask('hi')
+          assert hello['kind'] == 'brain' and hello['combined']['mode'] == 'local' and not hello['sources']
           result = ask('What is the capital of Nepal?')
           combined = result['combined']
-          if combined['used']:
-              assert result['neural']['model']['version'] == 'books75m-step111248'
-              assert result['neural']['mode'] == 'highlight'
-              spans = [s for b in result['answer']['blocks'] for s in b.get('spans', [])] + [s for b in result['answer']['blocks'] for it in b.get('items', []) for s in it.get('spans', [])]
-              selected = [s for s in spans if s.get('neuralHighlight')]
-              assert len(selected) == 1 and selected[0].get('cites')
-          else:
-              assert combined.get('reason')
+          assert combined['mode'] == 'web' and combined['used'] is False
+          assert result['sources'] and 'Kathmandu' in result['answer']['text']
           print(json.dumps({'model': model['version'], 'combined': combined, 'sources': len(result['sources']), 'answer': result['answer']['text'][:500]}, indent=2))
           PY

@@ -21,7 +21,7 @@ jobs:
               try:
                   page = urllib.request.urlopen(base + '/?mode=combined', timeout=30).read().decode()
                   model = json.load(urllib.request.urlopen(base + '/api/llm/status?check=111248', timeout=180))['model']
-                  if 'Chat locally or search the web' in page and model.get('available') and model.get('version') == 'books75m-step111248' and model.get('selfTest',{}).get('ok'): break
+                  if 'Conversation stays local' in page and model.get('available') and model.get('version') == 'books75m-step111248' and model.get('selfTest',{}).get('ok'): break
                   print('Waiting for model:', model.get('version'), model.get('available'), flush=True)
               except Exception as e: print('Waiting for production:', e, flush=True)
               time.sleep(10)
@@ -39,23 +39,19 @@ jobs:
           def summarize(q, r, seconds):
               return {'question':q, 'seconds':seconds, 'kind':r['kind'], 'combined':r.get('combined'), 'neural':r.get('neural'), 'answer':r['answer'], 'interpretation':r.get('interpretation'), 'sources':[{'id':s['id'],'title':s['title'],'url':s['url'],'published':s.get('published')} for s in r.get('sources',[])]}
           rows=[]
-          q='Hello, how are you?'; r,secs=ask(q); assert r['kind']=='brain', r; rows.append(summarize(q,r,secs))
-          q='What is the capital of Nepal?'; r,secs=ask(q); assert r['kind']=='retrieval' and r['sources'] and 'Kathmandu' in r['answer']['text'], r
-          if r['combined']['used']:
-              assert r['neural']['mode']=='highlight' and r['neural']['model']['version']==model['version']
-              spans=[]
-              for block in r['answer']['blocks']:
-                  spans.extend(block.get('spans',[]))
-                  for item in block.get('items',[]): spans.extend(item.get('spans',[]))
-              selected=[s for s in spans if s.get('neuralHighlight')]
-              assert len(selected)==1 and selected[0]['cites']
-              assert any(p['text']==selected[0]['text'] and p['source'] in selected[0]['cites'] for p in r['research']['passages'])
+          for q in ['Hi', 'Hello, how are you?', 'Thanks']:
+              r,secs=ask(q); assert r['kind']=='brain' and r['combined']['mode']=='local' and not r['sources'], r
+              rows.append(summarize(q,r,secs))
+          q='Hi, what is the capital of Nepal?'; r,secs=ask(q)
+          assert r['kind']=='retrieval' and r['combined']['mode']=='web' and r['sources'] and 'Kathmandu' in r['answer']['text'], r
           rows.append(summarize(q,r,secs)); ctx=r['context']
           q='What is its population?'; r,secs=ask(q,ctx); assert 'Kathmandu' in r.get('interpretation',{}).get('resolved',''),r; rows.append(summarize(q,r,secs))
-          for q in ['What causes seasons on Earth?', 'What are the latest NASA Artemis mission updates?']:
+          for q in ['Can penguins fly?', 'What causes seasons on Earth?', 'What is the latest version of Python?', 'What are the latest NASA Artemis mission updates?']:
               r,secs=ask(q); rows.append(summarize(q,r,secs))
+              assert r['kind']=='retrieval' and r['combined']['mode']=='web', r
               if 'latest' in q and r.get('sources'): assert any(b.get('tone')=='warn' for b in r['answer']['blocks'])
-          with open('combined-improved-live.json','w') as f: json.dump({'model':model['version'],'results':rows},f,indent=2)
+              if 'version of Python' in q: assert r['interpretation']['parts'][0]['answerType'] != 'news', r
+          with open('combined-routing-live.json','w') as f: json.dump({'model':model['version'],'results':rows},f,indent=2)
           print(json.dumps({'model':model['version'],'results':[{k:v for k,v in row.items() if k not in ('answer','sources')} for row in rows]},indent=2))
           PY
-          gh release upload infinity-qa75m-43788993113 --repo "$GITHUB_REPOSITORY" combined-improved-live.json --clobber
+          gh release upload infinity-qa75m-43788993113 --repo "$GITHUB_REPOSITORY" combined-routing-live.json --clobber
