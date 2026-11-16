@@ -35,6 +35,30 @@ export function markCombinedPick(result, candidate) {
   return { ...result, answer: { ...result.answer, blocks } };
 }
 
+// Bounded, untrusted source text for experimental free-form model generation. The
+// displayed source citations belong to the excerpts only, never to the model draft.
+export function webModelEvidence(result) {
+  if (!result || result.kind !== 'retrieval' || result.confidence?.level === 'insufficient') return [];
+  const ids = new Set((result.sources || []).map(s => s.id));
+  const seen = new Set(), out = [];
+  const add = (text, cites) => {
+    text = String(text || '').trim();
+    const valid = [...new Set((cites || []).filter(id => ids.has(id)))];
+    if (text.length < 25 || text.length > 240 || !valid.length || INJECTION.test(text) || seen.has(text.toLowerCase())) return;
+    seen.add(text.toLowerCase()); out.push({ text, cites: valid });
+  };
+  for (const c of combinedCandidates(result)) {
+    const b = result.answer.blocks[c.block];
+    const span = c.item === null ? b.spans[c.index] : b.items[c.item].spans[c.index];
+    add(c.text, span.cites);
+  }
+  for (const p of result.research?.passages || []) {
+    if (!ids.has(p.source)) continue;
+    for (const sentence of String(p.text || '').split(/(?<=[.!?])\s+(?=[A-Z“"(])/)) add(sentence, [p.source]);
+  }
+  return out.slice(0, 2);
+}
+
 // Only remove clearly broken or promotional list fragments, and never remove the only
 // answer. Keep the original evidence and citations available in the research record.
 const FRAGMENT = /^(?:best of luck\b|good luck (?:with|on)\b|if this were the case\b|as (?:mentioned|shown|discussed) (?:above|earlier)\b|(?:click here|subscribe|sign up|read more)\b)/i;
@@ -75,6 +99,12 @@ export function polishCombined(result, question, blocksToText, now = Date.now())
       blocks.push({ type: 'note', tone: 'warn', text: 'Sources describe the tilt using different reference planes. Check the reference plane before relying on the quoted angle.' }, { type: 'list', ordered: false, items: [{ spans: [bad] }] });
       if (confidence && confidence.level !== 'insufficient') confidence = { ...confidence, score: Math.min(0.39, confidence.score), level: 'low', label: 'Low confidence', caps: [...(confidence.caps || []), 'sources use different reference frames for the angle'] };
     }
+  }
+  // Separate the lead answer from supporting sections, without relabelling an
+  // existing multi-question heading or an insufficient-evidence response.
+  if (result.sources?.length && confidence?.level !== 'insufficient') {
+    const firstContent = blocks.findIndex(b => b.type === 'paragraph' || b.type === 'heading' || b.type === 'table' || b.type === 'list');
+    if (firstContent >= 0 && blocks[firstContent].type === 'paragraph') blocks = [...blocks.slice(0, firstContent), { type: 'heading', text: 'Answer', level: 2 }, ...blocks.slice(firstContent)];
   }
   if (CURRENT.test(String(question)) && result.sources?.length) {
     const recent = result.sources.some(s => {

@@ -262,6 +262,18 @@ test('inference engine: cached generation equals recomputation, greedy decoding 
   assert.ok(Math.abs(r.search + r.reply - 1) < 1e-3);
 });
 
+test('web draft uses bounded source text and reports exactly which excerpts fit', async () => {
+  const { rt } = load();
+  const evidence = [{ text: 'Kathmandu is the capital of Nepal.' }, { text: 'Very long text '.repeat(100) }];
+  const g = await rt.webAnswer({ question: 'What is Nepal’s capital?', evidence, maxNew: 8 });
+  assert.deepEqual(g.usedIndices, [0]);
+  assert.equal(g.used, 1);
+  assert.ok(g.promptTokens > 0);
+  assert.ok(g.tokens <= 8);
+  const noEvidence = await rt.webAnswer({ question: 'Question?', evidence: [], maxNew: 8 });
+  assert.equal(noEvidence.used, 0);
+});
+
 test('grounded answering can only return sentences that were retrieved', async () => {
   const { rt } = load();
   const evidence = [{ text: 'Kathmandu is the capital of Nepal.' }, { text: 'The Eiffel Tower is in Paris.' }, { text: 'Water boils at 100 degrees Celsius at sea level.' }];

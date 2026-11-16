@@ -12,7 +12,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { createEngine, loadConfig, VERSION, blocksToText } from '../engine/index.js';
-import { polishCombined } from '../engine/neural/combined.js';
+import { polishCombined, webModelEvidence } from '../engine/neural/combined.js';
 import { BlockedError } from '../engine/net/guard.js';
 import crypto from 'node:crypto';
 import { createNeural, lean } from '../engine/neural/service.js';
@@ -142,7 +142,8 @@ export function createApp(cfg = loadConfig()) {
       // searches for knowledge. The experimental model highlight is opt-in: it does not
       // improve factual accuracy and can add several seconds to an otherwise ready answer.
       const settings = body.settings && typeof body.settings === 'object' && !Array.isArray(body.settings) ? { ...body.settings } : {};
-      const combined = settings.mode === 'combined';
+      const webInLlm = settings.mode === 'webinllm';
+      const combined = settings.mode === 'combined' || webInLlm;
       if (combined) settings.neural = true;
       const useNeural = !!(neural && neural.ready() && settings.neural !== false);
       const holdAnswer = useNeural || combined;
@@ -151,14 +152,29 @@ export function createApp(cfg = loadConfig()) {
       let result = await engine.ask({ question: body.question, context: body.context, settings, learned: body.learned, regenerate: body.regenerate === true, tz, country: countryName(cc), researchAllowed: () => researchAllowed(ip) }, { signal: ac.signal, onEvent });
       if (holdAnswer && held) {
         if (combined) held = polishCombined(held, body.question, blocksToText);
-        const highlight = combined && held.kind === 'retrieval' && settings.combinedHighlight === true;
+        const highlight = combined && !webInLlm && held.kind === 'retrieval' && settings.combinedHighlight === true;
         if (highlight && useNeural) send({ type: 'note', stage: 'constructing', text: 'Infinity LLM is comparing short excerpts from the cited answer.' });
         const chatHistory = combined && Array.isArray(body.history) ? body.history.slice(-2).filter(t => Array.isArray(t) && typeof t[0] === 'string' && typeof t[1] === 'string').map(t => [t[0].slice(0, 160), t[1].slice(0, 240)]) : body.history;
         // In combined mode the brain is a router only: never substitute its canned
         // conversational answer, even when generation fails. Safety responses remain
         // authoritative. Source-based retrieval remains separate from chat generation.
         const modelTurn = combined && held.kind !== 'retrieval' && held.origin !== 'safety';
-        if (modelTurn) {
+        if (webInLlm && held.kind === 'retrieval') {
+          const evidence = webModelEvidence(held);
+          if (evidence.length && useNeural) send({ type: 'note', stage: 'constructing', text: 'Infinity LLM is reading short retrieved excerpts. Its draft is experimental and may be inaccurate.' });
+          const g = evidence.length && useNeural ? await neural.webAnswer({ question: held.interpretation?.resolved || body.question, evidence, signal: ac.signal }) : { ok: false, reason: !evidence.length ? 'No suitable cited web excerpts were available.' : 'Infinity LLM is unavailable.' };
+          const selected = g.ok ? (g.usedIndices || []).map(i => evidence[i]).filter(Boolean) : [];
+          const safeText = g.ok && selected.length ? String(g.text).replace(/\[\s*\d+(?:\s*,\s*\d+)*\s*\]/g, '') : '';
+          const blocks = [
+            { type: 'heading', text: 'Model draft', level: 2 },
+            { type: 'note', tone: 'warn', text: 'Experimental model output: it may be incorrect or ignore the excerpts. Citations below apply to the web findings, not the model draft.' },
+            { type: 'paragraph', spans: [{ text: safeText || 'The model could not generate an answer from the retrieved excerpts.', cites: [] }] },
+            ...(safeText && !g.ended ? [{ type: 'note', tone: 'warn', text: 'The model stopped before completing its reply.' }] : []),
+            ...(selected.length ? [{ type: 'heading', text: 'Excerpts sent to the model', level: 2 }, { type: 'list', ordered: false, items: selected.map(e => ({ spans: [{ text: e.text, cites: e.cites }] })) }] : []),
+            { type: 'heading', text: 'Web findings', level: 2 }, ...held.answer.blocks,
+          ];
+          result = { ...lean(held), answer: { blocks, text: blocksToText(blocks) }, neural: { used: !!safeText, mode: 'web-draft', ...(g.model ? { model: g.model } : {}), ...(safeText ? { tokens: g.tokens, ms: g.ms, ended: g.ended, excerpts: selected.length } : { reason: g.reason || 'No excerpt fit the model context.' }) } };
+        } else if (modelTurn) {
           const g = useNeural ? await neural.chat({ user: body.question, history: chatHistory, signal: ac.signal, temperature: 0, maxNew: 48, calculateRoute: false }) : null;
           const usable = !!(g && typeof g.text === 'string' && g.text.trim() && !g.loop && !ac.signal.aborted);
           const text = usable ? g.text.trim() : 'The language model could not generate a reply. Please try again.';
@@ -176,10 +192,11 @@ export function createApp(cfg = loadConfig()) {
         else result = await neural.enhance({ result: held, question: body.question, history: chatHistory, send, signal: ac.signal });
         if (combined) {
           const used = !!result.neural?.used;
-          const mode = used && result.neural.mode === 'highlight' ? 'highlight' : used && result.neural.mode === 'chat' ? 'chat' : modelTurn ? 'error' : result.kind === 'retrieval' ? (highlight ? 'fallback' : 'web') : 'local';
+          const mode = webInLlm && result.kind === 'retrieval' ? (used ? 'web-draft' : 'web-error') : used && result.neural.mode === 'highlight' ? 'highlight' : used && result.neural.mode === 'chat' ? 'chat' : modelTurn ? 'error' : result.kind === 'retrieval' ? (highlight ? 'fallback' : 'web') : 'local';
           result.combined = { used, mode };
           if (mode === 'fallback') result.combined.reason = !useNeural ? 'Model highlight unavailable; showing the cited web answer.' : result.neural?.reason || 'No eligible cited evidence was available for model selection.';
           if (mode === 'error') result.combined.reason = 'Language model unavailable or unable to finish.';
+          if (mode === 'web-error') result.combined.reason = `No model draft: ${result.neural?.reason || 'generation failed'}. The cited web findings are shown separately.`;
         }
         send({ type: 'answer', result });
       }

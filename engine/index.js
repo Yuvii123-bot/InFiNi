@@ -202,7 +202,7 @@ export function createEngine(userCfg) {
         // In combined mode, ordinary world-knowledge questions should use the web even
         // when the common-sense store knows an answer. Keep conversation, safety,
         // private memory and local skills on their existing paths.
-        const searchCommonSense = settings.mode === 'combined' && b?.handled && b.origin === 'commonsense';
+        const searchCommonSense = ['combined', 'webinllm'].includes(settings.mode) && b?.handled && b.origin === 'commonsense';
         if (b && b.handled && !searchCommonSense) {
           totals.brain++;
           emit({ type: 'stage', stage: 'understanding', status: 'start' });
@@ -210,7 +210,7 @@ export function createEngine(userCfg) {
           return local('brain', b.blocks, null, { context: { ...context, brain: b.state, turn: (context.turn || 0) + 1 }, suggestions: b.suggestions, origin: b.origin, brain: { intent: b.intent, group: b.group, sure: b.sure, alternatives: b.alternatives || [] } });
         }
         if (b && !searchCommonSense) {
-          brainState = b.state; preface = settings.mode === 'combined' ? '' : b.preface || '';
+          brainState = b.state; preface = ['combined', 'webinllm'].includes(settings.mode) ? '' : b.preface || '';
           if (b.question && b.question !== question) {
             const why = b.why === 'spelling' ? 'spelling corrected by the built-in brain' : 'understood by the built-in brain';
             reworded = reworded ? { ...reworded, to: b.question, reason: `${reworded.reason}; ${why}` } : { from: question.slice(0, 300), to: b.question, reason: why };

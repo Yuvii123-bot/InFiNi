@@ -150,5 +150,18 @@ export function createNeural({ root = '', enabled = true, minLogProb = -1.6, min
       return lean({ ...result, neural: { used: false, mode: 'highlight', reason: 'the model failed on this message; the cited answer is shown' } });
     }
   }
-  return { ready, info, chat, enhance, enhanceCombined, refresh, get runtime() { return cur ? cur.rt : null; } };
+  async function webAnswer({ question, evidence, signal = null } = {}) {
+    if (!ready()) return { ok: false, reason: 'Infinity LLM is unavailable' };
+    const me = cur;
+    try {
+      const g = await me.rt.webAnswer({ question, evidence, signal, maxNew: 48 });
+      stats.grounded++; stats.tokens += (g.tokens || 0) + (g.promptTokens || 0); stats.ms += g.ms || 0;
+      if (!g.text || g.loop || !g.used || signal?.aborted) return { ok: false, reason: g.loop ? 'the model repeated itself' : 'the model could not generate from the available excerpts' };
+      return { ok: true, ...g, model: { name: 'Infinity LLM', version: me.id, parameters: me.model.params } };
+    } catch (e) {
+      log({ ev: 'llm_web_error', message: String(e && e.message).slice(0, 200) });
+      return { ok: false, reason: 'model generation failed' };
+    }
+  }
+  return { ready, info, chat, webAnswer, enhance, enhanceCombined, refresh, get runtime() { return cur ? cur.rt : null; } };
 }

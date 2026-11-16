@@ -61,6 +61,36 @@ export function createRuntime(model, tok) {
     } finally { give(s); }
   }
 
+  /** Free generation after web passages. Page text is encoded as data, not control tokens.
+   * This small model is not instruction-tuned and the result is NOT a verified summary. */
+  async function webAnswer({ question, evidence, maxNew = 48, signal = null } = {}) {
+    const t0 = Date.now(), reserve = Math.min(maxNew, ctx >> 1);
+    const q = tok.encode(String(question)).slice(0, Math.min(48, Math.floor(ctx / 3)));
+    const items = [];
+    let used = 3 + q.length;
+    for (const [index, entry] of evidence.slice(0, 3).entries()) {
+      const ids = tok.encode(String(entry.text).trim());
+      if (!ids.length || ids.length > 55 || used + ids.length + 1 + reserve > ctx) continue;
+      items.push({ index, ids }); used += ids.length + 1;
+    }
+    if (!items.length) return { text: '', ended: false, loop: false, tokens: 0, used: 0, ms: 0 };
+    const s = take();
+    try {
+      const prompt = [T.USER, ...q, T.SEARCH, ...items.flatMap(item => [T.EVIDENCE, ...item.ids]), T.ASSISTANT];
+      let logits = feedAll(s, prompt);
+      const dec = tok.streamDecoder(), out = [];
+      let text = '', ended = false;
+      while (out.length < maxNew && s.room() > 0 && !signal?.aborted) {
+        const id = sample(logits, { temperature: 0, topK: 40, topP: 0.92, repetitionPenalty: 1.08, recent: out.slice(-48), banned: NO_SPECIALS, random: Math.random });
+        if (id === T.END) { ended = true; break; }
+        out.push(id); text += dec.push(id); logits = s.feed(id);
+        if (out.length % 4 === 0) await tick();
+      }
+      text += dec.end();
+      return { text: text.trim(), ended, loop: looping(out), tokens: out.length, promptTokens: prompt.length, used: items.length, usedIndices: items.map(item => item.index), ms: Date.now() - t0 };
+    } finally { give(s); }
+  }
+
   /**
    * @param evidence [{text, ...}] sentences in order of the retrieval engine's ranking
    * @returns {{text, picks: number[], sentences: string[], confidence: number[], tokens, used: number}} picks index into `evidence`
@@ -183,7 +213,7 @@ export function createRuntime(model, tok) {
       return out;
     } finally { give(s); }
   }
-  return { chat, grounded, chooseEvidence, route, complete, model, tokenizer: tok };
+  return { chat, webAnswer, grounded, chooseEvidence, route, complete, model, tokenizer: tok };
 }
 
 /** Did the generated tokens fall into a loop (the same four tokens three times)? */

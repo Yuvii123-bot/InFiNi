@@ -8,7 +8,7 @@ import http from 'node:http';
 import { createApp } from '../server/app.js';
 import { fakeConfig } from './helpers/fake-web.mjs';
 import { installDom } from './helpers/fake-dom.mjs';
-import { combinedCandidates, polishCombined } from '../engine/neural/combined.js';
+import { combinedCandidates, polishCombined, webModelEvidence } from '../engine/neural/combined.js';
 import { blocksToText } from '../engine/index.js';
 import { analyze } from '../engine/nlp/analyze.js';
 import { explicitCapability } from '../engine/synth/synth.js';
@@ -106,6 +106,28 @@ test('combined mode searches, selects cited evidence, handles fallbacks and is r
     const legacy = result(await post({ question: 'What is the capital of Nepal?', settings: { neural: false, depth: 'fast' } }));
     assert.equal(legacy.combined, undefined); assert.equal(legacy.neural, undefined);
 
+    const rt2 = app.neural.runtime, originalWeb = rt2.webAnswer;
+    let offered;
+    rt2.webAnswer = async ({ question, evidence }) => { offered = { question, evidence }; return { text: 'The model says Kathmandu. [42]', ended: true, loop: false, tokens: 4, promptTokens: 12, used: 1, usedIndices: [0], ms: 1 }; };
+    const modelEvents = await post({ question: 'What is the capital of Nepal?', settings: { mode: 'webinllm', depth: 'fast' }, regenerate: true });
+    const modelWeb = result(modelEvents);
+    assert.equal(modelWeb.combined.mode, 'web-draft'); assert.equal(modelWeb.neural.used, true);
+    assert.match(offered.question, /capital of Nepal/i);
+    assert.ok(offered.evidence.length && offered.evidence.every(e => e.cites.every(id => modelWeb.sources.some(s => s.id === id))));
+    assert.match(modelWeb.answer.text, /Model draft/); assert.match(modelWeb.answer.text, /The model says Kathmandu/);
+    assert.doesNotMatch(modelWeb.answer.text, /\[42\]/, 'unverified model citation numbers are not presented as real citations');
+    assert.match(modelWeb.answer.text, /Citations below apply to the web findings, not the model draft/);
+    assert.match(modelWeb.answer.text, /Excerpts sent to the model/); assert.match(modelWeb.answer.text, /Web findings/);
+    assert.equal(modelEvents.filter(e => e.type === 'token').length, 0, 'unverified generated text is never streamed prematurely');
+    const supplied = modelWeb.answer.blocks.find(b => b.type === 'list');
+    assert.equal(supplied.items.length, 1); assert.equal(supplied.items[0].spans[0].text, offered.evidence[0].text);
+    rt2.webAnswer = async () => { throw new Error('failed'); };
+    const failedDraft = result(await post({ question: 'What is the capital of Nepal?', settings: { mode: 'webinllm', depth: 'fast' }, regenerate: true }));
+    assert.equal(failedDraft.combined.mode, 'web-error'); assert.match(failedDraft.answer.text, /could not generate/); assert.match(failedDraft.answer.text, /Web findings/);
+    rt2.webAnswer = originalWeb;
+    const safeDraft = result(await post({ question: 'how can i kill myself', settings: { mode: 'webinllm' } }));
+    assert.equal(safeDraft.origin, 'safety'); assert.equal(safeDraft.combined.used, false);
+
     const dom = installDom(base); location.search = '?mode=combined'; location.pathname = '/';
     localStorage.setItem('infini.settings', JSON.stringify({ neural: false }));
     const calls = []; const realFetch = globalThis.fetch;
@@ -121,6 +143,16 @@ test('combined mode searches, selects cited evidence, handles fallbacks and is r
     assert.equal(dom.find($('thread'), '.neural-highlight-label').length, 0, 'the experimental highlight is not forced on users');
     assert.equal(dom.find($('thread'), '.neural-answer').length, 0, 'no repeated model paragraph');
     assert.ok(dom.find($('thread'), '.src').length);
+    const dom2 = installDom(base); location.search = '?mode=webinllm'; location.pathname = '/';
+    rt2.webAnswer = async () => ({ text: 'Experimental draft', ended: true, loop: false, tokens: 2, promptTokens: 3, used: 1, usedIndices: [0], ms: 1 });
+    await import('../public/app.js?webinllm-test'); await sleep(100);
+    assert.equal(document.getElementById('webInLlmBanner').hidden, false);
+    assert.equal(document.getElementById('modeWebInLlm').getAttribute('aria-current'), 'page');
+    document.getElementById('q').value = 'What is the capital of Nepal?'; await document.getElementById('askForm').fire('submit');
+    for (let i = 0; i < 300 && !document.getElementById('stopBtn').hidden; i++) await sleep(20);
+    assert.match(dom2.text(document.getElementById('thread')), /experimental draft, not verified/i);
+    assert.match(dom2.text(document.getElementById('thread')), /Experimental draft/);
+    rt2.webAnswer = originalWeb;
   } finally { await new Promise(r => server.close(r)); await app.close(); fs.rmSync(root, { recursive: true, force: true }); }
 });
 
@@ -134,6 +166,8 @@ test('combined guards preserve source context and flag stale current information
     answer: { blocks: [{ type: 'paragraph', spans: [{ text: good, cites: [1] }, { text: injection, cites: [1] }, { text: other, cites: [2] }] },
       { type: 'heading', text: 'More' }, { type: 'list', items: [{ spans: [{ text: 'Best of luck with unlocking your potential!', cites: [1] }] }, { spans: [{ text: 'Python is a programming language.', cites: [1] }] }] }] } };
   assert.deepEqual(combinedCandidates(r).map(c => c.text), [good]);
+  assert.deepEqual(webModelEvidence(r), [{ text: good, cites: [1] }], 'reject injected instructions and unsourced passages');
+  assert.deepEqual(webModelEvidence({ ...r, confidence: { level: 'insufficient' } }), []);
   const stale = polishCombined(r, 'What are the latest updates?', blocksToText, Date.parse('2026-01-01'));
   assert.match(stale.answer.blocks[0].text, /could not verify a recently published update/);
   assert.equal(stale.confidence.level, 'low');
@@ -155,14 +189,15 @@ test('conflicting Earth tilt reference frames do not leave a misleading angle in
     { type: 'list', items: [{ spans: [{ text: precise, cites: [2] }] }] },
   ] } };
   const out = polishCombined(input, 'What causes seasons on Earth?', blocksToText);
-  assert.equal(out.answer.blocks[0].spans[0].text, precise);
-  assert.deepEqual(out.answer.blocks[0].spans[0].cites, [2]);
+  assert.equal(out.answer.blocks[0].text, 'Answer');
+  assert.equal(out.answer.blocks[1].spans[0].text, precise);
+  assert.deepEqual(out.answer.blocks[1].spans[0].cites, [2]);
   assert.match(out.answer.text, /different reference planes/);
   assert.match(out.answer.text, /23\.4 degrees/);
   assert.equal(out.confidence.level, 'low');
   assert.equal(input.answer.blocks[0].spans[0].text, misleading, 'input remains unchanged');
   const alone = polishCombined({ ...input, answer: { blocks: [input.answer.blocks[0]] } }, 'What causes seasons?', blocksToText);
-  assert.equal(alone.answer.blocks[0].spans[0].text, misleading, 'do not invent a correction without a cited alternative');
+  assert.equal(alone.answer.blocks.find(b => b.type === 'paragraph').spans[0].text, misleading, 'do not invent a correction without a cited alternative');
 });
 
 test('explicit capability answers do not mistake background or qualified claims for a verdict', () => {

@@ -82,7 +82,10 @@ const idb = (() => {
   };
 })();
 
-const COMBINED = new URLSearchParams(location.search || '').get('mode') === 'combined';
+const REQUESTED_MODE = new URLSearchParams(location.search || '').get('mode');
+const WEB_IN_LLM = REQUESTED_MODE === 'webinllm';
+const COMBINED = REQUESTED_MODE === 'combined' || WEB_IN_LLM;
+const CHAT_MODE = WEB_IN_LLM ? 'webinllm' : COMBINED ? 'combined' : 'internet';
 const DEFAULTS = { depth: 'auto', theme: 'light', autoExpand: false, providersOff: [], feeds: [], neural: true };
 const state = { chats: [], chat: null, busy: false, abort: null, settings: { ...DEFAULTS, ...LS.get('infini.settings', {}) }, learned: { domains: {}, providers: {}, vocab: {}, ...LS.get('infini.learned', {}) }, status: null, filter: '' };
 const saveSettings = () => LS.set('infini.settings', state.settings);
@@ -99,7 +102,7 @@ function toast(msg) { const t = $('toast'); t.textContent = msg; t.hidden = fals
 async function copyText(text, okMsg) { try { await navigator.clipboard.writeText(text); toast(okMsg); } catch { toast('Copy is not available in this browser'); } }
 
 // ---------------- conversations ----------------
-function newChat() { state.chat = { id: uid(), mode: COMBINED ? 'combined' : 'internet', title: 'New chat', named: false, createdAt: Date.now(), updatedAt: Date.now(), context: {}, messages: [] }; renderAll(); closeNav(); $('q').focus(); }
+function newChat() { state.chat = { id: uid(), mode: CHAT_MODE, title: 'New chat', named: false, createdAt: Date.now(), updatedAt: Date.now(), context: {}, messages: [] }; renderAll(); closeNav(); $('q').focus(); }
 async function saveChat() {
   const c = state.chat;
   if (!c || !c.messages.length) return;
@@ -161,9 +164,9 @@ function renderAll() {
   if (!state.chat.messages.length) {
     thread.append(h('section', { class: 'welcome' },
       h('img', { class: 'hero-mark', src: '/icons/icon.svg', width: '64', height: '64', alt: '' }),
-      h('h2', { text: COMBINED ? 'Explore the web with Infinity LLM.' : 'Talk to me, or ask me anything.' }),
-      h('p', { text: COMBINED ? 'Chat naturally or ask a factual question. The web answer includes citations, and Infinity LLM can highlight one of its source sentences.' : 'I chat, remember what you tell me and use everyday common sense on my own. For facts I search the live web and show my sources.' }),
-      h('div', { class: 'trust' }, TRUST.map(([ic, t]) => h('span', null, icon(ic, 14), t))),
+      h('h2', { text: WEB_IN_LLM ? 'Let Infinity LLM read the web.' : COMBINED ? 'Explore the web with Infinity LLM.' : 'Talk to me, or ask me anything.' }),
+      h('p', { text: WEB_IN_LLM ? 'Search, feed excerpts to the model, and compare its experimental draft with the cited web findings.' : COMBINED ? 'Chat with Infinity LLM or ask a factual question for a structured, cited web answer.' : 'I chat, remember what you tell me and use everyday common sense on my own. For facts I search the live web and show my sources.' }),
+      h('div', { class: 'trust' }, (COMBINED ? [['spark', WEB_IN_LLM ? 'Experimental model draft' : 'Neural chat'], ['globe', 'Live web for facts'], ['quote', 'Sources you can check']] : TRUST).map(([ic, t]) => h('span', null, icon(ic, 14), t))),
       h('div', { class: 'suggest' }, SUGGESTIONS.map(([k, q, ic]) => h('button', { type: 'button', onclick: () => ask(q) }, h('small', null, icon(ic, 15), k), q)))));
   } else for (const m of state.chat.messages) thread.append(m.role === 'user' ? userEl(m) : botEl(m));
   renderChatList();
@@ -428,13 +431,13 @@ function fillBot(m) {
   const isBrain = !!r && r.kind === 'brain';
   if (r) {
     if (r.combined && r.combined.mode !== 'local') {
-      const label = r.combined.mode === 'highlight' ? 'Web search · cited answer with an experimental model highlight (not a fact check)' : r.combined.mode === 'chat' ? 'Infinity LLM · generated locally, without web search' : r.combined.mode === 'web' ? 'Web search · cited answer' : r.combined.reason;
-      body.append(h('div', { class: 'combined-status' + (['fallback', 'error'].includes(r.combined.mode) ? ' fallback' : ''), role: 'status', text: label }));
+      const label = r.combined.mode === 'highlight' ? 'Web search · cited answer with an experimental model highlight (not a fact check)' : r.combined.mode === 'chat' ? 'Infinity LLM · generated locally, without web search' : r.combined.mode === 'web' ? 'Web search · cited answer' : r.combined.mode === 'web-draft' ? 'Web search → Infinity LLM · experimental draft, not verified' : r.combined.reason;
+      body.append(h('div', { class: 'combined-status' + (['fallback', 'error', 'web-error', 'web-draft'].includes(r.combined.mode) ? ' fallback' : ''), role: 'status', text: label }));
     }
     body.append(answerEl(r));
     if (isBrain && ORIGIN[r.origin]) body.append(h('div', { class: 'origin' }, icon(ORIGIN[r.origin][0], 13), r.origin === 'neural' && r.neural && r.neural.model ? neuralLine(r.neural) : ORIGIN[r.origin][1]));
     else if (isBrain && !r.combined && r.neural && r.neural.used === false && r.neural.reason) body.append(h('div', { class: 'origin' }, icon('spark', 13), `Reply from the built-in rules: ${r.neural.reason}.`));
-    const conf = confidenceEl(r.confidence); if (conf) body.append(conf);
+    const conf = confidenceEl(r.confidence); if (conf) { if (r.combined && ['web-draft', 'web-error'].includes(r.combined.mode)) body.append(h('div', { class: 'origin', text: 'Confidence below describes the web findings, not the model draft.' })); body.append(conf); }
     const runLine = runLineEl(r); if (runLine) body.append(runLine);
     const over = overviewEl(r); if (over) body.append(over);
     const src = sourcesEl(r); if (src) body.append(src);
@@ -694,7 +697,7 @@ async function run(question, { regenerate: regen = false, replace = null, contex
   setBusy(true);
   state.abort = new AbortController();
   try {
-    const res = await fetch('/api/ask', { method: 'POST', headers: { 'Content-Type': 'application/json' }, signal: state.abort.signal, body: JSON.stringify({ question, context: ctxBefore, history: historyFor(chat, m), regenerate: regen, tz: deviceTz(), learned: learnedPayload(), settings: { neural: COMBINED || state.settings.neural !== false, depth: state.settings.depth, providersOff: state.settings.providersOff, feeds: state.settings.feeds, ...(COMBINED ? { mode: 'combined' } : {}), ...(route ? { route } : {}) } }) });
+    const res = await fetch('/api/ask', { method: 'POST', headers: { 'Content-Type': 'application/json' }, signal: state.abort.signal, body: JSON.stringify({ question, context: ctxBefore, history: historyFor(chat, m), regenerate: regen, tz: deviceTz(), learned: learnedPayload(), settings: { neural: COMBINED || state.settings.neural !== false, depth: state.settings.depth, providersOff: state.settings.providersOff, feeds: state.settings.feeds, ...(COMBINED ? { mode: CHAT_MODE } : {}), ...(route ? { route } : {}) } }) });
     if (!res.ok || !res.body) { let msg = `The server answered ${res.status}.`; try { msg = (await res.json()).message || msg; } catch { /* not JSON */ } throw new Error(msg); }
     const reader = res.body.getReader(), dec = new TextDecoder();
     let buf = '';
@@ -747,8 +750,8 @@ function describeModel() {
   const llm = state.status && state.status.llm && state.status.llm.available ? state.status.llm : null;
   const hint = document.querySelector('.composer-hint'), fine = document.querySelector('.fineprint');
   if (COMBINED) {
-    if (hint) hint.textContent = 'Live web · neural evidence selection';
-    if (fine) fine.textContent = 'For web answers, the model highlights a cited source sentence; it does not write a free-form synthesis. Chat and exact skills may answer locally. Check the sources.';
+    if (hint) hint.textContent = WEB_IN_LLM ? 'Web excerpts → experimental LLM draft' : 'LLM conversation · structured web findings';
+    if (fine) fine.textContent = WEB_IN_LLM ? 'The model draft is not verified. Compare it with the cited excerpts; it may be inaccurate or unrelated.' : 'Conversation comes from the LLM. Knowledge answers are structured from cited web sources, not model synthesis. Check important facts.';
     return;
   }
   if (hint) hint.textContent = llm ? 'Infinity LLM for chat · live web for facts' : 'Own brain for chat · live web for facts';
@@ -758,10 +761,11 @@ function describeModel() {
 async function init() {
   applyTheme();
   if (COMBINED) {
-    $('combinedBanner').hidden = false;
+    $(WEB_IN_LLM ? 'webInLlmBanner' : 'combinedBanner').hidden = false;
     $('modeInternet').classList.remove('on'); $('modeInternet').removeAttribute('aria-current');
-    $('modeCombined').classList.add('on'); $('modeCombined').setAttribute('aria-current', 'page');
-    $('q').setAttribute('placeholder', 'Ask Web + LLM');
+    const active = $(WEB_IN_LLM ? 'modeWebInLlm' : 'modeCombined');
+    active.classList.add('on'); active.setAttribute('aria-current', 'page');
+    $('q').setAttribute('placeholder', WEB_IN_LLM ? 'Ask Web in LLM' : 'Ask Web + LLM');
     describeModel();
   }
   $('askForm').addEventListener('submit', (e) => { e.preventDefault(); ask(); });
@@ -784,12 +788,12 @@ async function init() {
   $('clearBtn').addEventListener('click', async () => { if (state.busy || !state.chat.messages.length) return; if (!confirm('Clear this conversation and its context?')) return; await idb.del('chats', state.chat.id); state.chats = state.chats.filter((c) => c.id !== state.chat.id); newChat(); });
   document.addEventListener('keydown', (e) => { if (e.key === 'Escape') { closeDepthMenu(); closeDrawer(); closeModal(); closeNav(); } });
   const stored = await idb.all('chats');
-  state.chats = stored.filter((c) => COMBINED ? c.mode === 'combined' : c.mode !== 'combined').map((c) => ({ id: c.id, title: c.title, updatedAt: c.updatedAt, text: c.messages.map((m) => m.text || (m.result && m.result.answer.text) || '').join(' ').slice(0, 4000).toLowerCase() })).sort((a, b) => b.updatedAt - a.updatedAt);
+  state.chats = stored.filter((c) => CHAT_MODE === 'internet' ? !c.mode || c.mode === 'internet' : c.mode === CHAT_MODE).map((c) => ({ id: c.id, title: c.title, updatedAt: c.updatedAt, text: c.messages.map((m) => m.text || (m.result && m.result.answer.text) || '').join(' ').slice(0, 4000).toLowerCase() })).sort((a, b) => b.updatedAt - a.updatedAt);
   newChat();
   autoGrow();
   // a link such as /?q=Why+do+stars+shine%3F opens the app and asks that question once
   const linked = new URLSearchParams(location.search).get('q');
-  if (linked) { history.replaceState(null, '', location.pathname + (COMBINED ? '?mode=combined' : '')); if (linked.trim() && linked.length <= 600) ask(linked); }
+  if (linked) { history.replaceState(null, '', location.pathname + (COMBINED ? `?mode=${CHAT_MODE}` : '')); if (linked.trim() && linked.length <= 600) ask(linked); }
   if ('serviceWorker' in navigator && location.protocol === 'https:') navigator.serviceWorker.register('/sw.js').catch(() => { /* PWA install is optional */ });
 }
 init();
