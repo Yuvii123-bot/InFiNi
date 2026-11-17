@@ -296,9 +296,9 @@ test('a direct cited capability denial outranks unrelated positive-looking backg
 
 test('free model drafts get only conservatively associated source references', () => {
   const evidence = [{ text: 'Kathmandu is the capital of Nepal.', cites: [3] }];
-  assert.deepEqual(citeWebDraft('Nepal’s capital is Kathmandu.', evidence), [{ text: 'Nepal’s capital is Kathmandu.', cites: [3] }]);
-  for (const draft of ['Kathmandu is not the capital of Nepal.', 'Kathmandu is the capital of India.', 'Kathmandu is Nepal’s capital [42].', 'Kathmandu is the capital of Nepal', 'Can Kathmandu be the capital of Nepal?', 'Kathmandu is Nepal’s capital. Penguins fly.']) assert.equal(citeWebDraft(draft, evidence), null, draft);
+  assert.deepEqual(citeWebDraft('Kathmandu, capital of Nepal.', evidence), [{ text: 'Kathmandu, capital of Nepal.', cites: [3] }]);
+  for (const draft of ['Kathmandu is not the capital of Nepal.', 'Kathmandu is the capital of India.', 'Nepal is the capital of Kathmandu.', 'Kathmandu is Nepal’s capital [42].', 'Kathmandu is the capital of Nepal', 'Can Kathmandu be the capital of Nepal?', 'Kathmandu is Nepal’s capital. Penguins fly.']) assert.equal(citeWebDraft(draft, evidence), null, draft);
   assert.equal(citeWebDraft('Kathmandu is the capital of Nepal.', [{ text: 'Kathmandu is not the capital of Nepal.', cites: [3] }]), null);
   assert.equal(citeWebDraft('It is 20 km away.', [{ text: 'It is 30 km away.', cites: [3] }]), null);
-  assert.equal(citeWebDraft('Kathmandu is Nepal’s capital.', [{ ...evidence[0], cites: [] }]), null);
+  assert.equal(citeWebDraft('Kathmandu, capital of Nepal.', [{ ...evidence[0], cites: [] }]), null);
 });

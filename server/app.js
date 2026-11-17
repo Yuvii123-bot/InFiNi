@@ -178,13 +178,13 @@ export function createApp(cfg = loadConfig()) {
           // fallback is shown as a synthesized answer.
           const spans = g.ok && g.ended ? citeWebDraft(g.text, selected) : null;
           const cited = new Set((spans || []).flatMap(s => s.cites));
-          const sources = (held.sources || []).filter(s => cited.has(s.id));
+          const sources = (held.sources || []).filter(s => cited.has(s.id)).map(s => ({ ...s, passages: selected.filter(e => e.cites.includes(s.id)).map(e => ({ text: e.text })) }));
           const freshness = spans ? (held.answer.blocks || []).filter(b => b.type === 'note' && /recent|latest developments/i.test(b.text || '')) : [];
           const blocks = spans ? [
             { type: 'paragraph', spans }, ...freshness,
             { type: 'note', tone: 'warn', text: 'References are linked by wording overlap with the supplied passages, not independently fact-checked. Check the sources, especially for important decisions.' },
           ] : [{ type: 'paragraph', spans: [{ text: !evidence.length ? 'I could not find enough suitable source material to answer this question.' : 'Infinity LLM could not produce a sufficiently supported answer from the web information. Please try again or use Web + LLM for cited findings.', cites: [] }] }];
-          result = { ...lean(held), sources, research: held.research ? { ...held.research, passages: (held.research.passages || []).filter(p => cited.has(p.source)) } : null, confidence: null, suggestions: [], answer: { blocks, text: blocksToText(blocks) }, neural: { used: !!spans, mode: spans ? 'web-synthesis' : 'web-error', ...(g.model ? { model: g.model } : {}), ...(spans ? { tokens: g.tokens, ms: g.ms, ended: true, excerpts: selected.length, citationCheck: 'lexical association; not a fact check' } : { reason: g.reason || 'The model draft was incomplete or could not be associated with the supplied sources.' }) } };
+          result = { ...lean(held), sources, research: null, confidence: null, suggestions: [], answer: { blocks, text: blocksToText(blocks) }, neural: { used: !!spans, mode: spans ? 'web-synthesis' : 'web-error', ...(g.model ? { model: g.model } : {}), ...(spans ? { tokens: g.tokens, ms: g.ms, ended: true, excerpts: selected.length, citationCheck: 'lexical association; not a fact check' } : { reason: g.reason || 'The model draft was incomplete or could not be associated with the supplied sources.' }) } };
         } else if (modelTurn) {
           const g = useNeural ? await neural.chat({ user: conversationPrompt(body.question), history: chatHistory, signal: ac.signal, temperature: 0, maxNew: 48, calculateRoute: false }) : null;
           const usable = !!(g && typeof g.text === 'string' && g.text.trim() && !g.loop && !ac.signal.aborted);
