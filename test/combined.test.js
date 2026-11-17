@@ -9,6 +9,7 @@ import { createApp } from '../server/app.js';
 import { fakeConfig } from './helpers/fake-web.mjs';
 import { installDom } from './helpers/fake-dom.mjs';
 import { combinedCandidates, polishCombined, webModelEvidence, matchesWebExcerpt } from '../engine/neural/combined.js';
+import { citeWebDraft } from '../engine/neural/web-citations.js';
 import { blocksToText } from '../engine/index.js';
 import { analyze } from '../engine/nlp/analyze.js';
 import { explicitCapability } from '../engine/synth/synth.js';
@@ -112,22 +113,23 @@ test('combined mode searches, selects cited evidence, handles fallbacks and is r
     rt2.webAnswer = async ({ question, evidence }) => { offered = { question, evidence }; return { text: 'The model says Kathmandu. [42]', ended: true, loop: false, tokens: 4, promptTokens: 12, used: 1, usedIndices: [0], ms: 1 }; };
     const modelEvents = await post({ question: 'What is the capital of Nepal?', settings: { mode: 'webinllm', depth: 'fast' }, regenerate: true });
     const modelWeb = result(modelEvents);
-    assert.equal(modelWeb.combined.mode, 'web-draft'); assert.equal(modelWeb.neural.used, true);
+    assert.equal(modelWeb.combined.mode, 'web-error'); assert.equal(modelWeb.neural.used, false);
     assert.match(offered.question, /capital of Nepal/i);
-    assert.ok(offered.evidence.length && offered.evidence.every(e => e.cites.every(id => modelWeb.sources.some(s => s.id === id))));
-    assert.match(modelWeb.answer.text, /Model draft/); assert.match(modelWeb.answer.text, /draft was withheld/);
-    assert.doesNotMatch(modelWeb.answer.text, /The model says Kathmandu/, 'unsupported draft is not put in the answer');
-    assert.equal(modelWeb.neural.rawDraft, 'The model says Kathmandu.');
-    assert.equal(modelWeb.neural.matchedVerbatim, false);
-    assert.doesNotMatch(modelWeb.neural.rawDraft, /\[42\]/, 'unverified model citation numbers are not presented as real citations');
-    assert.match(modelWeb.answer.text, /Citations below apply to the web findings, not the model draft/);
-    assert.match(modelWeb.answer.text, /Excerpts sent to the model/); assert.match(modelWeb.answer.text, /Web findings/);
-    assert.equal(modelEvents.filter(e => e.type === 'token').length, 0, 'unverified generated text is never streamed prematurely');
-    const supplied = modelWeb.answer.blocks.find(b => b.type === 'list');
-    assert.equal(supplied.items.length, 1); assert.equal(supplied.items[0].spans[0].text, offered.evidence[0].text);
+    assert.ok(offered.evidence.length && offered.evidence.every(e => e.cites.every(id => r.sources.some(s => s.id === id))));
+    assert.match(modelWeb.answer.text, /could not produce a sufficiently supported answer/);
+    assert.doesNotMatch(modelWeb.answer.text, /The model says Kathmandu|Web findings|Excerpts sent/);
+    assert.equal(modelWeb.neural.rawDraft, undefined);
+    assert.equal(modelWeb.sources.length, 0);
+    assert.equal(modelEvents.filter(e => ['token', 'draft'].includes(e.type)).length, 0);
+    rt2.webAnswer = async ({ evidence }) => ({ text: evidence[0].text, ended: true, loop: false, tokens: 10, used: 1, usedIndices: [0], ms: 1 });
+    const attributed = result(await post({ question: 'What is the capital of Nepal?', settings: { mode: 'webinllm', depth: 'fast' }, regenerate: true }));
+    assert.equal(attributed.combined.mode, 'web-synthesis');
+    assert.ok(attributed.answer.blocks[0].spans[0].cites.every(id => attributed.sources.some(s => s.id === id)));
+    assert.doesNotMatch(attributed.answer.text, /Web findings|Excerpts sent/);
+    assert.match(attributed.answer.text, /not independently fact-checked/);
     rt2.webAnswer = async () => { throw new Error('failed'); };
     const failedDraft = result(await post({ question: 'What is the capital of Nepal?', settings: { mode: 'webinllm', depth: 'fast' }, regenerate: true }));
-    assert.equal(failedDraft.combined.mode, 'web-error'); assert.match(failedDraft.answer.text, /could not generate/); assert.match(failedDraft.answer.text, /Web findings/);
+    assert.equal(failedDraft.combined.mode, 'web-error'); assert.match(failedDraft.answer.text, /could not produce/); assert.doesNotMatch(failedDraft.answer.text, /Web findings/);
     rt2.webAnswer = originalWeb;
     const safeDraft = result(await post({ question: 'how can i kill myself', settings: { mode: 'webinllm' } }));
     assert.equal(safeDraft.origin, 'safety'); assert.equal(safeDraft.combined.used, false);
@@ -154,11 +156,9 @@ test('combined mode searches, selects cited evidence, handles fallbacks and is r
     assert.equal(document.getElementById('modeWebInLlm').getAttribute('aria-current'), 'page');
     document.getElementById('q').value = 'What is the capital of Nepal?'; await document.getElementById('askForm').fire('submit');
     for (let i = 0; i < 300 && !document.getElementById('stopBtn').hidden; i++) await sleep(20);
-    assert.match(dom2.text(document.getElementById('thread')), /experimental draft, not verified/i);
-    assert.match(dom2.text(document.getElementById('thread')), /Show unverified model draft/);
-    const details = dom2.find(document.getElementById('thread'), 'details');
-    assert.ok(details.length && details.some(d => !d.getAttribute('open')), 'unsupported text stays collapsed by default');
-    assert.match(dom2.text(document.getElementById('thread')), /Experimental draft/);
+    assert.match(dom2.text(document.getElementById('thread')), /could not produce a sufficiently supported answer/i);
+    assert.doesNotMatch(dom2.text(document.getElementById('thread')), /Experimental draft|Web findings|Excerpts sent/);
+    assert.equal(dom2.find(document.getElementById('thread'), '.src').length, 0, 'search result cards are not shown');
     rt2.webAnswer = originalWeb;
   } finally { await new Promise(r => server.close(r)); await app.close(); fs.rmSync(root, { recursive: true, force: true }); }
 });
@@ -291,4 +291,14 @@ test('a direct cited capability denial outranks unrelated positive-looking backg
     assert.match(r.answer.text, /penguins cannot fly/i);
     assert.ok(r.sources.length && r.answer.blocks[0].spans.some(s => s.cites?.length));
   } finally { await app.close(); }
+});
+
+
+test('free model drafts get only conservatively associated source references', () => {
+  const evidence = [{ text: 'Kathmandu is the capital of Nepal.', cites: [3] }];
+  assert.deepEqual(citeWebDraft('Nepal’s capital is Kathmandu.', evidence), [{ text: 'Nepal’s capital is Kathmandu.', cites: [3] }]);
+  for (const draft of ['Kathmandu is not the capital of Nepal.', 'Kathmandu is the capital of India.', 'Kathmandu is Nepal’s capital [42].', 'Kathmandu is the capital of Nepal', 'Can Kathmandu be the capital of Nepal?', 'Kathmandu is Nepal’s capital. Penguins fly.']) assert.equal(citeWebDraft(draft, evidence), null, draft);
+  assert.equal(citeWebDraft('Kathmandu is the capital of Nepal.', [{ text: 'Kathmandu is not the capital of Nepal.', cites: [3] }]), null);
+  assert.equal(citeWebDraft('It is 20 km away.', [{ text: 'It is 30 km away.', cites: [3] }]), null);
+  assert.equal(citeWebDraft('Kathmandu is Nepal’s capital.', [{ ...evidence[0], cites: [] }]), null);
 });

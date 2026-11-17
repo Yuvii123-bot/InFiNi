@@ -165,8 +165,8 @@ function renderAll() {
     thread.append(h('section', { class: 'welcome' },
       h('img', { class: 'hero-mark', src: '/icons/icon.svg', width: '64', height: '64', alt: '' }),
       h('h2', { text: WEB_IN_LLM ? 'Let Infinity LLM read the web.' : COMBINED ? 'Explore the web with Infinity LLM.' : 'Talk to me, or ask me anything.' }),
-      h('p', { text: WEB_IN_LLM ? 'Search, feed excerpts to the model, and compare its experimental draft with the cited web findings.' : COMBINED ? 'Chat with Infinity LLM or ask a factual question for a structured, cited web answer.' : 'I chat, remember what you tell me and use everyday common sense on my own. For facts I search the live web and show my sources.' }),
-      h('div', { class: 'trust' }, (COMBINED ? [['spark', WEB_IN_LLM ? 'Experimental model draft' : 'Neural chat'], ['globe', 'Live web for facts'], ['quote', 'Sources you can check']] : TRUST).map(([ic, t]) => h('span', null, icon(ic, 14), t))),
+      h('p', { text: WEB_IN_LLM ? 'Infinity LLM reads web information and writes an answer with references when it can.' : COMBINED ? 'Chat with Infinity LLM or ask a factual question for a structured, cited web answer.' : 'I chat, remember what you tell me and use everyday common sense on my own. For facts I search the live web and show my sources.' }),
+      h('div', { class: 'trust' }, (COMBINED ? [['spark', WEB_IN_LLM ? 'Infinity LLM synthesis' : 'Neural chat'], ['globe', 'Live web for facts'], ['quote', 'Sources you can check']] : TRUST).map(([ic, t]) => h('span', null, icon(ic, 14), t))),
       h('div', { class: 'suggest' }, SUGGESTIONS.map(([k, q, ic]) => h('button', { type: 'button', onclick: () => ask(q) }, h('small', null, icon(ic, 15), k), q)))));
   } else for (const m of state.chat.messages) thread.append(m.role === 'user' ? userEl(m) : botEl(m));
   renderChatList();
@@ -413,7 +413,7 @@ function fillBot(m) {
   body.replaceChildren();
   const r = m.result;
   if (m.cached) body.append(h('div', { class: 'cached-banner' }, icon('clock', 15), `From your saved knowledge (saved ${fmtDate(m.cached)}). It was not re-checked just now.`, h('button', { class: 'btn small', type: 'button', onclick: () => regenerate(m), text: 'Refresh from the web' })));
-  if (m.events && m.events.length && r && (r.kind === 'retrieval' || r.kind === 'url')) {
+  if (!WEB_IN_LLM && m.events && m.events.length && r && (r.kind === 'retrieval' || r.kind === 'url')) {
     const act = createActivity(state.settings.autoExpand);
     for (const ev of m.events) act.onEvent(ev);
     const c = r.research ? r.research.counts : null;
@@ -431,17 +431,16 @@ function fillBot(m) {
   const isBrain = !!r && r.kind === 'brain';
   if (r) {
     if (r.combined && r.combined.mode !== 'local') {
-      const label = r.combined.mode === 'highlight' ? 'Web search · cited answer with an experimental model highlight (not a fact check)' : r.combined.mode === 'chat' ? 'Infinity LLM · generated locally, without web search' : r.combined.mode === 'web' ? 'Web search · cited answer' : r.combined.mode === 'web-draft' ? 'Web search → Infinity LLM · experimental draft, not verified' : r.combined.reason;
+      const label = r.combined.mode === 'highlight' ? 'Web search · cited answer with an experimental model highlight (not a fact check)' : r.combined.mode === 'chat' ? 'Infinity LLM · generated locally, without web search' : r.combined.mode === 'web' ? 'Web search · cited answer' : r.combined.mode === 'web-synthesis' ? 'Infinity LLM · generated from web information'  : r.combined.reason;
       body.append(h('div', { class: 'combined-status' + (['fallback', 'error', 'web-error', 'web-draft'].includes(r.combined.mode) ? ' fallback' : ''), role: 'status', text: label }));
     }
     body.append(answerEl(r));
-    if (r.combined?.mode === 'web-draft' && r.neural?.rawDraft) body.append(h('details', { class: 'model-raw' }, h('summary', { text: 'Show unverified model draft' }), h('p', { text: 'This output did not match the supplied excerpts verbatim and may be unrelated or false. It is not cited or fact-checked.' }), h('p', { class: 'model-raw-text', text: r.neural.rawDraft }), !r.neural.ended ? h('p', { text: 'The model stopped before completing this draft.' }) : null));
     if (isBrain && ORIGIN[r.origin]) body.append(h('div', { class: 'origin' }, icon(ORIGIN[r.origin][0], 13), r.origin === 'neural' && r.neural && r.neural.model ? neuralLine(r.neural) : ORIGIN[r.origin][1]));
     else if (isBrain && !r.combined && r.neural && r.neural.used === false && r.neural.reason) body.append(h('div', { class: 'origin' }, icon('spark', 13), `Reply from the built-in rules: ${r.neural.reason}.`));
     const conf = confidenceEl(r.confidence); if (conf) { if (r.combined && ['web-draft', 'web-error'].includes(r.combined.mode)) body.append(h('div', { class: 'origin', text: 'Confidence below describes the web findings, not the model draft.' })); body.append(conf); }
-    const runLine = runLineEl(r); if (runLine) body.append(runLine);
-    const over = overviewEl(r); if (over) body.append(over);
-    const src = sourcesEl(r); if (src) body.append(src);
+    const runLine = !WEB_IN_LLM && runLineEl(r); if (runLine) body.append(runLine);
+    const over = !WEB_IN_LLM && overviewEl(r); if (over) body.append(over);
+    const src = !WEB_IN_LLM && sourcesEl(r); if (src) body.append(src);
   }
   const acts = h('div', { class: 'actions' });
   const act = (ic, label, props) => h('button', { class: 'act', type: 'button', 'aria-label': label, ...props }, icon(ic, 16), h('span', { class: 'lbl', text: label }));
@@ -449,7 +448,7 @@ function fillBot(m) {
   if (m.question && !isBrain) acts.append(act('refresh', m.status === 'done' ? 'Regenerate' : 'Retry', { title: 'Search again, bypassing temporary caches', onclick: () => regenerate(m) }));
   // the brain answered by itself: one tap sends the same message to the web instead, in case it misjudged
   if (m.question && isBrain && r.origin !== 'safety' && !(r.suggestions || []).some((t) => /^Search the web: /.test(String(t)))) acts.append(act('globe', 'Search the web instead', { title: 'Send this message to web search instead', onclick: () => { if (!state.busy) run(m.question, { replace: m, context: m.contextBefore || {}, route: 'web' }); } }));
-  if (r && r.research) acts.append(act('panel', 'Research details', { onclick: () => openResearch(r) }));
+  if (!WEB_IN_LLM && r && r.research) acts.append(act('panel', 'Research details', { onclick: () => openResearch(r) }));
   if (r && r.kind === 'retrieval' && r.confidence && r.confidence.level !== 'insufficient' && !r.draft) {
     const key = normQ(r.interpretation && r.interpretation.resolved ? r.interpretation.resolved : m.question);
     const save = act('bookmark', m.saved ? 'Saved' : 'Save', { title: 'Keep this answer on this device and reuse it for the same question' });
@@ -713,14 +712,15 @@ async function run(question, { regenerate: regen = false, replace = null, contex
         let ev; try { ev = JSON.parse(line); } catch { continue; }
         if (ev.type === 'answer') m.result = ev.result;
         else if (ev.type === 'error') m.error = ev.message;
-        else if (ev.type === 'progress') prog.onEvent(ev);                               // live counters only: not kept with the conversation
-        else if (ev.type === 'draft') { draft = ev.result; renderDraft(draftBox, ev); }
+        else if (ev.type === 'progress') { if (!WEB_IN_LLM) prog.onEvent(ev); }                               // live counters only: not kept with the conversation
+        else if (ev.type === 'draft') { if (!WEB_IN_LLM) { draft = ev.result; renderDraft(draftBox, ev); } }
         else if (ev.type === 'token') {
           if (ev.start) { streamText.textContent = ''; streamTag.replaceChildren(icon('spark', 13), `Infinity LLM${ev.model ? ' ' + ev.model.version : ''} is ${ev.mode === 'grounded' ? 'selecting source text' : 'writing'}…`); streamBox.hidden = false; typing.hidden = true; draftBox.hidden = true; }
           else if (ev.reset) { streamText.textContent = ''; streamBox.hidden = true; if (act.el.hidden) typing.hidden = false; }
           else if (ev.text) { streamText.textContent += ev.text; scrollDown(); }
         }
         else if (ev.type !== 'done') {
+          if (WEB_IN_LLM) continue;
           if (ev.type === 'research') { prog.onEvent(ev); if (ev.status === 'start') act.el.classList.add('compact'); }
           if (m.events.length < 160 || ev.type === 'stage' || ev.type === 'research') m.events.push(ev);
           act.onEvent(ev); if (ev.type !== 'stage' || ev.stage !== 'understanding') reveal(); scrollDown();
@@ -751,8 +751,8 @@ function describeModel() {
   const llm = state.status && state.status.llm && state.status.llm.available ? state.status.llm : null;
   const hint = document.querySelector('.composer-hint'), fine = document.querySelector('.fineprint');
   if (COMBINED) {
-    if (hint) hint.textContent = WEB_IN_LLM ? 'Web excerpts → experimental LLM draft' : 'LLM conversation · structured web findings';
-    if (fine) fine.textContent = WEB_IN_LLM ? 'The model draft is not verified. Compare it with the cited excerpts; it may be inaccurate or unrelated.' : 'Conversation comes from the LLM. Knowledge answers are structured from cited web sources, not model synthesis. Check important facts.';
+    if (hint) hint.textContent = WEB_IN_LLM ? 'Web information → Infinity LLM answer' : 'LLM conversation · structured web findings';
+    if (fine) fine.textContent = WEB_IN_LLM ? 'Experimental: references are matched by wording, not fact-checked. The model may be unable to answer.' : 'Conversation comes from the LLM. Knowledge answers are structured from cited web sources, not model synthesis. Check important facts.';
     return;
   }
   if (hint) hint.textContent = llm ? 'Infinity LLM for chat · live web for facts' : 'Own brain for chat · live web for facts';

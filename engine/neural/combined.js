@@ -50,7 +50,8 @@ export function webModelEvidence(result) {
   for (const c of combinedCandidates(result)) {
     const b = result.answer.blocks[c.block];
     const span = c.item === null ? b.spans[c.index] : b.items[c.item].spans[c.index];
-    add(c.text, span.cites);
+    // Only attach sources whose retrieved passages actually contain this candidate.
+    add(c.text, span.cites.filter(id => (result.research?.passages || []).some(p => p.source === id && p.text === c.text)));
   }
   for (const p of result.research?.passages || []) {
     if (!ids.has(p.source)) continue;
