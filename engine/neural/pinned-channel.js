@@ -118,9 +118,23 @@ export const BOOKS75M_STEP536897 = {
   ],
 };
 
+// Saved stage 17 checkpoint: fixed snapshot, exported without interrupting training.
+export const BOOKS75M_STEP579320 = {
+  version: 'books75m-step579320',
+  release: 'infinity-qa75m-44240092548',
+  sha256: 'e75bab8d457f49a78e20cd4ded3c25732c86b6c0adf070d7b9dfa0dbb1b90414',
+  files: [
+    { name: 'model.json', size: 11594, sha256: 'ac3950f7c80512dd3128557d66abb315c57b20c634288f7b3098969b09137ea8' },
+    { name: 'tokenizer.json', size: 93560, sha256: '3c5373f704c5191c66819c1114c642efc0b54bbede23b337623ce8e3f93f1ce8' },
+    { name: 'weights.0.bin', size: 40000000, sha256: 'dff461915548b891b2b498fbbc43a518eb499f177aa8ef3206fff9731d808a5e' },
+    { name: 'weights.1.bin', size: 34727168, sha256: '2f0e2a89bc106ec48cce5a9aee57071fe0efb5fe82b2ad85d6ed052ad1f1c343' },
+  ],
+};
+
 /** Explicit selections only: an invalid version must not silently select another model. */
 export function pinnedManifest(version = '') {
-  if (!version || version === 'books75m-step536897') return BOOKS75M_STEP536897;
+  if (!version || version === 'books75m-step579320') return BOOKS75M_STEP579320;
+  if (version === 'books75m-step536897') return BOOKS75M_STEP536897;
   if (version === 'books75m-step224813') return BOOKS75M_STEP224813;
   if (version === 'books75m-step111248') return BOOKS75M_STEP111248;
   if (version === 'books75m-step105000') return BOOKS75M_STEP105000;
@@ -132,7 +146,7 @@ export function pinnedManifest(version = '') {
   throw new Error(`unknown pinned model version: ${version}`);
 }
 
-export function createPinnedChannel({ manifest = BOOKS75M_STEP536897, dir = path.join(os.tmpdir(), 'infini-pinned-models'), fetchImpl = (...a) => fetch(...a), timeoutMs = 180000, log = () => {} } = {}) {
+export function createPinnedChannel({ manifest = BOOKS75M_STEP579320, dir = path.join(os.tmpdir(), 'infini-pinned-models'), fetchImpl = (...a) => fetch(...a), timeoutMs = 180000, log = () => {} } = {}) {
   const dest = path.join(dir, manifest.version);
   let active = null, inflight = null, lastCheck = 0, lastOk = 0, error = '', checks = 0;
   const validName = (name) => /^(model\.json|tokenizer\.json|weights\.\d+\.bin)$/.test(name);
