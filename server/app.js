@@ -173,18 +173,21 @@ export function createApp(cfg = loadConfig()) {
           if (evidence.length && useNeural) send({ type: 'note', stage: 'constructing', text: 'Infinity LLM is processing the retrieved information.' });
           const g = evidence.length && useNeural ? await neural.webAnswer({ question: held.interpretation?.resolved || body.question, evidence, signal: ac.signal }) : { ok: false, reason: !evidence.length ? 'No suitable cited web evidence was available.' : 'Infinity LLM is unavailable.' };
           const selected = g.ok ? (g.usedIndices || []).map(i => evidence[i]).filter(Boolean) : [];
-          // These references are a conservative lexical association, not proof of
-          // entailment. No raw model citations, unsupported text or search-result
-          // fallback is shown as a synthesized answer.
-          const spans = g.ok && g.ended ? citeWebDraft(g.text, selected) : null;
+          // Citations are linked only by conservative wording matching. An unmatched
+          // answer is still the model's own output, but is explicitly uncited and
+          // unverified; never trust citation numbers invented by the model.
+          const draft = g.ok && selected.length ? String(g.text || '').replace(/\[\s*\d+(?:\s*,\s*\d+)*\s*\]/g, '').trim() : '';
+          const spans = draft && g.ended ? citeWebDraft(draft, selected) : null;
           const cited = new Set((spans || []).flatMap(s => s.cites));
           const sources = (held.sources || []).filter(s => cited.has(s.id)).map(s => ({ ...s, passages: selected.filter(e => e.cites.includes(s.id)).map(e => ({ text: e.text })) }));
-          const freshness = spans ? (held.answer.blocks || []).filter(b => b.type === 'note' && /recent|latest developments/i.test(b.text || '')) : [];
-          const blocks = spans ? [
-            { type: 'paragraph', spans }, ...freshness,
-            { type: 'note', tone: 'warn', text: 'References are linked by wording overlap with the supplied passages, not independently fact-checked. Check the sources, especially for important decisions.' },
-          ] : [{ type: 'paragraph', spans: [{ text: !evidence.length ? 'I could not find enough suitable source material to answer this question.' : 'Infinity LLM could not produce a sufficiently supported answer from the web information. Please try again or use Web + LLM for cited findings.', cites: [] }] }];
-          result = { ...lean(held), sources, research: null, confidence: null, suggestions: [], answer: { blocks, text: blocksToText(blocks) }, neural: { used: !!spans, mode: spans ? 'web-synthesis' : 'web-error', ...(g.model ? { model: g.model } : {}), ...(spans ? { tokens: g.tokens, ms: g.ms, ended: true, excerpts: selected.length, citationCheck: 'lexical association; not a fact check' } : { reason: g.reason || 'The model draft was incomplete or could not be associated with the supplied sources.' }) } };
+          const freshness = draft ? (held.answer.blocks || []).filter(b => b.type === 'note' && /recent|latest developments/i.test(b.text || '')) : [];
+          const blocks = draft ? [
+            { type: 'paragraph', spans: spans || [{ text: draft, cites: [] }] }, ...freshness,
+            { type: 'note', tone: 'warn', text: spans ? 'References are linked by wording overlap with the supplied passages, not independently fact-checked. Check the sources, especially for important decisions.' : 'Unverified model answer: it could not be linked to the supplied sources and may be incorrect or unrelated. No references are attached.' },
+            ...(!g.ended ? [{ type: 'note', tone: 'warn', text: 'The model stopped before completing its answer.' }] : []),
+          ] : [{ type: 'paragraph', spans: [{ text: !evidence.length ? 'I could not find enough suitable source material to answer this question.' : 'Infinity LLM could not generate an answer. Please try again.', cites: [] }] }];
+          result = { ...lean(held), sources, research: null, confidence: null, suggestions: [], answer: { blocks, text: blocksToText(blocks) }, neural: { used: !!draft, mode: draft ? 'web-synthesis' : 'web-error', ...(g.model ? { model: g.model } : {}), ...(draft ? { tokens: g.tokens, ms: g.ms, ended: !!g.ended, excerpts: selected.length, citationCheck: spans ? 'lexical association; not a fact check' : 'no matching source', cited: !!spans } : { reason: g.reason || 'The model produced no usable text.' }) } };
+
         } else if (modelTurn) {
           const g = useNeural ? await neural.chat({ user: conversationPrompt(body.question), history: chatHistory, signal: ac.signal, temperature: 0, maxNew: 48, calculateRoute: false }) : null;
           const usable = !!(g && typeof g.text === 'string' && g.text.trim() && !g.loop && !ac.signal.aborted);
@@ -207,7 +210,7 @@ export function createApp(cfg = loadConfig()) {
           result.combined = { used, mode };
           if (mode === 'fallback') result.combined.reason = !useNeural ? 'Model highlight unavailable; showing the cited web answer.' : result.neural?.reason || 'No eligible cited evidence was available for model selection.';
           if (mode === 'error') result.combined.reason = 'Language model unavailable or unable to finish.';
-          if (mode === 'web-error') result.combined.reason = 'The model could not produce a supported answer.';
+          if (mode === 'web-error') result.combined.reason = 'The model could not generate an answer.';
         }
         send({ type: 'answer', result });
       }

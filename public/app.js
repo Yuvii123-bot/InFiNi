@@ -431,7 +431,7 @@ function fillBot(m) {
   const isBrain = !!r && r.kind === 'brain';
   if (r) {
     if (r.combined && r.combined.mode !== 'local') {
-      const label = r.combined.mode === 'highlight' ? 'Web search · cited answer with an experimental model highlight (not a fact check)' : r.combined.mode === 'chat' ? 'Infinity LLM · generated locally, without web search' : r.combined.mode === 'web' ? 'Web search · cited answer' : r.combined.mode === 'web-synthesis' ? 'Infinity LLM · generated from web information'  : r.combined.reason;
+      const label = r.combined.mode === 'highlight' ? 'Web search · cited answer with an experimental model highlight (not a fact check)' : r.combined.mode === 'chat' ? 'Infinity LLM · generated locally, without web search' : r.combined.mode === 'web' ? 'Web search · cited answer' : r.combined.mode === 'web-synthesis' ? (r.neural?.cited ? 'Infinity LLM · generated from web information' : 'Infinity LLM · unverified, no supporting reference')  : r.combined.reason;
       body.append(h('div', { class: 'combined-status' + (['fallback', 'error', 'web-error', 'web-draft'].includes(r.combined.mode) ? ' fallback' : ''), role: 'status', text: label }));
     }
     body.append(answerEl(r));
@@ -752,7 +752,7 @@ function describeModel() {
   const hint = document.querySelector('.composer-hint'), fine = document.querySelector('.fineprint');
   if (COMBINED) {
     if (hint) hint.textContent = WEB_IN_LLM ? 'Web information → Infinity LLM answer' : 'LLM conversation · structured web findings';
-    if (fine) fine.textContent = WEB_IN_LLM ? 'Experimental: references are matched by wording, not fact-checked. The model may be unable to answer.' : 'Conversation comes from the LLM. Knowledge answers are structured from cited web sources, not model synthesis. Check important facts.';
+    if (fine) fine.textContent = WEB_IN_LLM ? 'Experimental: the answer may be incorrect or unrelated. References are matched by wording, not fact-checked.' : 'Conversation comes from the LLM. Knowledge answers are structured from cited web sources, not model synthesis. Check important facts.';
     return;
   }
   if (hint) hint.textContent = llm ? 'Infinity LLM for chat · live web for facts' : 'Own brain for chat · live web for facts';
