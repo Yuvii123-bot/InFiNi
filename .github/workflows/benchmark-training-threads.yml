@@ -1,0 +1,49 @@
+name: Benchmark CPU training threads (isolated)
+on:
+  push:
+    paths: ['.github/workflows/benchmark-training-threads.yml']
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  benchmark:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install CPU dependencies
+        run: |
+          set -euo pipefail
+          python3 -m venv .venv
+          .venv/bin/pip install --quiet --index-url https://download.pytorch.org/whl/cpu torch
+          .venv/bin/pip install --quiet numpy
+      - name: Download independent checkpoint and the unchanged dataset
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/infini-bench" data/llm/datasets
+          gh release download infinity-qa75m-44205300285 --repo "$GITHUB_REPOSITORY" -p checkpoint-16-1.pt -D "$RUNNER_TEMP/infini-bench"
+          echo "f29f0de64a6ab1b20f260f05e8d9c141e1ae1c9786b789568ac13ce70e3a3426  $RUNNER_TEMP/infini-bench/checkpoint-16-1.pt" | sha256sum -c
+          gh release download infinity-books100m-data-43697791940 --repo "$GITHUB_REPOSITORY" -p dataset-books100m.tar.gz -D "$RUNNER_TEMP/infini-bench"
+          echo "bc73cd70757479c21da2bbbcfcd0d36b3c374ed126a35668cb0c295c274d30e3  $RUNNER_TEMP/infini-bench/dataset-books100m.tar.gz" | sha256sum -c
+          tar -xzf "$RUNNER_TEMP/infini-bench/dataset-books100m.tar.gz" -C data/llm/datasets
+          chmod a-w "$RUNNER_TEMP/infini-bench/checkpoint-16-1.pt"
+      - name: Compare four independent runs on this runner
+        run: |
+          set -euo pipefail
+          .venv/bin/python scripts/benchmark-training-threads.py --checkpoint "$RUNNER_TEMP/infini-bench/checkpoint-16-1.pt" --data data/llm/datasets/books100m --output benchmark-training-threads.json --seconds 75
+          {
+            echo '### Independent 2-thread versus 4-thread training benchmark'
+            echo 'The active training run was not modified. Results measure short-run throughput, not answer quality.'
+            echo '```json'
+            cat benchmark-training-threads.json
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+      - name: Save small benchmark report
+        uses: actions/upload-artifact@v4
+        with:
+          name: benchmark-training-threads
+          path: benchmark-training-threads.json
+          if-no-files-found: error
+          retention-days: 30
