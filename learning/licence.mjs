@@ -17,7 +17,8 @@ export function licenceFromUrl(url) {
 const SITE_LICENCES = [
   [/(^|\.)wikipedia\.org$/, 'CC-BY-SA-4.0', 'https://foundation.wikimedia.org/wiki/Policy:Terms_of_Use'],
   [/(^|\.)(wikibooks|wikiversity|wikivoyage|wiktionary|wikiquote|wikisource)\.org$/, 'CC-BY-SA-4.0', 'https://foundation.wikimedia.org/wiki/Policy:Terms_of_Use'],
-  [/(^|\.)wikinews\.org$/, 'CC-BY-4.0', 'https://foundation.wikimedia.org/wiki/Policy:Terms_of_Use'],
+  // Wikinews licensing depends on the edition and publication date. Do not infer
+  // a licence from its domain; require a declaration and review source rights.
 ];
 const attr = (tag, name) => { const m = new RegExp(`\\b${name}\\s*=\\s*("([^"]*)"|'([^']*)'|([^\\s>]+))`, 'i').exec(tag); return m ? (m[2] ?? m[3] ?? m[4] ?? '') : ''; };
 

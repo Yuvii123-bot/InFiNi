@@ -1,0 +1,85 @@
+name: Train the 75k-parameter Infini model
+on:
+  push:
+    paths: ['.github/workflows/tiny75k-long-training.yml']
+  workflow_dispatch:
+    inputs:
+      resume_release:
+        description: 'Optional previous infinity-tiny75k-RUN_ID release to resume'
+        required: false
+        type: string
+permissions:
+  contents: write
+jobs:
+  train:
+    runs-on: ubuntu-latest
+    timeout-minutes: 145
+    concurrency:
+      group: infini-tiny75k-training
+      cancel-in-progress: false
+    env:
+      GH_TOKEN: ${{ github.token }}
+      OMP_NUM_THREADS: '2'
+      MKL_NUM_THREADS: '2'
+      RESUME_RELEASE: ${{ inputs.resume_release }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install CPU trainer
+        run: |
+          set -euo pipefail
+          python3 -m venv .venv
+          .venv/bin/pip install --quiet --index-url https://download.pytorch.org/whl/cpu torch
+          .venv/bin/pip install --quiet numpy
+      - name: Create or restore a fixed training dataset and checkpoint
+        run: |
+          set -euo pipefail
+          mkdir -p data/llm/datasets data/llm/runs/tiny75k
+          if [ -n "$RESUME_RELEASE" ]; then
+            [[ "$RESUME_RELEASE" =~ ^infinity-tiny75k-[0-9]+$ ]] || { echo 'Invalid resume release' >&2; exit 1; }
+            mkdir -p data/llm/restore
+            gh release download "$RESUME_RELEASE" --repo "$GITHUB_REPOSITORY" -p 'dataset.tar.gz' -p 'dataset.tar.gz.sha256' -D data/llm/restore
+            (cd data/llm/restore && sha256sum -c dataset.tar.gz.sha256)
+            tar -xzf data/llm/restore/dataset.tar.gz -C data/llm/datasets
+            asset=$(gh release view "$RESUME_RELEASE" --repo "$GITHUB_REPOSITORY" --json assets --jq '[.assets[].name | select(test("^checkpoint-[0-9][0-9]\\.pt$"))] | sort | last // empty')
+            [ -n "$asset" ] || { echo 'No saved checkpoint in release' >&2; exit 1; }
+            gh release download "$RESUME_RELEASE" --repo "$GITHUB_REPOSITORY" -p "$asset" -p "$asset.sha256" -D data/llm/restore
+            (cd data/llm/restore && sha256sum -c "$asset.sha256")
+            cp "data/llm/restore/$asset" data/llm/runs/tiny75k/ckpt.pt
+            cp data/llm/datasets/tiny75k/dataset.json data/llm/tiny75k-report.json
+          else
+            node learning/tiny75k-dataset.mjs data/llm/datasets/tiny75k > data/llm/tiny75k-report.json
+          fi
+          .venv/bin/python -c 'import json; from llm.model import InfinityLM, ModelConfig; d=json.load(open("data/llm/datasets/tiny75k/dataset.json")); c=json.load(open("llm/tiny75k.json"))["model"]; assert d["vocab_size"] == 672; assert d["integrity"]["valPhrasingsInTraining"] == 0; assert InfinityLM(ModelConfig.from_dict(c)).num_params() == 75040; print("75,040 parameters,", d["tokens"], d["counts"])'
+          tar -C data/llm/datasets -czf data/llm/dataset.tar.gz tiny75k
+          (cd data/llm && sha256sum dataset.tar.gz > dataset.tar.gz.sha256)
+      - name: Publish the fixed data snapshot
+        run: |
+          set -euo pipefail
+          tag="infinity-tiny75k-${GITHUB_RUN_ID}"
+          gh release create "$tag" --repo "$GITHUB_REPOSITORY" --prerelease --title "75,040-parameter Infini training ${GITHUB_RUN_ID}" --notes 'Experimental model trained from scratch; production remains unchanged. Dataset and checkpoint snapshots are saved during the run. See status and probes for actual progress and quality.'
+          gh release upload "$tag" --repo "$GITHUB_REPOSITORY" data/llm/dataset.tar.gz data/llm/dataset.tar.gz.sha256 data/llm/tiny75k-report.json llm/tiny75k.json
+      - name: Long training with recoverable checkpoints and held-out probes
+        run: |
+          set -euo pipefail
+          tag="infinity-tiny75k-${GITHUB_RUN_ID}"
+          for i in $(seq -w 1 24); do
+            .venv/bin/python -m llm.train --data data/llm/datasets/tiny75k --run data/llm/runs/tiny75k --config llm/tiny75k.json --steps 100000 --max-seconds 300 --cycle tiny75k-long-v1 --set batch_size=8 --set sequence_length=128 --set threads=2 --set precision=fp32 --set lr=0.001 --set min_lr=0.0001 --set warmup_steps=300 --set eval_interval=5000 --set eval_windows=16 --set log_interval=250 --set save_interval=1000 --set nice=0
+            mkdir -p data/llm/export
+            .venv/bin/python -m llm.export --ckpt data/llm/runs/tiny75k/ckpt.pt --out data/llm/export --dtype f32
+            cp data/llm/datasets/tiny75k/tokenizer.json data/llm/export/tokenizer.json
+            node learning/tiny75k-probe.mjs data/llm/export data/llm/datasets/tiny75k > "data/llm/probes-$i.json"
+            .venv/bin/python -m llm.evaluate --data data/llm/datasets/tiny75k --ckpt data/llm/runs/tiny75k/ckpt.pt --context 128 --windows 32 --threads 2 > "data/llm/evaluation-$i.json"
+            cp data/llm/runs/tiny75k/ckpt.pt "data/llm/checkpoint-$i.pt"
+            (cd data/llm && sha256sum "checkpoint-$i.pt" > "checkpoint-$i.pt.sha256")
+            cp data/llm/runs/tiny75k/status.json "data/llm/status-$i.json"
+            tar -C data/llm/export -czf "data/llm/model-$i.tar.gz" model.json tokenizer.json weights.bin
+            gh release upload "$tag" --repo "$GITHUB_REPOSITORY" "data/llm/checkpoint-$i.pt" "data/llm/checkpoint-$i.pt.sha256" "data/llm/status-$i.json" "data/llm/evaluation-$i.json" "data/llm/probes-$i.json" "data/llm/model-$i.tar.gz"
+            .venv/bin/python -c 'import json; s=json.load(open("data/llm/runs/tiny75k/status.json")); print("step",s["step"],"tokens",s["tokens_seen"],"loss",s["val_loss"])'
+            if .venv/bin/python -c 'import json,sys; s=json.load(open("data/llm/runs/tiny75k/status.json")); sys.exit(0 if s["state"] == "done" else 1)'; then break; fi
+          done
+      - name: Summarize
+        if: always()
+        run: |
+          echo '### 75,040-parameter training' >> "$GITHUB_STEP_SUMMARY"
+          echo "Checkpoint release: https://github.com/${GITHUB_REPOSITORY}/releases/tag/infinity-tiny75k-${GITHUB_RUN_ID}" >> "$GITHUB_STEP_SUMMARY"
+          if [ -f data/llm/runs/tiny75k/status.json ]; then echo '```json' >> "$GITHUB_STEP_SUMMARY"; cat data/llm/runs/tiny75k/status.json >> "$GITHUB_STEP_SUMMARY"; echo '```' >> "$GITHUB_STEP_SUMMARY"; fi

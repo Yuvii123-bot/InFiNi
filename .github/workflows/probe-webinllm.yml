@@ -1,0 +1,27 @@
+name: Probe web-informed model generation
+on:
+  push:
+    paths: ['.github/workflows/probe-webinllm.yml', 'scripts/probe-webinllm.mjs']
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Download and verify deployed model
+        run: |
+          set -euo pipefail
+          mkdir -p /tmp/web-model
+          gh release download infinity-qa75m-43850778510 --repo "$GITHUB_REPOSITORY" -p model.json -p tokenizer.json -p 'weights.*.bin' -p export-sha256.txt -D /tmp/web-model
+          (cd /tmp/web-model && sha256sum -c export-sha256.txt)
+      - name: Record actual model outputs
+        run: |
+          set -euo pipefail
+          node scripts/probe-webinllm.mjs /tmp/web-model > webinllm-probes.json
+          cat webinllm-probes.json
+          gh release upload infinity-qa75m-43850778510 --repo "$GITHUB_REPOSITORY" webinllm-probes.json --clobber

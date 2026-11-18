@@ -130,12 +130,16 @@ test('both pages show the mode switch, and the new page is built for small scree
   const index = fs.readFileSync(path.join(PUB, 'index.html'), 'utf8'), pure = fs.readFileSync(path.join(PUB, 'llm.html'), 'utf8');
   const css = fs.readFileSync(path.join(PUB, 'llm.css'), 'utf8'), appCss = fs.readFileSync(path.join(PUB, 'app.css'), 'utf8');
   // Internet mode page: a visible "Infinity LLM" button in the top bar and a link in the sidebar; its own client is untouched
-  assert.match(index, /<nav class="mode-switch"[^>]*>\s*<a class="on" href="\/"[^>]*>Internet AI<\/a>\s*<a id="openPure" href="\/llm\.html"[^>]*>Infinity LLM<\/a>/);
+  assert.match(index, /id="modeInternet" class="on" href="\/"/);
+  assert.match(index, /id="modeCombined" href="\/\?mode=combined"/);
+  assert.match(index, /id="openPure" href="\/llm\.html"/);
   assert.match(index, /id="openPureSide"[^>]*href="\/llm\.html"/);
   assert.equal((index.match(/class="link-btn"/g) || []).length, 3, 'the sidebar footer keeps its three links (a fourth pushed "About" off the drawer)');
   assert.match(index, /<script type="module" src="\/app\.js">/);
   // pure page: the same switch with the other side lit, its own script, and no trace of the Internet client
-  assert.match(pure, /<nav class="mode-switch"[^>]*>\s*<a href="\/"[^>]*>Internet AI<\/a>\s*<a class="on" href="\/llm\.html"[^>]*>Infinity LLM<\/a>/);
+  assert.match(pure, /href="\/"[^>]*>Internet AI<\/a>/);
+  assert.match(pure, /href="\/\?mode=combined"[^>]*>Web \+ LLM<\/a>/);
+  assert.match(pure, /class="on" href="\/llm\.html"[^>]*>Infinity LLM<\/a>/);
   assert.match(pure, /<script src="\/llm\.js" type="module">/);
   assert.doesNotMatch(pure, /app\.js|depthBtn|askForm/);
   assert.doesNotMatch(pure, /<script(?![^>]*src=)|\sstyle=|\son[a-z]+=/, 'no inline script, style or handler (the content security policy forbids them)');

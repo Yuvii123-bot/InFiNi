@@ -61,6 +61,36 @@ export function createRuntime(model, tok) {
     } finally { give(s); }
   }
 
+  /** Free generation after web passages. Page text is encoded as data, not control tokens.
+   * This small model is not instruction-tuned and the result is NOT a verified summary. */
+  async function webAnswer({ question, evidence, maxNew = 48, signal = null } = {}) {
+    const t0 = Date.now(), reserve = Math.min(maxNew, ctx >> 1);
+    const q = tok.encode(String(question)).slice(0, Math.min(48, Math.floor(ctx / 3)));
+    const items = [];
+    let used = 3 + q.length;
+    for (const [index, entry] of evidence.slice(0, 3).entries()) {
+      const ids = tok.encode(String(entry.text).trim());
+      if (!ids.length || ids.length > 55 || used + ids.length + 1 + reserve > ctx) continue;
+      items.push({ index, ids }); used += ids.length + 1;
+    }
+    if (!items.length) return { text: '', ended: false, loop: false, tokens: 0, used: 0, ms: 0 };
+    const s = take();
+    try {
+      const prompt = [T.USER, ...q, T.SEARCH, ...items.flatMap(item => [T.EVIDENCE, ...item.ids]), T.ASSISTANT];
+      let logits = feedAll(s, prompt);
+      const dec = tok.streamDecoder(), out = [];
+      let text = '', ended = false;
+      while (out.length < maxNew && s.room() > 0 && !signal?.aborted) {
+        const id = sample(logits, { temperature: 0, topK: 40, topP: 0.92, repetitionPenalty: 1.08, recent: out.slice(-48), banned: NO_SPECIALS, random: Math.random });
+        if (id === T.END) { ended = true; break; }
+        out.push(id); text += dec.push(id); logits = s.feed(id);
+        if (out.length % 4 === 0) await tick();
+      }
+      text += dec.end();
+      return { text: text.trim(), ended, loop: looping(out), tokens: out.length, promptTokens: prompt.length, used: items.length, usedIndices: items.map(item => item.index), ms: Date.now() - t0 };
+    } finally { give(s); }
+  }
+
   /**
    * @param evidence [{text, ...}] sentences in order of the retrieval engine's ranking
    * @returns {{text, picks: number[], sentences: string[], confidence: number[], tokens, used: number}} picks index into `evidence`
@@ -120,6 +150,48 @@ export function createRuntime(model, tok) {
     } finally { give(s); }
   }
 
+  /** Select one of several complete, already-cited answer sentences. Unlike grounded(), this
+   * stops as soon as the model has distinguished a candidate: it never generates the rest of a
+   * sentence that the server already has. No model-generated words are returned to the caller. */
+  async function chooseEvidence({ question, evidence, signal = null } = {}) {
+    const t0 = Date.now();
+    const q = tok.encode(String(question)).slice(0, Math.min(20, Math.floor(ctx / 4)));
+    const items = [];
+    let used = 3 + q.length;
+    // A short prefix is sufficient for a constrained choice, not a semantic summary.
+    // Bound prefill to keep this small model usable on a CPU; the output remains the
+    // full original sentence from the retrieval engine, never the truncated prefix.
+    for (let i = 0; i < evidence.length && items.length < 2; i++) {
+      const ids = tok.encode(String(evidence[i].text).trim()).slice(0, 12);
+      if (!ids.length || used + ids.length + 1 + 14 > ctx) continue;
+      items.push({ i, ids }); used += ids.length + 1;
+    }
+    if (items.length < 2) return { pick: null, used: items.length, reason: 'too few source sentences fit the model’s context' };
+    const s = take();
+    try {
+      const prompt = [T.USER, ...q, T.SEARCH, ...items.flatMap(it => [T.EVIDENCE, ...it.ids]), T.ASSISTANT];
+      let logits;
+      for (let i = 0; i < prompt.length; i++) {
+        if (signal?.aborted) return { pick: null, used: items.length, reason: 'stopped' };
+        logits = s.feed(prompt[i], i === prompt.length - 1);
+        if (i % 4 === 3) await tick();
+      }
+      let cands = items, steps = 0;
+      while (cands.length > 1 && steps < 12) {
+        if (signal?.aborted) return { pick: null, used: items.length, reason: 'stopped' };
+        // If one sentence ends while another shares its entire prefix, do not arbitrarily
+        // treat it as a complete neural choice; leave the original answer unchanged.
+        if (cands.some(c => c.ids.length <= steps)) break;
+        const options = new Set(cands.map(c => c.ids[steps]));
+        let best = null;
+        for (const id of options) if (best === null || logits[id] > logits[best]) best = id;
+        cands = cands.filter(c => c.ids[steps] === best); steps++;
+        if (cands.length > 1 && steps < 12) { logits = s.feed(best); if (steps % 4 === 0) await tick(); }
+      }
+      return { pick: cands.length === 1 ? cands[0].i : null, used: items.length, tokens: prompt.length + steps, ms: Date.now() - t0, reason: cands.length === 1 ? '' : 'the model could not distinguish the source sentences' };
+    } finally { give(s); }
+  }
+
   /** P(search) against P(reply) right after the user's message. */
   function route(text) {
     const s = take();
@@ -141,7 +213,7 @@ export function createRuntime(model, tok) {
       return out;
     } finally { give(s); }
   }
-  return { chat, grounded, route, complete, model, tokenizer: tok };
+  return { chat, webAnswer, grounded, chooseEvidence, route, complete, model, tokenizer: tok };
 }
 
 /** Did the generated tokens fall into a loop (the same four tokens three times)? */

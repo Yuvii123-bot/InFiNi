@@ -1,0 +1,22 @@
+name: Check deployed neural chat
+on:
+  push:
+    paths: ['.github/workflows/check-deployed-chat.yml']
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - name: Verify status and generate one raw reply
+        run: |
+          set -euo pipefail
+          curl --fail --silent --show-error --max-time 180 'https://infini-eta.vercel.app/api/llm/status?check=qa-step2110' > status.json
+          python3 -c 'import json; m=json.load(open("status.json"))["model"]; assert m["available"] and m["version"]=="xl-qa-step2110" and m["selfTest"]["ok"]; print(m["version"], m["parameters"])'
+          curl --fail --silent --show-error --max-time 180 -H 'Content-Type: application/json' --data '{"message":"Hello!","temperature":0,"seed":1,"maxTokens":24}' https://infini-eta.vercel.app/api/llm/chat > live-chat.ndjson
+          python3 -c 'import json; e=[json.loads(x) for x in open("live-chat.ndjson")]; s=next(x for x in e if x["type"]=="start"); a=next(x for x in e if x["type"]=="answer"); assert s["model"]["version"]=="xl-qa-step2110" and a["ok"] and a["text"]; print(json.dumps(a))'
+          gh release upload infinity-qa-more-43593739051 --repo "$GITHUB_REPOSITORY" live-chat.ndjson --clobber

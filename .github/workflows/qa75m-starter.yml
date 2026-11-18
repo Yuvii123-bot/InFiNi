@@ -1,0 +1,71 @@
+name: Build and train 75M Infini starter
+on:
+  push:
+    paths: ['.github/workflows/qa75m-starter.yml']
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  train:
+    runs-on: ubuntu-latest
+    timeout-minutes: 50
+    concurrency:
+      group: infini-qa75m-starter
+      cancel-in-progress: false
+    env:
+      GH_TOKEN: ${{ github.token }}
+      OMP_NUM_THREADS: '2'
+      MKL_NUM_THREADS: '2'
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install CPU training dependencies
+        run: |
+          python3 -m venv .venv
+          .venv/bin/pip install --quiet --index-url https://download.pytorch.org/whl/cpu torch
+          .venv/bin/pip install --quiet numpy
+      - name: Download and verify the current 117M training checkpoint
+        run: |
+          set -euo pipefail
+          mkdir -p data/llm/parent
+          gh release download infinity-qa-more-43593739051 --repo "$GITHUB_REPOSITORY" -p ckpt.pt -p tokenizer.json -D data/llm/parent
+          (cd data/llm/parent && sha256sum -c <<'SHA'
+          b12c29908f2b67304555cdb1ec8d8fc0becd153cce4698b94af589964196c1f4  ckpt.pt
+          3c5373f704c5191c66819c1114c642efc0b54bbede23b337623ce8e3f93f1ce8  tokenizer.json
+          SHA
+          )
+      - name: Build 75M warm start and dialogue dataset
+        run: |
+          set -euo pipefail
+          mkdir -p data/llm/qa75m
+          .venv/bin/python -m llm.prune_layers --ckpt data/llm/parent/ckpt.pt --out data/llm/qa75m/init.pt --layers 0,1,3,5,6,8,10,11,13,15 > data/llm/qa75m/pruning.json
+          node learning/qa75m-dataset.mjs data/llm/datasets/qa75m-starter > data/llm/qa75m/dataset-report.json
+          .venv/bin/python -c 'import json; p=json.load(open("data/llm/qa75m/pruning.json")); m=json.load(open("data/llm/qa75m/dataset-report.json")); assert p["params"] == 74727168; assert m["vocab_size"] == 4096 and m["integrity"]["valPhrasingsInTraining"] == 0; print(p,m["tokens"])'
+          tar -C data/llm/datasets -czf data/llm/qa75m/dataset.tar.gz qa75m-starter
+      - name: Evaluate warm-start model before training
+        run: |
+          set -euo pipefail
+          .venv/bin/python -m llm.evaluate --data data/llm/datasets/qa75m-starter --ckpt data/llm/qa75m/init.pt --context 128 --windows 16 --threads 2 > data/llm/qa75m/before-evaluation.json
+      - name: Initial training on simple conversations
+        run: |
+          set -euo pipefail
+          .venv/bin/python -m llm.train --data data/llm/datasets/qa75m-starter --run data/llm/runs/qa75m --init-from data/llm/qa75m/init.pt --steps 500 --max-seconds 1200 --cycle qa75m-starter-v1 --set batch_size=1 --set sequence_length=128 --set threads=2 --set lr=0.0001 --set min_lr=0.00001 --set warmup_steps=20 --set eval_interval=100 --set eval_windows=8 --set log_interval=10 --set save_interval=100 --set nice=0
+      - name: Evaluate and export the model
+        run: |
+          set -euo pipefail
+          .venv/bin/python -m llm.evaluate --data data/llm/datasets/qa75m-starter --ckpt data/llm/runs/qa75m/ckpt.pt --context 128 --windows 16 --threads 2 > data/llm/qa75m/after-evaluation.json
+          .venv/bin/python -m llm.export_int8 --ckpt data/llm/runs/qa75m/ckpt.pt --out data/llm/qa75m/model --part-bytes 40000000
+          cp data/llm/parent/tokenizer.json data/llm/qa75m/model/tokenizer.json
+          node learning/tiny75k-probe.mjs data/llm/qa75m/model data/llm/datasets/qa75m-starter > data/llm/qa75m/probes.json
+      - name: Publish model and resumable training checkpoint
+        run: |
+          set -euo pipefail
+          tag="infinity-qa75m-${GITHUB_RUN_ID}"
+          gh release create "$tag" --repo "$GITHUB_REPOSITORY" --prerelease --title "75M Infini starter ${GITHUB_RUN_ID}" --notes 'A lossy layer-pruned continuation of the 117M model with optimizer reset. Includes a full resumable checkpoint, exact training dataset and q8 inference export. Probe results are limited and may overlap the parent model training.'
+          gh release upload "$tag" --repo "$GITHUB_REPOSITORY" data/llm/qa75m/model/model.json data/llm/qa75m/model/tokenizer.json data/llm/qa75m/model/weights.0.bin data/llm/qa75m/model/weights.1.bin data/llm/qa75m/pruning.json data/llm/qa75m/dataset-report.json data/llm/qa75m/before-evaluation.json data/llm/qa75m/after-evaluation.json data/llm/qa75m/probes.json data/llm/runs/qa75m/status.json data/llm/qa75m/dataset.tar.gz data/llm/runs/qa75m/ckpt.pt
+      - name: Summarize result
+        if: always()
+        run: |
+          echo '### 75M Infini starter' >> "$GITHUB_STEP_SUMMARY"
+          for f in data/llm/qa75m/pruning.json data/llm/qa75m/before-evaluation.json data/llm/qa75m/after-evaluation.json data/llm/qa75m/probes.json data/llm/runs/qa75m/status.json; do
+            if [ -f "$f" ]; then printf '\n**%s**\n```json\n' "$f" >> "$GITHUB_STEP_SUMMARY"; cat "$f" >> "$GITHUB_STEP_SUMMARY"; printf '\n```\n' >> "$GITHUB_STEP_SUMMARY"; fi
+          done

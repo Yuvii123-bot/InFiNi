@@ -12,7 +12,7 @@
     "start": "node server/server.js",
     "dev": "node --watch server/server.js",
     "ask": "node cli.js",
-    "test": "node --test test/unit.test.js test/brain.test.js test/research.test.js test/llm.test.js test/ui-llm.test.js test/pure.test.js test/ui-pure.test.js test/worker.test.js test/ui-worker.test.js",
+    "test": "node --test test/unit.test.js test/brain.test.js test/research.test.js test/llm.test.js test/knowledge75m.test.js test/combined.test.js test/ui-llm.test.js test/pure.test.js test/ui-pure.test.js test/worker.test.js test/ui-worker.test.js",
     "test:pure": "node --test test/pure.test.js test/ui-pure.test.js",
     "test:worker": "node --test test/worker.test.js test/ui-worker.test.js",
     "worker": "node learning/worker.mjs",

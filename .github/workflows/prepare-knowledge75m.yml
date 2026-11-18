@@ -1,0 +1,45 @@
+name: Prepare attributed world knowledge for 75M
+on:
+  push:
+    paths: ['.github/workflows/prepare-knowledge75m.yml']
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  prepare:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Fetch pinned knowledge sources
+        run: |
+          set -euo pipefail
+          mkdir -p data/llm
+          git init -q data/llm/factbook
+          git -C data/llm/factbook remote add origin https://github.com/factbook/factbook.json.git
+          git -C data/llm/factbook fetch -q --depth 1 origin 144d6977b2b01ac1cbd220de754c0a005616760b
+          git -C data/llm/factbook checkout -q --detach FETCH_HEAD
+          test "$(git -C data/llm/factbook rev-parse HEAD)" = 144d6977b2b01ac1cbd220de754c0a005616760b
+          git -C data/llm/factbook diff --exit-code && git -C data/llm/factbook diff --cached --exit-code
+          git init -q data/llm/physics
+          git -C data/llm/physics remote add origin https://github.com/openstax/osbooks-physics.git
+          git -C data/llm/physics fetch -q --depth 1 origin 56e71824e73e371c0d20eb68a77611aa438b5f89
+          git -C data/llm/physics checkout -q --detach FETCH_HEAD
+          test "$(git -C data/llm/physics rev-parse HEAD)" = 56e71824e73e371c0d20eb68a77611aa438b5f89
+          git -C data/llm/physics diff --exit-code && git -C data/llm/physics diff --cached --exit-code
+      - name: Test and build token shards
+        run: |
+          set -euo pipefail
+          node --test test/knowledge75m.test.js
+          mkdir -p data/llm/datasets
+          node learning/knowledge75m-dataset.mjs data/llm/factbook data/llm/physics data/llm/datasets/knowledge75m | tee data/llm/knowledge-report.json
+          tar -C data/llm/datasets -czf data/llm/knowledge75m.tar.gz knowledge75m
+          (cd data/llm && sha256sum knowledge75m.tar.gz > knowledge75m.tar.gz.sha256)
+      - name: Publish dataset and provenance only
+        run: |
+          set -euo pipefail
+          tag="infinity-knowledge75m-data-${GITHUB_RUN_ID}"
+          gh release create "$tag" --repo "$GITHUB_REPOSITORY" --prerelease --title "75M supplementary world knowledge ${GITHUB_RUN_ID}" --notes 'Tokenized supplementary historical CIA World Factbook country profiles (CC0 archive; figures can be stale) and OpenStax Physics (CC BY 4.0; attribution and individual source URLs in dataset). This is a limited geography/physics corpus, not live web or comprehensive world knowledge. Document-level validation split; overlap with earlier model training is unknown. This release alone does not alter, schedule, or start training.'
+          gh release upload "$tag" --repo "$GITHUB_REPOSITORY" data/llm/knowledge75m.tar.gz data/llm/knowledge75m.tar.gz.sha256 data/llm/knowledge-report.json data/llm/datasets/knowledge75m/sources.json data/llm/datasets/knowledge75m/dataset.json

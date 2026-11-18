@@ -1,0 +1,43 @@
+name: Test live Infini greetings
+on:
+  push:
+    paths: ['.github/workflows/greetings-evaluation.yml']
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  evaluate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - name: Ask the deployed model ten greetings and exchanges
+        run: |
+          python3 - <<'PY'
+          import json, time, urllib.request, urllib.error
+          url = 'https://infini-eta.vercel.app/api/llm/chat'
+          questions = ['Hello!', 'Good morning!', 'How are you?', 'What is your name?', 'Nice to meet you.', 'Thank you!', 'Goodbye!', 'Can you help me?', 'What can you do?', 'Tell me a joke.']
+          results = []
+          for q in questions:
+              body = json.dumps({'message': q, 'history': [], 'temperature': 0, 'seed': 1, 'maxTokens': 40}).encode()
+              for attempt in range(4):
+                  try:
+                      req = urllib.request.Request(url, data=body, headers={'Content-Type': 'application/json', 'Cache-Control': 'no-cache'})
+                      with urllib.request.urlopen(req, timeout=180) as response:
+                          events = [json.loads(line) for line in response.read().decode().splitlines() if line.strip()]
+                      start = next(e for e in events if e['type'] == 'start')
+                      answer = next(e for e in events if e['type'] == 'answer')
+                      assert start['model']['version'] == 'xl-qa-step2110', 'live model changed during test'
+                      assert answer['ok'], 'generation failed'
+                      results.append({'question': q, 'answer': answer['text'], 'finished': answer['finished'], 'note': answer.get('note'), 'model': start['model']['version']})
+                      break
+                  except urllib.error.HTTPError as e:
+                      if e.code not in (429, 503) or attempt == 3: raise
+                      time.sleep(min(30, max(3, int(e.headers.get('Retry-After', '5')))))
+              time.sleep(2)
+          with open('greetings-evaluation.json', 'w') as f:
+              json.dump({'mode': 'pure-llm', 'temperature': 0, 'seed': 1, 'maxTokens': 40, 'history': 'empty for every question', 'results': results}, f, indent=2)
+          print(json.dumps(results, indent=2))
+          PY
+          gh release upload infinity-qa-more-43593739051 --repo "$GITHUB_REPOSITORY" greetings-evaluation.json --clobber

@@ -1,0 +1,54 @@
+name: Verify saved 75M progress in production
+on:
+  push:
+    paths: ['.github/workflows/verify-progress-live.yml']
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - name: Check production model and collect raw replies
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import json, time, urllib.request
+          base = 'https://infini-eta.vercel.app'
+          for attempt in range(30):
+              try:
+                  with urllib.request.urlopen(base + '/api/llm/status?check=books75m-21299', timeout=180) as r:
+                      model = json.load(r)['model']
+                  if model.get('available') and model.get('version') == 'books75m-step21299' and model.get('selfTest', {}).get('ok'):
+                      break
+                  print('Waiting for progress snapshot:', model.get('version'), model.get('available'), flush=True)
+              except Exception as e:
+                  print('Waiting for production:', str(e), flush=True)
+              time.sleep(15)
+          else:
+              raise RuntimeError('saved 75M snapshot did not become ready')
+          assert model['parameters'] == 74727168 and model['trainedSteps'] == 21299 and model['trainedTokens'] == 2726272, model
+          results = []
+          for question in ['Hello!', 'What is your name?', 'How are you?']:
+              body = json.dumps({'message': question, 'history': [], 'temperature': 0, 'seed': 1, 'maxTokens': 40}).encode()
+              for attempt in range(4):
+                  try:
+                      req = urllib.request.Request(base + '/api/llm/chat', data=body, headers={'Content-Type': 'application/json', 'Cache-Control': 'no-cache'})
+                      with urllib.request.urlopen(req, timeout=180) as r:
+                          events = [json.loads(line) for line in r.read().decode().splitlines() if line.strip()]
+                      start = next(e for e in events if e['type'] == 'start')
+                      answer = next(e for e in events if e['type'] == 'answer')
+                      assert start['model']['version'] == 'books75m-step21299'
+                      results.append({'question': question, 'answer': answer})
+                      break
+                  except Exception:
+                      if attempt == 3: raise
+                      time.sleep(8)
+          with open('live-progress-75m.json', 'w') as f:
+              json.dump({'model': model, 'temperature': 0, 'seed': 1, 'results': results}, f, indent=2)
+          print(json.dumps(results, indent=2))
+          PY
+          gh release upload infinity-qa75m-43714520168 --repo "$GITHUB_REPOSITORY" live-progress-75m.json --clobber

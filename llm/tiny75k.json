@@ -1,0 +1,12 @@
+{
+  "model": {
+    "vocab_size": 672,
+    "context": 128,
+    "n_layer": 4,
+    "n_head": 4,
+    "d_model": 32,
+    "mlp_ratio": 4,
+    "norm": "rmsnorm",
+    "tie_weights": true
+  }
+}

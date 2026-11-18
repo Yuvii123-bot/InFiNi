@@ -16,6 +16,7 @@ import numpy as np
 import torch
 
 from llm.model import InfinityLM, ModelConfig, PRESETS
+from llm.prune_layers import prune
 
 TINY = dict(vocab_size=96, context=32, n_layer=2, n_head=2, d_model=32)
 
@@ -46,6 +47,36 @@ def run(mod: str, *args: str) -> list[dict]:
 
 
 class Architecture(unittest.TestCase):
+    def test_layer_pruning_preserves_selected_weights_and_resets_state(self):
+        cfg = ModelConfig.from_dict({**TINY, 'n_layer': 4})
+        model = InfinityLM(cfg, seed=5)
+        state = {'model': model.state_dict(), 'model_config': cfg.to_dict(), 'step': 77, 'tokens_seen': 1234,
+                 'optimizer': {'unsafe_to_copy': True}, 'tokenizer_sha': 'tok'}
+        child, count = prune(state, [0, 2, 3])
+        self.assertEqual(child['step'], 0)
+        self.assertEqual(child['parent_step'], 77)
+        self.assertEqual(child['tokenizer_sha'], 'tok')
+        self.assertNotIn('optimizer', child)
+        self.assertTrue(child['optimizer_reset'])
+        smaller = InfinityLM(ModelConfig.from_dict(child['model_config']))
+        smaller.load_state_dict(child['model'])
+        self.assertEqual(count, smaller.num_params())
+        self.assertTrue(torch.equal(smaller.blocks[1].attn.qkv.weight, model.blocks[2].attn.qkv.weight))
+        self.assertEqual(smaller.tok_emb.weight.data_ptr(), smaller.head.weight.data_ptr())
+        for bad in ([], [1, 1], [3, 1], [-1], [4]):
+            with self.assertRaises(ValueError):
+                prune(state, bad)
+
+    def test_tiny75k_config_has_exactly_75040_parameters(self):
+        root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+        with open(os.path.join(root, 'llm', 'tiny75k.json')) as f:
+            cfg = ModelConfig.from_dict(json.load(f)['model'])
+        model = InfinityLM(cfg, seed=3)
+        self.assertEqual(model.num_params(), 75040)
+        self.assertEqual(cfg.vocab_size, 672)
+        logits, _ = model(torch.randint(0, cfg.vocab_size, (1, 8)))
+        self.assertEqual(logits.shape, (1, 8, 672))
+
     def test_is_a_decoder_only_transformer(self):
         m = InfinityLM(ModelConfig.from_dict(TINY), seed=1)
         names = [n for n, _ in m.named_parameters()]
@@ -181,6 +212,43 @@ class Training(unittest.TestCase):
             self.assertEqual(meta["format"], "infinity-llm/1")
             self.assertEqual(os.path.getsize(os.path.join(out, "weights.bin")), exp["params"] * 4)
             self.assertEqual(len(meta["reference"]["tokens"]), len(meta["reference"]["argmax"]))
+
+    def test_split_q8_export_import_and_shorter_training_window(self):
+        with tempfile.TemporaryDirectory() as d:
+            make_dataset(d)
+            cfg = ModelConfig.from_dict(TINY)
+            model = InfinityLM(cfg, seed=3)
+            source = os.path.join(d, "source.pt")
+            torch.save({"model": model.state_dict(), "model_config": cfg.to_dict(), "step": 7, "tokenizer_sha": "toy"}, source)
+            out = os.path.join(d, "q8")
+            exported = run("llm.export_int8", "--ckpt", source, "--out", out, "--part-bytes", "10000")[0]
+            self.assertGreater(len(exported["parts"]), 1)
+            imported = os.path.join(d, "imported.pt")
+            result = run("llm.import_weights", "--model", out, "--out", imported)[0]
+            self.assertEqual(result["step"], 7)
+            self.assertTrue(result["reference"]["ok"])
+            runp = os.path.join(d, "continued")
+            events = run("llm.train", "--data", d, "--run", runp, "--init-from", imported, "--steps", "1", "--cycle", "short", "--set", "batch_size=1", "--set", "sequence_length=16", "--set", "eval_windows=2", "--set", "nice=0", "--set", "threads=1")
+            self.assertEqual(events[-1]["step"], 8)
+            self.assertEqual(events[-1]["tokens_seen"], 16)
+            saved = torch.load(os.path.join(runp, "ckpt.pt"), map_location="cpu", weights_only=False)
+            self.assertEqual(saved["model_config"]["context"], 32)
+            self.assertEqual(saved["train_config"]["sequence_length"], 16)
+
+    def test_compare_models_on_the_same_context_windows(self):
+        with tempfile.TemporaryDirectory() as d:
+            make_dataset(d)
+            checkpoints = []
+            for context in (16, 32):
+                cfg = ModelConfig.from_dict({**TINY, "context": context})
+                model = InfinityLM(cfg, seed=1)
+                ckpt = os.path.join(d, f"{context}.pt")
+                torch.save({"model": model.state_dict(), "model_config": cfg.to_dict()}, ckpt)
+                checkpoints.append(ckpt)
+            results = run("llm.evaluate", "--data", d, "--ckpt", checkpoints[0], "--ckpt", checkpoints[1], "--context", "16", "--windows", "5", "--threads", "1")[0]["results"]
+            self.assertEqual([r["context"] for r in results], [16, 16])
+            self.assertEqual([r["tokens"] for r in results], [80, 80])
+            self.assertTrue(all(math.isfinite(r["val_loss"]) for r in results))
 
     def test_a_checkpoint_from_another_tokenizer_is_refused(self):
         with tempfile.TemporaryDirectory() as d:

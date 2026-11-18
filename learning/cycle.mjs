@@ -105,6 +105,15 @@ export async function discover({ root, engine, env = process.env, maxDocs = 0, l
 
 class Paused extends Error { constructor() { super('paused'); this.code = 'paused'; } }
 
+/** A separate architecture is trained as a challenger; production remains the quality baseline. */
+export function needsChallenger(cfg, reg) {
+  const want = cfg.model.preset;
+  if (!reg.production || !want || want === 'auto') return false;
+  const card = reg.models[reg.production] || {};
+  // A seed imported from an older snapshot may not carry its preset. Do not silently continue it as xl.
+  return card.preset ? card.preset !== want : true;
+}
+
 /**
  * @param opts.kind 'cycle' (default) | 'evaluate' (re-evaluate the production model only)
  * @returns the cycle record that was appended to cycles.jsonl
@@ -133,25 +142,23 @@ export async function runCycle({ root, engine = null, env = process.env, overrid
   const watch = setInterval(() => { if (isPaused(root) && child && cyc.run) { try { fs.writeFileSync(path.join(P.runs, cyc.run, 'stop'), 'paused'); } catch { /* run directory not there yet */ } } }, 1500);
   const finish = (outcome, extra = {}) => {
     cyc.finished = nowISO(); cyc.outcome = outcome; Object.assign(cyc, extra); saveCyc();
-    const rec = { id: cyc.id, started: cyc.started, finished: cyc.finished, seconds: Math.round((Date.parse(cyc.finished) - Date.parse(cyc.started)) / 1000), outcome, parent: cyc.parent, dataset: cyc.dataset || null, model: cyc.model || null, acquisition: cyc.acquisition || null, training: cyc.training || null, plan: cyc.plan || null, cautionAfter: cyc.cautionAfter ?? null, data: cyc.datasetSummary || null, evaluation: cyc.evaluation || null, gate: cyc.gate || null, message: cyc.message || '' };
+    const rec = { id: cyc.id, started: cyc.started, finished: cyc.finished, seconds: Math.round((Date.parse(cyc.finished) - Date.parse(cyc.started)) / 1000), outcome, parent: cyc.parent, dataset: cyc.dataset || null, model: cyc.model || null, acquisition: cyc.acquisition || null, training: cyc.training || null, plan: cyc.plan || null, screen: cyc.screen || null, cautionAfter: cyc.cautionAfter ?? null, data: cyc.datasetSummary || null, evaluation: cyc.evaluation || null, gate: cyc.gate || null, message: cyc.message || '' };
     appendLine(P.cycles, rec);
     if (['promoted', 'rejected'].includes(outcome)) clearPending(root, cyc.fresh || []);      // these documents have been trained on; from now on they are replay
-    const ok = ['promoted', 'rejected', 'no-new-data'].includes(outcome);
+    const ok = ['promoted', 'rejected', 'no-new-data', 'challenger-training'].includes(outcome);
     setState(root, { status: 'idle', phase: null, pid: null, training: null, candidate: null, message: cyc.message || outcome, lastCycle: { id: cyc.id, outcome, finished: cyc.finished }, ...(ok ? { lastSuccess: cyc.finished } : { lastError: { t: cyc.finished, message: cyc.message || outcome } }) });
     logEvent(root, 'cycle', { cycle: cyc.id, outcome, message: cyc.message || '' });
     return rec;
   };
   try {
     const reg0 = loadRegistry(root);
-    // A configured preset that differs from the production model's architecture starts a new lineage: train a
-    // fresh model of the requested size from random weights instead of continuing the small one. It is judged as
-    // a first model (it does not have to beat the small production model), and the old model stays in place until
-    // the new one is approved, so a failed attempt costs nothing.
-    const wantPreset = cfg.model.preset && cfg.model.preset !== 'auto' ? cfg.model.preset : null;
-    const prodPreset = reg0.production ? (reg0.models[reg0.production] || {}).preset : null;
-    const newLineage = !!(wantPreset && prodPreset && wantPreset !== prodPreset);
+    // Freeze the architecture decision for an interrupted cycle. A pre-upgrade cycle with an existing dataset
+    // is completed with its original production architecture rather than reusing it for a new challenger.
+    if (cyc.newLineage == null) cyc.newLineage = cyc.phases.dataset ? false : needsChallenger(cfg, reg0);
+    const newLineage = cyc.newLineage;
     const bootstrap = !reg0.production || newLineage;
-    cyc.newLineage = newLineage;
+    if (newLineage) cyc.parent = null;
+    saveCyc();
     // ---------- A–D: discover, acquire, process, verify ----------
     if (!cyc.phases.acquire) {
       phase('acquire', 'finding and reading new documents');
@@ -172,14 +179,15 @@ export async function runCycle({ root, engine = null, env = process.env, overrid
       const version = nextId('d', listDirs(P.datasets));
       const tokenizer = readJSON(P.tokenizer, null);
       const context = bootstrap ? null : loadRegistry(root).models[reg0.production].context;
-      const hw = bootstrap ? await probeHardware(root, cfg, { bench: true, env }) : readJSON(path.join(root, 'hardware.json'), null) || await probeHardware(root, cfg, { env });
+      // Probing with the old fixed batch of 16 across large presets can OOM before training even starts.
+      const hw = bootstrap ? await probeHardware(root, cfg, { bench: cfg.model.preset === 'auto', env }) : readJSON(path.join(root, 'hardware.json'), null) || await probeHardware(root, cfg, { env });
       if (bootstrap) { cyc.preset = cfg.model.preset === 'auto' ? (hw.recommended_preset || 'micro') : cfg.model.preset; cyc.hardware = hw.hardware || null; }
       const ctxLen = context || ((hw.presets && hw.presets[cyc.preset]) || { context: 256 }).context;
       const built = buildDataset({ dir: path.join(P.datasets, version), version, docs: loadCorpus(root), freshIds: bootstrap ? null : cyc.fresh, cfg, tokenizer, context: ctxLen, cycle: cyc.id, parent: (reg0.models[reg0.production] || {}).dataset || '', seed: 11 + listDirs(P.datasets).length, log: note, dialogue: buildDialogue({ seed: 7, conversations: cfg.dialogue.conversations }) });
       if (!tokenizer) writeJSON(P.tokenizer, built.tokenizer);
       // a dataset in which benchmark or validation material is found is never trained on
-      { const it = built.manifest.integrity; const leaks = (it.benchmarkSentencesInTraining || 0) + (it.valDocumentsInTraining || 0) + (it.valHashesInTraining || 0);
-        if (leaks) { cyc.message = `dataset ${version} failed its contamination check (${it.benchmarkSentencesInTraining || 0} benchmark sentences, ${(it.valDocumentsInTraining || 0) + (it.valHashesInTraining || 0)} validation documents in the training text): not trained`; cyc.datasetSummary = { integrity: it }; return finish('error'); } }
+      { const it = built.manifest.integrity; const benchmarkLeaks = (it.benchmarkSentencesInTraining || 0) + (it.benchmarkPhrasesInDialogue || 0); const leaks = benchmarkLeaks + (it.valDocumentsInTraining || 0) + (it.valHashesInTraining || 0);
+        if (leaks) { cyc.message = `dataset ${version} failed its contamination check (${benchmarkLeaks} benchmark sentences, ${(it.valDocumentsInTraining || 0) + (it.valHashesInTraining || 0)} validation documents in the training text): not trained`; cyc.datasetSummary = { integrity: it }; return finish('error'); } }
       cyc.dataset = version; cyc.datasetSummary = { tokens: built.manifest.tokens, documents: built.manifest.documents, mixture: built.manifest.mixture, integrity: built.manifest.integrity };
       cyc.phases.dataset = nowISO(); saveCyc();
       note(`dataset ${version}: ${built.manifest.tokens.train} training tokens, ${built.manifest.tokens.validation} validation tokens, mixture ${JSON.stringify(built.manifest.mixture)}`);
@@ -187,7 +195,9 @@ export async function runCycle({ root, engine = null, env = process.env, overrid
     const dataDir = path.join(P.datasets, cyc.dataset);
     const manifest = readJSON(path.join(dataDir, 'dataset.json'));
     // ---------- F: training ----------
-    cyc.run = cyc.run || cyc.id;
+    // Each challenger preset has one persistent run; new cycles resume its optimizer and weights.
+    if (newLineage && !/^[a-z0-9_-]+$/i.test(cyc.preset || '')) throw new Error('invalid challenger preset');
+    cyc.run = cyc.run || (newLineage ? `challenger-${cyc.preset}` : cyc.id);
     const runDir = path.join(P.runs, cyc.run);
     if (!cyc.phases.train) {
       const hw = readJSON(path.join(root, 'hardware.json'), {}) || {};
@@ -241,6 +251,24 @@ export async function runCycle({ root, engine = null, env = process.env, overrid
       cyc.phases.train = nowISO(); saveCyc();
       note(`training ended (${end.reason}) at step ${end.step}, validation loss ${end.val_loss}`);
     }
+    // Do a cheap same-window loss screen before exporting a very large candidate and running the JS probes.
+    // If it is not ready yet, keep its optimizer/checkpoint and train it again in the next cycle.
+    if (newLineage && reg0.production) {
+      phase('evaluate', 'checking the challenger against production on the same validation windows');
+      const context = Math.min(manifest.context, reg0.models[reg0.production]?.context || manifest.context);
+      const r = await runPython(cfg, ['llm.evaluate', '--data', dataDir, '--ckpt', path.join(runDir, 'ckpt.pt'), '--ckpt', path.join(modelDir(root, reg0.production), 'ckpt.pt'), '--context', String(context), '--windows', String(cfg.cycle.evalWindows), '--threads', String(cfg.resources.threads)], { env });
+      const result = r.code === 0 ? parseOut(r.all) : null;
+      if (!result || result.results?.length !== 2 || !Number.isFinite(result.results[0].val_loss) || !Number.isFinite(result.results[1].val_loss)) {
+        cyc.message = `challenger loss screening failed: ${(r.stderr || '').trim().split('\n').pop() || 'invalid results'}`;
+        return finish('evaluation-failed');
+      }
+      const [candidate, production] = result.results;
+      cyc.screen = { candidate: candidate.val_loss, production: production.val_loss, context, windows: candidate.windows };
+      if (candidate.val_loss > production.val_loss + cfg.gate.maxLossRegression) {
+        cyc.message = `challenger ${cyc.preset} remains in training: held-out loss ${candidate.val_loss} vs ${production.val_loss}; production ${reg0.production} is unchanged`;
+        return finish('challenger-training');
+      }
+    }
     // ---------- export the candidate ----------
     const reg1 = loadRegistry(root);
     if (!cyc.phases.export) {
@@ -248,7 +276,12 @@ export async function runCycle({ root, engine = null, env = process.env, overrid
       cyc.model = cyc.model || nextId('m', [...Object.keys(reg1.models), ...listDirs(P.models)]);
       const mdir = modelDir(root, cyc.model);
       fs.mkdirSync(mdir, { recursive: true });
-      fs.copyFileSync(path.join(runDir, 'ckpt.pt'), path.join(mdir, 'ckpt.pt'));
+      // Both paths are on the state filesystem. A hard link avoids duplicating a multi-gigabyte optimizer
+      // checkpoint in the session archive; atomic trainer saves replace the run path without modifying this snapshot.
+      const candidateCheckpoint = path.join(mdir, 'ckpt.pt');
+      fs.rmSync(candidateCheckpoint, { force: true });
+      try { fs.linkSync(path.join(runDir, 'ckpt.pt'), candidateCheckpoint); }
+      catch { fs.copyFileSync(path.join(runDir, 'ckpt.pt'), candidateCheckpoint); }
       const r = await runPython(cfg, ['llm.export', '--ckpt', path.join(mdir, 'ckpt.pt'), '--out', mdir, '--dtype', 'f16'], { env });
       if (r.code !== 0) { cyc.message = `export failed: ${r.stderr.trim().split('\n').pop()}`; return finish('export-failed'); }
       fs.copyFileSync(P.tokenizer, path.join(mdir, 'tokenizer.json'));
@@ -258,12 +291,12 @@ export async function runCycle({ root, engine = null, env = process.env, overrid
     }
     // ---------- G: evaluation and the promotion gate ----------
     phase('evaluate', 'measuring the candidate against the production model on held-out data and the fixed benchmark');
-    // a new-lineage model (a bigger architecture trained from scratch) is judged as a first model: it does not
-    // have to beat the small production model, which stays in place until the new one is approved
-    const prodId = newLineage ? null : reg1.production;
+    // A challenger must pass the same quality gate against the current production model.
+    const prodId = reg1.production;
     setState(root, { candidate: { id: cyc.model, parent: cyc.parent, dataset: cyc.dataset, since: nowISO() } });
     const ckpts = [path.join(modelDir(root, cyc.model), 'ckpt.pt'), ...(prodId ? [path.join(modelDir(root, prodId), 'ckpt.pt')] : [])];
-    const ev = await runPython(cfg, ['llm.evaluate', '--data', dataDir, ...ckpts.flatMap((c) => ['--ckpt', c]), '--windows', String(cfg.cycle.evalWindows), '--threads', String(cfg.resources.threads)], { env });
+    const comparisonContext = prodId ? Math.min(manifest.context, reg1.models[prodId]?.context || manifest.context) : manifest.context;
+    const ev = await runPython(cfg, ['llm.evaluate', '--data', dataDir, ...ckpts.flatMap((c) => ['--ckpt', c]), '--context', String(comparisonContext), '--windows', String(cfg.cycle.evalWindows), '--threads', String(cfg.resources.threads)], { env });
     const losses = ev.code === 0 ? parseOut(ev.all) : null;
     if (!losses) { cyc.message = `evaluation failed: ${ev.stderr.trim().split('\n').pop()}`; reject(root, cyc.model, { reason: cyc.message }); return finish('evaluation-failed'); }
     const cand = { id: cyc.model, ...pickLoss(losses.results[0]), probes: await evaluateModel(modelDir(root, cyc.model), dataDir) };
@@ -283,12 +316,14 @@ export async function runCycle({ root, engine = null, env = process.env, overrid
     }
     if (gate.pass) {
       promote(root, cyc.model, { reason: prod ? `passed all ${gate.checks.length} checks against ${prodId}` : `first model; passed all ${gate.checks.length} checks`, by: 'gate' });
+      if (newLineage) fs.rmSync(path.join(runDir, 'ckpt.pt'), { force: true }); // the promoted model has its own link
       const bs = (m) => (m.probes.benchmark ? m.probes.benchmark.score : 'n/a');
       cyc.message = prod ? `${cyc.model} replaced ${prodId} (held-out loss ${cand.val_loss} vs ${prod.val_loss}; benchmark ${bs(cand)} vs ${bs(prod)})` : `${cyc.model} is the first production model (held-out loss ${cand.val_loss}; benchmark ${bs(cand)})`;
       return finish('promoted');
     }
     const failed = gate.checks.filter((c) => !c.pass).map((c) => `${c.name} [${c.detail}]`).join('; ');
     reject(root, cyc.model, { reason: failed });
+    if (newLineage) fs.rmSync(path.join(modelDir(root, cyc.model), 'ckpt.pt'), { force: true }); // retain the trainable run instead
     cyc.message = `${cyc.model} was not promoted: ${failed}. ${prodId ? prodId + ' stays in production.' : 'There is still no production model.'}`;
     return finish('rejected');
   } catch (e) {

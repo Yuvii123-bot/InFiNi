@@ -11,17 +11,28 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { createEngine, loadConfig, VERSION } from '../engine/index.js';
+import { createEngine, loadConfig, VERSION, blocksToText } from '../engine/index.js';
+import { polishCombined, webModelEvidence } from '../engine/neural/combined.js';
+import { citeWebDraft } from '../engine/neural/web-citations.js';
 import { BlockedError } from '../engine/net/guard.js';
 import crypto from 'node:crypto';
 import { createNeural, lean } from '../engine/neural/service.js';
 import { createChannel } from '../engine/neural/channel.js';
+import { createPinnedChannel, pinnedManifest } from '../engine/neural/pinned-channel.js';
 import { createManager } from '../learning/manager.mjs';
 import { BUNDLED as BUNDLED_MODEL } from '../learning/store.mjs';
 
 const ROOT = path.join(path.dirname(fileURLToPath(import.meta.url)), '..', 'public');
 const MIME = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.css': 'text/css; charset=utf-8', '.json': 'application/json; charset=utf-8', '.webmanifest': 'application/manifest+json; charset=utf-8', '.svg': 'image/svg+xml', '.png': 'image/png', '.ico': 'image/x-icon', '.txt': 'text/plain; charset=utf-8' };
 const MAX_BODY = 64 * 1024;
+
+// The deployed model's greeting training is case- and punctuation-sensitive.
+// Normalize only standalone greetings, never answers or multi-part questions.
+function conversationPrompt(question) {
+  const q = String(question).trim();
+  const greeting = q.match(/^(hi|hello)[!]?$/i);
+  return greeting ? greeting[1][0].toUpperCase() + greeting[1].slice(1).toLowerCase() + '!' : question;
+}
 
 let REGION = null;
 function countryName(code) {
@@ -56,7 +67,7 @@ export function createApp(cfg = loadConfig()) {
     try { const dir = llm.bundled || BUNDLED_MODEL; const snap = JSON.parse(fs.readFileSync(path.join(dir, 'snapshot.json'), 'utf8')); const meta = JSON.parse(fs.readFileSync(path.join(dir, 'current', 'model.json'), 'utf8')); shippedMemo = snap.registry && snap.registry.production && meta.sha256 ? { id: snap.registry.production, sha256: meta.sha256 } : null; } catch { shippedMemo = null; }
     return shippedMemo;
   };
-  const channel = llm.enabled && llm.channel ? createChannel({ url: llm.channel, dir: llm.channelDir || '', intervalMs: (llm.channelSeconds || 300) * 1000, log, shipped: shippedModel, ...(cfg.fetchImpl ? { fetchImpl: cfg.fetchImpl } : {}) }) : null;
+  const channel = llm.enabled && llm.pinnedModel ? createPinnedChannel({ manifest: pinnedManifest(llm.pinnedVersion), log, ...(cfg.fetchImpl ? { fetchImpl: cfg.fetchImpl } : {}) }) : llm.enabled && llm.channel ? createChannel({ url: llm.channel, dir: llm.channelDir || '', intervalMs: (llm.channelSeconds || 300) * 1000, log, shipped: shippedModel, ...(cfg.fetchImpl ? { fetchImpl: cfg.fetchImpl } : {}) }) : null;
   const neural = llm.enabled ? createNeural({ root: llm.dir, minLogProb: llm.minLogProb, minAgreement: llm.minAgreement, log, bundled: llm.bundled || undefined, channel }) : null;
   /** Look at the channel when the last look is old. The first look of a process is waited for; later ones only briefly. */
   async function modelSync() { if (!channel || !channel.stale()) return; const changed = await channel.syncWithin(channel.everChecked() ? 2500 : 12000); if (changed && neural) neural.refresh(true); }
@@ -136,13 +147,73 @@ export function createApp(cfg = loadConfig()) {
       // the device's time zone (for "what time is it") and the country the edge reports (only used to phrase a helpline search)
       const tz = typeof body.tz === 'string' && /^[A-Za-z_+\-/0-9]{2,48}$/.test(body.tz) ? body.tz : '';
       const cc = cfg.trustProxy ? String(req.headers['x-vercel-ip-country'] || '').toUpperCase() : '';
-      // With the model switched on, the engine's finished answer is held back for a moment: the model writes its part
-      // (streamed as "token" events) and the combined answer is sent. A client can opt out per request (settings.neural === false).
-      const useNeural = !!(neural && neural.ready() && !(body.settings && typeof body.settings === 'object' && body.settings.neural === false));
+      // Combined mode keeps everyday conversation and local skills off the web, and
+      // searches for knowledge. The experimental model highlight is opt-in: it does not
+      // improve factual accuracy and can add several seconds to an otherwise ready answer.
+      const settings = body.settings && typeof body.settings === 'object' && !Array.isArray(body.settings) ? { ...body.settings } : {};
+      const webInLlm = settings.mode === 'webinllm';
+      const combined = settings.mode === 'combined' || webInLlm;
+      if (combined) settings.neural = true;
+      const useNeural = !!(neural && neural.ready() && settings.neural !== false);
+      const holdAnswer = useNeural || combined;
       let held = null;
-      const onEvent = useNeural ? (ev) => { if (ev && ev.type === 'answer') held = ev.result; else send(ev); } : (ev) => send(ev && ev.type === 'answer' ? { ...ev, result: lean(ev.result) } : ev);
-      let result = await engine.ask({ question: body.question, context: body.context, settings: body.settings, learned: body.learned, regenerate: body.regenerate === true, tz, country: countryName(cc), researchAllowed: () => researchAllowed(ip) }, { signal: ac.signal, onEvent });
-      if (useNeural && held) { result = await neural.enhance({ result: held, question: body.question, history: body.history, send, signal: ac.signal }); send({ type: 'answer', result }); }
+      const onEvent = holdAnswer ? (ev) => { if (ev && ev.type === 'answer') held = ev.result; else if (!(webInLlm && ev?.type === 'draft')) send(ev); } : (ev) => send(ev && ev.type === 'answer' ? { ...ev, result: lean(ev.result) } : ev);
+      let result = await engine.ask({ question: body.question, context: body.context, settings, learned: body.learned, regenerate: body.regenerate === true, tz, country: countryName(cc), researchAllowed: () => researchAllowed(ip) }, { signal: ac.signal, onEvent });
+      if (holdAnswer && held) {
+        if (combined) held = polishCombined(held, body.question, blocksToText);
+        const highlight = combined && !webInLlm && held.kind === 'retrieval' && settings.combinedHighlight === true;
+        if (highlight && useNeural) send({ type: 'note', stage: 'constructing', text: 'Infinity LLM is comparing short excerpts from the cited answer.' });
+        const chatHistory = combined && Array.isArray(body.history) ? body.history.slice(-2).filter(t => Array.isArray(t) && typeof t[0] === 'string' && typeof t[1] === 'string').map(t => [t[0].slice(0, 160), t[1].slice(0, 240)]) : body.history;
+        // In combined mode the brain is a router only: never substitute its canned
+        // conversational answer, even when generation fails. Safety responses remain
+        // authoritative. Source-based retrieval remains separate from chat generation.
+        const modelTurn = combined && held.kind !== 'retrieval' && held.origin !== 'safety';
+        if (webInLlm && held.kind === 'retrieval') {
+          const evidence = webModelEvidence(held);
+          if (evidence.length && useNeural) send({ type: 'note', stage: 'constructing', text: 'Infinity LLM is processing the retrieved information.' });
+          const g = evidence.length && useNeural ? await neural.webAnswer({ question: held.interpretation?.resolved || body.question, evidence, signal: ac.signal }) : { ok: false, reason: !evidence.length ? 'No suitable cited web evidence was available.' : 'Infinity LLM is unavailable.' };
+          const selected = g.ok ? (g.usedIndices || []).map(i => evidence[i]).filter(Boolean) : [];
+          // Citations are linked only by conservative wording matching. An unmatched
+          // answer is still the model's own output, but is explicitly uncited and
+          // unverified; never trust citation numbers invented by the model.
+          const draft = g.ok && selected.length ? String(g.text || '').replace(/\[\s*\d+(?:\s*,\s*\d+)*\s*\]/g, '').trim() : '';
+          const spans = draft && g.ended ? citeWebDraft(draft, selected) : null;
+          const cited = new Set((spans || []).flatMap(s => s.cites));
+          const sources = (held.sources || []).filter(s => cited.has(s.id)).map(s => ({ ...s, passages: selected.filter(e => e.cites.includes(s.id)).map(e => ({ text: e.text })) }));
+          const freshness = draft ? (held.answer.blocks || []).filter(b => b.type === 'note' && /recent|latest developments/i.test(b.text || '')) : [];
+          const blocks = draft ? [
+            { type: 'paragraph', spans: spans || [{ text: draft, cites: [] }] }, ...freshness,
+            { type: 'note', tone: 'warn', text: spans ? 'References are linked by wording overlap with the supplied passages, not independently fact-checked. Check the sources, especially for important decisions.' : 'Unverified model answer: it could not be linked to the supplied sources and may be incorrect or unrelated. No references are attached.' },
+            ...(!g.ended ? [{ type: 'note', tone: 'warn', text: 'The model stopped before completing its answer.' }] : []),
+          ] : [{ type: 'paragraph', spans: [{ text: !evidence.length ? 'I could not find enough suitable source material to answer this question.' : 'Infinity LLM could not generate an answer. Please try again.', cites: [] }] }];
+          result = { ...lean(held), sources, research: null, confidence: null, suggestions: [], answer: { blocks, text: blocksToText(blocks) }, neural: { used: !!draft, mode: draft ? 'web-synthesis' : 'web-error', ...(g.model ? { model: g.model } : {}), ...(draft ? { tokens: g.tokens, ms: g.ms, ended: !!g.ended, excerpts: selected.length, citationCheck: spans ? 'lexical association; not a fact check' : 'no matching source', cited: !!spans } : { reason: g.reason || 'The model produced no usable text.' }) } };
+
+        } else if (modelTurn) {
+          const g = useNeural ? await neural.chat({ user: conversationPrompt(body.question), history: chatHistory, signal: ac.signal, temperature: 0, maxNew: 48, calculateRoute: false }) : null;
+          const usable = !!(g && typeof g.text === 'string' && g.text.trim() && !g.loop && !ac.signal.aborted);
+          const text = usable ? g.text.trim() : 'The language model could not generate a reply. Please try again.';
+          const context = held.context?.brain ? { ...held.context, brain: { ...held.context.brain, lastText: usable ? text.slice(0, 400) : '', expect: null } } : held.context;
+          const blocks = [{ type: 'paragraph', spans: [{ text, cites: [] }] }, ...(usable && !g.ended ? [{ type: 'note', tone: 'warn', text: 'The model stopped before completing its reply.' }] : [])];
+          result = { ...lean(held), context, suggestions: [], origin: usable ? 'neural' : 'model_unavailable', confidence: null,
+            answer: { blocks, text: blocksToText(blocks) },
+            neural: usable ? { used: true, mode: 'chat', model: g.model, tokens: g.tokens, ms: g.ms, tokensPerSecond: g.tokensPerSecond, ended: g.ended } : { used: false, mode: 'chat', reason: g?.reason || 'model unavailable' } };
+          if (usable) {
+            send({ type: 'token', start: true, mode: 'chat', model: g.model });
+            for (const piece of text.match(/\S+\s*/g) || [text]) send({ type: 'token', text: piece });
+          }
+        } else if (!useNeural || (combined && (held.origin === 'safety' || (held.kind === 'retrieval' && !highlight)))) result = lean(held);
+        else if (highlight) result = await neural.enhanceCombined({ result: held, question: body.question, signal: ac.signal });
+        else result = await neural.enhance({ result: held, question: body.question, history: chatHistory, send, signal: ac.signal });
+        if (combined) {
+          const used = !!result.neural?.used;
+          const mode = webInLlm && result.kind === 'retrieval' ? (used ? 'web-synthesis' : 'web-error') : used && result.neural.mode === 'highlight' ? 'highlight' : used && result.neural.mode === 'chat' ? 'chat' : modelTurn ? 'error' : result.kind === 'retrieval' ? (highlight ? 'fallback' : 'web') : 'local';
+          result.combined = { used, mode };
+          if (mode === 'fallback') result.combined.reason = !useNeural ? 'Model highlight unavailable; showing the cited web answer.' : result.neural?.reason || 'No eligible cited evidence was available for model selection.';
+          if (mode === 'error') result.combined.reason = 'Language model unavailable or unable to finish.';
+          if (mode === 'web-error') result.combined.reason = 'The model could not generate an answer.';
+        }
+        send({ type: 'answer', result });
+      }
       send({ type: 'done', ms: Date.now() - t0 });
       log({ ev: 'ask', ms: Date.now() - t0, kind: result.kind, neural: result.neural ? (result.neural.used ? result.neural.mode : 'fallback') : undefined, depth: result.depth ? result.depth.used : null, pages: result.run ? result.run.pages : undefined, confidence: result.confidence ? result.confidence.level : null, sources: result.sources.length, ...(process.env.LOG_QUESTIONS === '1' ? { q: body.question.slice(0, 200) } : {}) });
     } catch (e) {
@@ -246,7 +317,11 @@ export function createApp(cfg = loadConfig()) {
     try { url = new URL(req.url, 'http://localhost'); } catch { return json(res, 400, { error: 'bad_request' }); }
     const p = url.pathname;
     try {
-      if (p === '/api/ask') return req.method === 'POST' ? await ask(req, res) : json(res, 405, { error: 'method_not_allowed' }, { Allow: 'POST' });
+      if (p === '/api/ask') {
+        if (req.method !== 'POST') return json(res, 405, { error: 'method_not_allowed' }, { Allow: 'POST' });
+        if (channel) { await modelSync(); if (neural) neural.refresh(); }
+        return await ask(req, res);
+      }
       if (p === '/api/preview') return req.method === 'POST' ? await preview(req, res) : json(res, 405, { error: 'method_not_allowed' }, { Allow: 'POST' });
       if (p === '/api/health') return json(res, 200, { ok: true, version: VERSION });
       if (channel && (p.startsWith('/api/llm/') || p === '/api/ask' || p === '/api/status')) { await modelSync(); if (neural) neural.refresh(); }

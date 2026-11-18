@@ -11,11 +11,18 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import crypto from 'node:crypto';
+import { Readable } from 'node:stream';
+import { pipeline } from 'node:stream/promises';
 import { paths, readJSON, writeJSON, readLines, nowISO, loadConfig } from './store.mjs';
 import { loadRegistry, modelDir } from './registry.mjs';
 import { snapshot } from './cycle.mjs';
 
-const sha256File = (f) => crypto.createHash('sha256').update(fs.readFileSync(f)).digest('hex');
+const sha256File = (f) => {
+  const hash = crypto.createHash('sha256'), fd = fs.openSync(f, 'r'), buffer = Buffer.allocUnsafe(1024 * 1024);
+  try { let n; while ((n = fs.readSync(fd, buffer, 0, buffer.length, null)) > 0) hash.update(buffer.subarray(0, n)); }
+  finally { fs.closeSync(fd); }
+  return hash.digest('hex');
+};
 export const CHANNEL_FORMAT = 'infinity-channel/1';
 
 /**
@@ -68,8 +75,9 @@ export function publishDir(built, dest) {
 // ---------- GitHub release as the channel (public repositories serve release assets to anyone, without a token) ----------
 function gh({ token, api = 'https://api.github.com', uploads = 'https://uploads.github.com', fetchImpl = fetch }) {
   const headers = { Accept: 'application/vnd.github+json', 'X-GitHub-Api-Version': '2022-11-28', 'User-Agent': 'infinity-llm-worker', ...(token ? { Authorization: `Bearer ${token}` } : {}) };
-  const call = async (method, url, { body = null, type = 'application/json', accept = null, ok = [200, 201, 204] } = {}) => {
-    const res = await fetchImpl(url, { method, headers: { ...headers, ...(accept ? { Accept: accept } : {}), ...(body != null ? { 'Content-Type': type } : {}) }, body: body == null ? undefined : (type === 'application/json' ? JSON.stringify(body) : body), redirect: 'follow' });
+  const call = async (method, url, { body = null, type = 'application/json', accept = null, ok = [200, 201, 204], size = null } = {}) => {
+    const stream = body instanceof Readable;
+    const res = await fetchImpl(url, { method, headers: { ...headers, ...(accept ? { Accept: accept } : {}), ...(body != null ? { 'Content-Type': type } : {}), ...(size != null ? { 'Content-Length': String(size) } : {}) }, body: body == null ? undefined : (type === 'application/json' ? JSON.stringify(body) : body), ...(stream ? { duplex: 'half' } : {}), redirect: 'follow' });
     if (!ok.includes(res.status)) { const text = await res.text().catch(() => ''); throw Object.assign(new Error(`GitHub ${method} ${new URL(url).pathname} → ${res.status} ${text.slice(0, 160)}`), { status: res.status }); }
     return res;
   };
@@ -96,8 +104,18 @@ export async function publishGithub({ dir, files, repo, tag, token, api, uploads
   for (const f of files) {
     const full = path.join(dir, f), size = fs.statSync(full).size, old = byName.get(f);
     if (old && /^m\d+\./.test(f) && old.size === size && old.state === 'uploaded') { skipped++; continue; }
-    if (old) await c.call('DELETE', `${c.api}/repos/${repo}/releases/assets/${old.id}`, { ok: [204, 404] });
-    await c.call('POST', `${c.uploads}/repos/${repo}/releases/${rel.id}/assets?name=${encodeURIComponent(f)}`, { body: fs.readFileSync(full), type: 'application/octet-stream' });
+    // Upload a new checkpoint before removing the prior one. If the final rename fails, state-pull can recover
+    // the fully uploaded staging asset. Other channel files retain their existing pointer-last semantics.
+    const staged = f === 'state.tar.gz';
+    const uploadName = staged ? `state-staging-${Date.now()}-${crypto.randomBytes(4).toString('hex')}.tar.gz` : f;
+    if (old && !staged) await c.call('DELETE', `${c.api}/repos/${repo}/releases/assets/${old.id}`, { ok: [204, 404] });
+    const response = await c.call('POST', `${c.uploads}/repos/${repo}/releases/${rel.id}/assets?name=${encodeURIComponent(uploadName)}`, { body: size > 64 * 1024 * 1024 ? fs.createReadStream(full) : fs.readFileSync(full), type: 'application/octet-stream', size });
+    if (staged) {
+      const asset = await response.json();
+      if (old) await c.call('DELETE', `${c.api}/repos/${repo}/releases/assets/${old.id}`, { ok: [204, 404] });
+      await c.call('PATCH', `${c.api}/repos/${repo}/releases/assets/${asset.id}`, { body: { name: f } });
+      for (const a of assets) if (/^state-staging-.*\.tar\.gz$/.test(a.name)) await c.call('DELETE', `${c.api}/repos/${repo}/releases/assets/${a.id}`, { ok: [204, 404] });
+    }
     uploaded++;
   }
   if (keep) for (const a of assets) { const m = /^(m\d+)\./.exec(a.name); if (m && !keep.includes(m[1])) { await c.call('DELETE', `${c.api}/repos/${repo}/releases/assets/${a.id}`, { ok: [204, 404] }); removed++; } }
@@ -109,11 +127,14 @@ export async function fetchGithubAsset({ repo, tag, name, token, api, fetchImpl,
   const c = gh({ token, api, fetchImpl });
   let rel;
   try { rel = await (await c.call('GET', `${c.api}/repos/${repo}/releases/tags/${encodeURIComponent(tag)}`)).json(); } catch (e) { if (e.status === 404) return null; throw e; }
-  const asset = (await listAssets(c, repo, rel.id)).find((a) => a.name === name);
+  const assets = await listAssets(c, repo, rel.id);
+  const asset = assets.find((a) => a.name === name && a.state === 'uploaded') || (name === 'state.tar.gz' ? assets.filter((a) => /^state-staging-.*\.tar\.gz$/.test(a.name) && a.state === 'uploaded').sort((a, b) => b.name.localeCompare(a.name))[0] : null);
   if (!asset) return null;
   const res = await c.call('GET', `${c.api}/repos/${repo}/releases/assets/${asset.id}`, { accept: 'application/octet-stream' });
   fs.mkdirSync(path.dirname(to), { recursive: true });
-  fs.writeFileSync(to, Buffer.from(await res.arrayBuffer()));
+  // Release checkpoints may be over a gigabyte: stream them instead of buffering the whole archive in memory.
+  if (res.body) await pipeline(Readable.fromWeb(res.body), fs.createWriteStream(to));
+  else fs.writeFileSync(to, Buffer.from(await res.arrayBuffer()));
   return { file: to, bytes: fs.statSync(to).size, updated: asset.updated_at };
 }
 

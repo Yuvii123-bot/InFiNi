@@ -213,7 +213,14 @@ export function buildDataset({ dir, version, docs, freshIds = null, cfg, tokeniz
   benchRemoved = 0;
   fs.mkdirSync(dir, { recursive: true });
   const r = rng(seed);
-  const dlg = dialogue || buildDialogue({ seed: 7 });
+  const sourceDialogue = dialogue || buildDialogue({ seed: 7 });
+  const bench = benchSet();
+  // Filter complete conversations before tokenizer training as well as shard construction. A benchmark reply
+  // embedded in a longer turn is still a leak; removing the whole conversation keeps its context coherent.
+  const leaksBenchmark = (text) => isBenchmarkSentence(bench, text) || containsBenchmark(bench, text);
+  const trainDialogue = sourceDialogue.train.filter((c) => !c.some(([u, a]) => leaksBenchmark(u) || leaksBenchmark(a)));
+  const dialogueRemoved = sourceDialogue.train.length - trainDialogue.length;
+  const dlg = { ...sourceDialogue, train: trainDialogue };
   const fresh = new Set(freshIds || docs.map((d) => d.id));
   const trainDocs = docs.filter((d) => d.split === 'train'), valDocs = docs.filter((d) => d.split === 'val');
   let spec = tokenizer;
@@ -277,12 +284,11 @@ export function buildDataset({ dir, version, docs, freshIds = null, cfg, tokeniz
   writeJSON(path.join(dir, 'memprobe.json'), memprobe);
   // contamination check, by actual intersection
   const valIds = new Set(valDocs.map((d) => d.id));
-  const bench = benchSet();
-  const benchHits = [...dlg.train.flatMap((c) => c.flatMap(([u, a]) => [u, a]))].filter((t) => isBenchmarkSentence(bench, t)).length;
+  const benchHits = [...dlg.train.flatMap((c) => c.flatMap(([u, a]) => [u, a]))].filter(leaksBenchmark).length;
   // measured on the written shards, not assumed: every benchmark sentence is searched in the decoded document text
   const written = ' ' + documentText.join(' ') + ' ';
   const benchFound = [...bench].filter((b) => b.length >= 24 && written.includes(' ' + b + ' ')).length;
-  const integrity = { benchmark: (loadBenchmarkId()), benchmarkSentencesInTraining: benchFound, benchmarkSentencesRemoved: benchRemoved, benchmarkPhrasesInDialogue: benchHits, valDocumentsInTraining: trainDocs.filter((d) => valIds.has(d.id)).length, valHashesInTraining: trainDocs.filter((d) => valDocs.some((v) => v.contentHash === d.contentHash)).length, valPhrasingsInTraining: dlg.stats.valPhrasingsInTrain };
+  const integrity = { benchmark: (loadBenchmarkId()), benchmarkSentencesInTraining: benchFound, benchmarkSentencesRemoved: benchRemoved, benchmarkPhrasesInDialogue: benchHits, benchmarkConversationsRemoved: dialogueRemoved, valDocumentsInTraining: trainDocs.filter((d) => valIds.has(d.id)).length, valHashesInTraining: trainDocs.filter((d) => valDocs.some((v) => v.contentHash === d.contentHash)).length, valPhrasingsInTraining: dlg.stats.valPhrasingsInTrain };
   writeJSON(path.join(dir, 'documents.json'), docs.map((d) => ({ id: d.id, url: d.url, title: d.title, licence: d.licence.id, split: d.split, group: d.split === 'val' ? 'web-val' : fresh.has(d.id) ? 'fresh' : 'replay', weight: d.weight, verification: d.verification.status, score: d.verification.score, cycle: d.cycle })));
   const manifest = {
     version, created: nowISO(), cycle, parent, vocab_size: tok.vocabSize, tokenizer_sha: spec.sha256, context,

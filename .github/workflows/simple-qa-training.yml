@@ -1,0 +1,83 @@
+name: Train 117M on simple Q&A
+
+on:
+  push:
+    paths: ['.github/workflows/simple-qa-training.yml']
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  train:
+    runs-on: ubuntu-latest
+    timeout-minutes: 50
+    concurrency:
+      group: infini-simple-qa-training
+      cancel-in-progress: false
+    env:
+      GH_TOKEN: ${{ github.token }}
+      OMP_NUM_THREADS: '2'
+      MKL_NUM_THREADS: '2'
+      TOKENIZERS_PARALLELISM: 'false'
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install CPU training dependencies
+        run: |
+          python3 -m venv .venv
+          .venv/bin/pip install --quiet --index-url https://download.pytorch.org/whl/cpu torch
+          .venv/bin/pip install --quiet numpy
+      - name: Fetch the exact deployed 117M model
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p data/llm/qa-base
+          download() { curl --fail --location --retry 3 --max-time 300 "https://drive.usercontent.google.com/download?id=$1&export=download&confirm=t" -o "data/llm/qa-base/$2"; }
+          download 1Ncy43yTonMQBzJtQcqEoGDGNDzyoCOlc model.json
+          download 1WHfsSSFRSM4YHr8j7YA8KcHkXCDgW3Nn tokenizer.json
+          download 1Qy1NDqQfI7Wzjqhtzrk8ulg-GzAvZFJ9 weights.0.bin
+          download 1de7ZZ3sVyqd7g3ARDurLCpoT_wGiLf6p weights.1.bin
+          cd data/llm/qa-base
+          sha256sum -c <<'SHA'
+          8ac8bd16cc036c435b5ca28823e44d4e408d45e4f9820c8b7a2752065664a7cf  model.json
+          3c5373f704c5191c66819c1114c642efc0b54bbede23b337623ce8e3f93f1ce8  tokenizer.json
+          599e5e9cc48980ab4d4e0ab74b9af11f4db933a3903c7c074cb0f47b5a69c9cd  weights.0.bin
+          646a24402e13e5ae3e6e32add453e9e4bedcfecf3e9ac73ecf67d8f61c3a9dd7  weights.1.bin
+          SHA
+      - name: Build tens of thousands of Q&A conversations
+        run: |
+          set -euo pipefail
+          node learning/qa-dataset.mjs data/llm/datasets/simple-qa-v1 > data/llm/qa-dataset-report.json
+          .venv/bin/python -c 'import json; m=json.load(open("data/llm/qa-dataset-report.json")); assert m["counts"]["dialogue"]["conversations"] > 10000; assert not m["integrity"]["benchmarkPhrasesInDialogue"]; assert not m["integrity"]["valPhrasingsInTraining"]; print(m["counts"], m["tokens"], m["integrity"])'
+      - name: Rebuild training checkpoint and measure baseline
+        run: |
+          set -euo pipefail
+          .venv/bin/python -m llm.import_weights --model data/llm/qa-base --out data/llm/qa-base/ckpt.pt
+          .venv/bin/python -m llm.evaluate --data data/llm/datasets/simple-qa-v1 --ckpt data/llm/qa-base/ckpt.pt --context 128 --windows 16 --threads 2 > data/llm/before-evaluation.json
+          node learning/qa-probe.mjs data/llm/qa-base data/llm/datasets/simple-qa-v1 > data/llm/before-probes.json
+      - name: Continue training the same model
+        run: |
+          set -euo pipefail
+          .venv/bin/python -m llm.train --data data/llm/datasets/simple-qa-v1 --run data/llm/runs/simple-qa --init-from data/llm/qa-base/ckpt.pt --steps 500 --max-seconds 900 --cycle simple-qa-v1 --set batch_size=1 --set grad_accum=1 --set sequence_length=128 --set threads=2 --set lr=0.0001 --set min_lr=0.00001 --set warmup_steps=20 --set eval_interval=100 --set eval_windows=8 --set log_interval=10 --set save_interval=50 --set nice=0
+      - name: Evaluate and export the candidate
+        run: |
+          set -euo pipefail
+          .venv/bin/python -m llm.evaluate --data data/llm/datasets/simple-qa-v1 --ckpt data/llm/runs/simple-qa/ckpt.pt --context 128 --windows 16 --threads 2 > data/llm/after-evaluation.json
+          .venv/bin/python -m llm.export_int8 --ckpt data/llm/runs/simple-qa/ckpt.pt --out data/llm/qa-candidate --part-bytes 66000000
+          cp data/llm/qa-base/tokenizer.json data/llm/qa-candidate/tokenizer.json
+          node learning/qa-probe.mjs data/llm/qa-candidate data/llm/datasets/simple-qa-v1 > data/llm/after-probes.json
+          .venv/bin/python -c 'import json; b=json.load(open("data/llm/before-evaluation.json"))["results"][0]; a=json.load(open("data/llm/after-evaluation.json"))["results"][0]; print("held-out loss before:",b["val_loss"],"after:",a["val_loss"],"steps:",b["step"],"->",a["step"])'
+      - name: Publish a separate candidate and resumable checkpoint (no automatic promotion)
+        run: |
+          set -euo pipefail
+          tag="infinity-qa-${GITHUB_RUN_ID}"
+          gh release create "$tag" --repo "$GITHUB_REPOSITORY" --prerelease --title "117M simple Q&A candidate ${GITHUB_RUN_ID}" --notes 'Experimental continuation of xl-step110 with a fresh optimizer. Not automatically deployed. Inspect before/after held-out loss and identity probes before promotion. The deployed xl-step110 remains unchanged.'
+          gh release upload "$tag" --repo "$GITHUB_REPOSITORY" data/llm/qa-candidate/model.json data/llm/qa-candidate/tokenizer.json data/llm/qa-candidate/weights.0.bin data/llm/qa-candidate/weights.1.bin data/llm/qa-dataset-report.json data/llm/before-evaluation.json data/llm/after-evaluation.json data/llm/before-probes.json data/llm/after-probes.json data/llm/runs/simple-qa/status.json
+          gh release upload "$tag" --repo "$GITHUB_REPOSITORY" data/llm/runs/simple-qa/ckpt.pt
+      - name: Summarize result
+        if: always()
+        run: |
+          echo '### Simple Q&A continuation of 117M' >> "$GITHUB_STEP_SUMMARY"
+          for f in data/llm/before-evaluation.json data/llm/after-evaluation.json data/llm/before-probes.json data/llm/after-probes.json data/llm/runs/simple-qa/status.json; do
+            if [ -f "$f" ]; then printf '\n**%s**\n```json\n' "$f" >> "$GITHUB_STEP_SUMMARY"; cat "$f" >> "$GITHUB_STEP_SUMMARY"; printf '\n```\n' >> "$GITHUB_STEP_SUMMARY"; fi
+          done

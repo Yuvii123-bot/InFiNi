@@ -372,9 +372,16 @@ These are the things that are not solved, or not verified.
   free runners for a permanent workload. A machine that stays on (section 8) has neither problem.
 - A running session keeps the code it started with. A fix reaches it when the session ends: by itself between two
   steps once it notices the newer commit (sessions started from this version on), otherwise after at most five hours.
-- The state travels as one archive (24 MB after the first session, 41 MB after the first cycle). What a session
-  did after its last upload (every 15 minutes, after every cycle, and at the end) is lost if the runner dies; the
-  next session then repeats that work.
+- The state travels as one archive. Checkpoints are uploaded between steps and at shutdown, not in the middle of a
+  training cycle. If a runner dies before the next successful upload, work since the last archive is lost. For the
+  117M challenger an AdamW checkpoint alone is roughly 1.4 GB uncompressed; compression and upload can take substantial
+  time, and GitHub release-asset size limits may prevent state persistence. The new archive is uploaded before the old
+  one is removed, with a staging-asset fallback if its final rename fails. Monitor the worker's checkpoint errors.
+- The configured `xl` architecture has 117,203,712 parameters with a 4096-token vocabulary. It is trained from scratch
+  as a persistent challenger, not grown from the production weights. It continues across cycles even without new docs;
+  production is retained until the challenger passes the same comparative quality gate. Training uses batch size one,
+  with a 10.5 GB RSS safety threshold. These are not a guarantee that a particular runner will fit or finish in two days.
+  The state directory's `config.json` overrides repository settings; inspect it when the runner behaves differently.
 - Job logs are not readable from outside GitHub without signing in; the release text of `infinity-model` and the
   dashboard are the windows into a session.
 
@@ -416,3 +423,13 @@ These are the things that are not solved, or not verified.
 | `.github/workflows/infinity-learning.yml`, `.github/infinity-learning.start` | Worker sessions on GitHub Actions |
 | `Dockerfile.worker`, `docker-compose.yml`, `deploy/` | The worker on a machine that stays on |
 | `test/worker.test.js`, `test/ui-worker.test.js`, `test/helpers/fake-cli.mjs` | Tests |
+
+### Explicit 117M chat selection
+
+`INFINI_PINNED_MODEL=1` selects the `books75m-step105000` 74,727,168-parameter q8 snapshot by default, not the worker's mutable production channel. It was warm-started by retaining ten layers of the earlier step-2110 117M checkpoint. The snapshot has processed 13,440,000 positions in the 75M model, including 64,000 starter positions and 13,376,000 additional positions from the books/dialogue/replay cycle, sampled with replacement. It is not a completed 100M or 500M run and contains no newly acquired news corpus. It may answer basic questions incorrectly or irrelevantly; see the saved raw probes in `infinity-qa75m-43784785804`. Each cold serving instance downloads four public GitHub release files identified in `engine/neural/pinned-channel.js`, verifies their sizes and SHA-256 checksums, and runs the numerical self-test before serving. If the files are unavailable or validation fails, the neural model is unavailable rather than silently serving a different model. It remains pinned regardless of worker publications. Set `INFINI_PINNED_VERSION=books75m-step90791` and redeploy to restore the previous 75M snapshot; `books75m-step21299` restores an earlier snapshot and `qa75m-step500` restores the starter, and `xl-qa-step2110` or `xl-step110` restores earlier 117M models. `INFINI_PINNED_MODEL=0` selects the older worker channel. The snapshot release preserves the resumable checkpoint and optimizer; retain all referenced releases and Drive files.
+
+The 75M model is experimental and may give irrelevant or wrong answers. It completed 500 initial training steps (64,000 token positions) after pruning; the full 1.27-million-token synthetic starter set was sampled, not necessarily seen in full. Loss fell from 3.4375 to 3.0674 on 16 fixed validation windows, but the examples may overlap the parent model's prior training. Raw probes answer its name correctly but fail some ordinary exchanges. Do not treat its answers as reliable.
+
+The previously scheduled automatic activation of `infinity-books100m-training-43698262111` is disabled. The operator instead requested deployment of a fixed snapshot, `books75m-step105000`; further checkpoints from the still-running job will not automatically replace it. The existing 100M run samples with replacement from historical book tokens, generated conversational examples and replay; token positions processed are not the same as distinct source tokens covered. Old texts may carry dated or biased language.
+
+This checkpoint was trained for only 110 steps on synthetic dialogue from random initialization. It is undertrained and may generate poor or nonsensical responses; more parameters do not imply better quality. The normal assistant can still use its rules or retrieval, while `/llm.html` shows unfiltered model output.

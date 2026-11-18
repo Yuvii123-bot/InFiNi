@@ -1,0 +1,39 @@
+# A push on this branch may queue behind an old learning session whose own successor can replace the pending job.
+# Keep a small, independent coordinator alive until this branch's learning session actually starts. Never cancel
+# an active trainer or write to the model/state releases; the learning workflow retains its global concurrency lock.
+name: Infinity LLM session handoff
+on:
+  push:
+    paths: ['.github/infinity-learning.start']
+
+permissions:
+  actions: write
+  contents: read
+
+jobs:
+  handoff:
+    if: ${{ vars.INFINITY_LEARNING != 'off' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 350
+    env:
+      GH_TOKEN: ${{ github.token }}
+      REF: ${{ github.ref_name }}
+      TARGET_SHA: ${{ github.sha }}
+    steps:
+      - name: Wait for the updated session to start
+        shell: bash
+        run: |
+          end=$((SECONDS + 20500))
+          while [ "$SECONDS" -lt "$end" ]; do
+            runs=$(gh run list --repo "$GITHUB_REPOSITORY" --workflow infinity-learning.yml --limit 50 --json status,headBranch,headSha 2>/dev/null) || { sleep 15; continue; }
+            active=$(printf '%s' "$runs" | jq --arg ref "$REF" --arg sha "$TARGET_SHA" '[.[] | select(.headBranch == $ref and .headSha == $sha and .status == "in_progress")] | length')
+            if [ "$active" -gt 0 ]; then echo "Updated learning session has started."; exit 0; fi
+            waiting=$(printf '%s' "$runs" | jq --arg ref "$REF" --arg sha "$TARGET_SHA" '[.[] | select(.headBranch == $ref and .headSha == $sha and (.status == "pending" or .status == "queued" or .status == "waiting" or .status == "requested"))] | length')
+            if [ "$waiting" -eq 0 ]; then
+              echo "Updated session is no longer queued; requesting another without stopping the running trainer."
+              gh workflow run infinity-learning.yml --repo "$GITHUB_REPOSITORY" --ref "$REF" -f action=learn -f chain=true -f runtime=18000 -f failures=0 || true
+            fi
+            sleep 15
+          done
+          echo "Updated session did not start within the handoff window." >&2
+          exit 1

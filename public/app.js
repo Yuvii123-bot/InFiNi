@@ -82,6 +82,10 @@ const idb = (() => {
   };
 })();
 
+const REQUESTED_MODE = new URLSearchParams(location.search || '').get('mode');
+const WEB_IN_LLM = REQUESTED_MODE === 'webinllm';
+const COMBINED = REQUESTED_MODE === 'combined' || WEB_IN_LLM;
+const CHAT_MODE = WEB_IN_LLM ? 'webinllm' : COMBINED ? 'combined' : 'internet';
 const DEFAULTS = { depth: 'auto', theme: 'light', autoExpand: false, providersOff: [], feeds: [], neural: true };
 const state = { chats: [], chat: null, busy: false, abort: null, settings: { ...DEFAULTS, ...LS.get('infini.settings', {}) }, learned: { domains: {}, providers: {}, vocab: {}, ...LS.get('infini.learned', {}) }, status: null, filter: '' };
 const saveSettings = () => LS.set('infini.settings', state.settings);
@@ -98,7 +102,7 @@ function toast(msg) { const t = $('toast'); t.textContent = msg; t.hidden = fals
 async function copyText(text, okMsg) { try { await navigator.clipboard.writeText(text); toast(okMsg); } catch { toast('Copy is not available in this browser'); } }
 
 // ---------------- conversations ----------------
-function newChat() { state.chat = { id: uid(), title: 'New chat', named: false, createdAt: Date.now(), updatedAt: Date.now(), context: {}, messages: [] }; renderAll(); closeNav(); $('q').focus(); }
+function newChat() { state.chat = { id: uid(), mode: CHAT_MODE, title: 'New chat', named: false, createdAt: Date.now(), updatedAt: Date.now(), context: {}, messages: [] }; renderAll(); closeNav(); $('q').focus(); }
 async function saveChat() {
   const c = state.chat;
   if (!c || !c.messages.length) return;
@@ -160,9 +164,9 @@ function renderAll() {
   if (!state.chat.messages.length) {
     thread.append(h('section', { class: 'welcome' },
       h('img', { class: 'hero-mark', src: '/icons/icon.svg', width: '64', height: '64', alt: '' }),
-      h('h2', { text: 'Talk to me, or ask me anything.' }),
-      h('p', { text: 'I chat, remember what you tell me and use everyday common sense on my own. For facts I search the live web and show my sources.' }),
-      h('div', { class: 'trust' }, TRUST.map(([ic, t]) => h('span', null, icon(ic, 14), t))),
+      h('h2', { text: WEB_IN_LLM ? 'Let Infinity LLM read the web.' : COMBINED ? 'Explore the web with Infinity LLM.' : 'Talk to me, or ask me anything.' }),
+      h('p', { text: WEB_IN_LLM ? 'Infinity LLM reads web information and writes an answer with references when it can.' : COMBINED ? 'Chat with Infinity LLM or ask a factual question for a structured, cited web answer.' : 'I chat, remember what you tell me and use everyday common sense on my own. For facts I search the live web and show my sources.' }),
+      h('div', { class: 'trust' }, (COMBINED ? [['spark', WEB_IN_LLM ? 'Infinity LLM synthesis' : 'Neural chat'], ['globe', 'Live web for facts'], ['quote', 'Sources you can check']] : TRUST).map(([ic, t]) => h('span', null, icon(ic, 14), t))),
       h('div', { class: 'suggest' }, SUGGESTIONS.map(([k, q, ic]) => h('button', { type: 'button', onclick: () => ask(q) }, h('small', null, icon(ic, 15), k), q)))));
   } else for (const m of state.chat.messages) thread.append(m.role === 'user' ? userEl(m) : botEl(m));
   renderChatList();
@@ -217,6 +221,7 @@ function spansEl(spans, result) {
   spans.forEach((s, i) => {
     if (!s.text && !(s.cites && s.cites.length)) return;
     const cls = [s.meta ? 'meta-span' : '', s.nature === 'hedged' || s.nature === 'opinion' ? 'hedged' : ''].join(' ').trim();
+    if (s.neuralHighlight) out.push(h('span', { class: 'neural-highlight-label', title: 'Infinity LLM selected this cited passage using short excerpts. This is not an independent fact check.' }, icon('spark', 12), ' LLM highlight '));
     if (s.text) out.push(s.strong ? h('strong', { class: cls || null, text: s.text }) : cls ? h('span', { class: cls, title: s.nature ? `The source states this as ${s.nature === 'opinion' ? 'an opinion' : 'likely/possible, not certain'}` : null, text: s.text }) : s.text);
     const citeBtn = (c) => { const src = result.sources.find((x) => x.id === c); return h('button', { class: 'cite', type: 'button', title: src ? `${src.title} — ${src.domain}` : 'Source', 'aria-label': `Source ${c}`, onclick: () => src && openSource(src, result), text: String(c) }); };
     for (const c of s.cites || []) out.push(citeBtn(c));
@@ -408,7 +413,7 @@ function fillBot(m) {
   body.replaceChildren();
   const r = m.result;
   if (m.cached) body.append(h('div', { class: 'cached-banner' }, icon('clock', 15), `From your saved knowledge (saved ${fmtDate(m.cached)}). It was not re-checked just now.`, h('button', { class: 'btn small', type: 'button', onclick: () => regenerate(m), text: 'Refresh from the web' })));
-  if (m.events && m.events.length && r && (r.kind === 'retrieval' || r.kind === 'url')) {
+  if (!WEB_IN_LLM && m.events && m.events.length && r && (r.kind === 'retrieval' || r.kind === 'url')) {
     const act = createActivity(state.settings.autoExpand);
     for (const ev of m.events) act.onEvent(ev);
     const c = r.research ? r.research.counts : null;
@@ -425,13 +430,17 @@ function fillBot(m) {
   if (m.status === 'stopped') body.append(h('div', { class: 'note' + (r ? ' warn' : ''), text: r ? `Stopped early. This is the draft that had been built until then${r.run && r.run.pages ? ` (${plural(r.run.pages, 'page')} read)` : ''}; the run was not finished, so it may be incomplete.` : 'Stopped. Retrieval was cancelled, so no answer was built.' }));
   const isBrain = !!r && r.kind === 'brain';
   if (r) {
+    if (r.combined && r.combined.mode !== 'local') {
+      const label = r.combined.mode === 'highlight' ? 'Web search · cited answer with an experimental model highlight (not a fact check)' : r.combined.mode === 'chat' ? 'Infinity LLM · generated locally, without web search' : r.combined.mode === 'web' ? 'Web search · cited answer' : r.combined.mode === 'web-synthesis' ? (r.neural?.cited ? 'Infinity LLM · generated from web information' : 'Infinity LLM · unverified, no supporting reference')  : r.combined.reason;
+      body.append(h('div', { class: 'combined-status' + (['fallback', 'error', 'web-error', 'web-draft'].includes(r.combined.mode) ? ' fallback' : ''), role: 'status', text: label }));
+    }
     body.append(answerEl(r));
     if (isBrain && ORIGIN[r.origin]) body.append(h('div', { class: 'origin' }, icon(ORIGIN[r.origin][0], 13), r.origin === 'neural' && r.neural && r.neural.model ? neuralLine(r.neural) : ORIGIN[r.origin][1]));
-    else if (isBrain && r.neural && r.neural.used === false && r.neural.reason) body.append(h('div', { class: 'origin' }, icon('spark', 13), `Reply from the built-in rules: ${r.neural.reason}.`));
-    const conf = confidenceEl(r.confidence); if (conf) body.append(conf);
-    const runLine = runLineEl(r); if (runLine) body.append(runLine);
-    const over = overviewEl(r); if (over) body.append(over);
-    const src = sourcesEl(r); if (src) body.append(src);
+    else if (isBrain && !r.combined && r.neural && r.neural.used === false && r.neural.reason) body.append(h('div', { class: 'origin' }, icon('spark', 13), `Reply from the built-in rules: ${r.neural.reason}.`));
+    const conf = confidenceEl(r.confidence); if (conf) { if (r.combined && ['web-draft', 'web-error'].includes(r.combined.mode)) body.append(h('div', { class: 'origin', text: 'Confidence below describes the web findings, not the model draft.' })); body.append(conf); }
+    const runLine = !WEB_IN_LLM && runLineEl(r); if (runLine) body.append(runLine);
+    const over = !WEB_IN_LLM && overviewEl(r); if (over) body.append(over);
+    const src = !WEB_IN_LLM && sourcesEl(r); if (src) body.append(src);
   }
   const acts = h('div', { class: 'actions' });
   const act = (ic, label, props) => h('button', { class: 'act', type: 'button', 'aria-label': label, ...props }, icon(ic, 16), h('span', { class: 'lbl', text: label }));
@@ -439,7 +448,7 @@ function fillBot(m) {
   if (m.question && !isBrain) acts.append(act('refresh', m.status === 'done' ? 'Regenerate' : 'Retry', { title: 'Search again, bypassing temporary caches', onclick: () => regenerate(m) }));
   // the brain answered by itself: one tap sends the same message to the web instead, in case it misjudged
   if (m.question && isBrain && r.origin !== 'safety' && !(r.suggestions || []).some((t) => /^Search the web: /.test(String(t)))) acts.append(act('globe', 'Search the web instead', { title: 'Send this message to web search instead', onclick: () => { if (!state.busy) run(m.question, { replace: m, context: m.contextBefore || {}, route: 'web' }); } }));
-  if (r && r.research) acts.append(act('panel', 'Research details', { onclick: () => openResearch(r) }));
+  if (!WEB_IN_LLM && r && r.research) acts.append(act('panel', 'Research details', { onclick: () => openResearch(r) }));
   if (r && r.kind === 'retrieval' && r.confidence && r.confidence.level !== 'insufficient' && !r.draft) {
     const key = normQ(r.interpretation && r.interpretation.resolved ? r.interpretation.resolved : m.question);
     const save = act('bookmark', m.saved ? 'Saved' : 'Save', { title: 'Keep this answer on this device and reuse it for the same question' });
@@ -666,7 +675,7 @@ async function run(question, { regenerate: regen = false, replace = null, contex
     chat.messages.push(m); $('thread').append(botEl(m));
   }
   // saved knowledge: reuse only for questions that are not time-sensitive, and say so
-  if (!regen && !route) {
+  if (!COMBINED && !regen && !route) {
     const hit = await idb.get('knowledge', normQ(question));
     if (hit && !TIMEY.test(question) && !hit.result.timeSensitive) { Object.assign(m, { status: 'done', result: hit.result, cached: hit.savedAt, saved: true, events: [] }); chat.context = withOwnMemory(hit.result.context, chat.context); fillBot(m); scrollDown(); return saveChat(); }
   }
@@ -688,7 +697,7 @@ async function run(question, { regenerate: regen = false, replace = null, contex
   setBusy(true);
   state.abort = new AbortController();
   try {
-    const res = await fetch('/api/ask', { method: 'POST', headers: { 'Content-Type': 'application/json' }, signal: state.abort.signal, body: JSON.stringify({ question, context: ctxBefore, history: historyFor(chat, m), regenerate: regen, tz: deviceTz(), learned: learnedPayload(), settings: { neural: state.settings.neural !== false, depth: state.settings.depth, providersOff: state.settings.providersOff, feeds: state.settings.feeds, ...(route ? { route } : {}) } }) });
+    const res = await fetch('/api/ask', { method: 'POST', headers: { 'Content-Type': 'application/json' }, signal: state.abort.signal, body: JSON.stringify({ question, context: ctxBefore, history: historyFor(chat, m), regenerate: regen, tz: deviceTz(), learned: learnedPayload(), settings: { neural: COMBINED || state.settings.neural !== false, depth: state.settings.depth, providersOff: state.settings.providersOff, feeds: state.settings.feeds, ...(COMBINED ? { mode: CHAT_MODE } : {}), ...(route ? { route } : {}) } }) });
     if (!res.ok || !res.body) { let msg = `The server answered ${res.status}.`; try { msg = (await res.json()).message || msg; } catch { /* not JSON */ } throw new Error(msg); }
     const reader = res.body.getReader(), dec = new TextDecoder();
     let buf = '';
@@ -703,14 +712,15 @@ async function run(question, { regenerate: regen = false, replace = null, contex
         let ev; try { ev = JSON.parse(line); } catch { continue; }
         if (ev.type === 'answer') m.result = ev.result;
         else if (ev.type === 'error') m.error = ev.message;
-        else if (ev.type === 'progress') prog.onEvent(ev);                               // live counters only: not kept with the conversation
-        else if (ev.type === 'draft') { draft = ev.result; renderDraft(draftBox, ev); }
+        else if (ev.type === 'progress') { if (!WEB_IN_LLM) prog.onEvent(ev); }                               // live counters only: not kept with the conversation
+        else if (ev.type === 'draft') { if (!WEB_IN_LLM) { draft = ev.result; renderDraft(draftBox, ev); } }
         else if (ev.type === 'token') {
-          if (ev.start) { streamText.textContent = ''; streamTag.replaceChildren(icon('spark', 13), `Infinity LLM${ev.model ? ' ' + ev.model.version : ''} is writing${ev.mode === 'grounded' ? ' from the sources' : ''}…`); streamBox.hidden = false; typing.hidden = true; draftBox.hidden = true; }
+          if (ev.start) { streamText.textContent = ''; streamTag.replaceChildren(icon('spark', 13), `Infinity LLM${ev.model ? ' ' + ev.model.version : ''} is ${ev.mode === 'grounded' ? 'selecting source text' : 'writing'}…`); streamBox.hidden = false; typing.hidden = true; draftBox.hidden = true; }
           else if (ev.reset) { streamText.textContent = ''; streamBox.hidden = true; if (act.el.hidden) typing.hidden = false; }
           else if (ev.text) { streamText.textContent += ev.text; scrollDown(); }
         }
         else if (ev.type !== 'done') {
+          if (WEB_IN_LLM) continue;
           if (ev.type === 'research') { prog.onEvent(ev); if (ev.status === 'start') act.el.classList.add('compact'); }
           if (m.events.length < 160 || ev.type === 'stage' || ev.type === 'research') m.events.push(ev);
           act.onEvent(ev); if (ev.type !== 'stage' || ev.stage !== 'understanding') reveal(); scrollDown();
@@ -740,12 +750,25 @@ function autoGrow() { const q = $('q'); q.style.height = 'auto'; q.style.height 
 function describeModel() {
   const llm = state.status && state.status.llm && state.status.llm.available ? state.status.llm : null;
   const hint = document.querySelector('.composer-hint'), fine = document.querySelector('.fineprint');
+  if (COMBINED) {
+    if (hint) hint.textContent = WEB_IN_LLM ? 'Web information → Infinity LLM answer' : 'LLM conversation · structured web findings';
+    if (fine) fine.textContent = WEB_IN_LLM ? 'Experimental: the answer may be incorrect or unrelated. References are matched by wording, not fact-checked.' : 'Conversation comes from the LLM. Knowledge answers are structured from cited web sources, not model synthesis. Check important facts.';
+    return;
+  }
   if (hint) hint.textContent = llm ? 'Infinity LLM for chat · live web for facts' : 'Own brain for chat · live web for facts';
   if (fine) fine.textContent = llm ? `Chat replies are written by Infinity LLM ${llm.version}, a small neural model trained from scratch, when they pass a check against the built-in rules; otherwise the rules reply. Facts come from pages retrieved just now — check the citations.` : 'Chat comes from a built-in brain. Facts come from pages retrieved just now — check the citations.';
 }
 // ---------------- wiring ----------------
 async function init() {
   applyTheme();
+  if (COMBINED) {
+    $(WEB_IN_LLM ? 'webInLlmBanner' : 'combinedBanner').hidden = false;
+    $('modeInternet').classList.remove('on'); $('modeInternet').removeAttribute('aria-current');
+    const active = $(WEB_IN_LLM ? 'modeWebInLlm' : 'modeCombined');
+    active.classList.add('on'); active.setAttribute('aria-current', 'page');
+    $('q').setAttribute('placeholder', WEB_IN_LLM ? 'Ask Web in LLM' : 'Ask Web + LLM');
+    describeModel();
+  }
   $('askForm').addEventListener('submit', (e) => { e.preventDefault(); ask(); });
   $('q').addEventListener('input', autoGrow);
   $('q').addEventListener('keydown', (e) => { if (e.key === 'Enter' && !e.shiftKey && !e.isComposing) { e.preventDefault(); ask(); } });
@@ -766,12 +789,12 @@ async function init() {
   $('clearBtn').addEventListener('click', async () => { if (state.busy || !state.chat.messages.length) return; if (!confirm('Clear this conversation and its context?')) return; await idb.del('chats', state.chat.id); state.chats = state.chats.filter((c) => c.id !== state.chat.id); newChat(); });
   document.addEventListener('keydown', (e) => { if (e.key === 'Escape') { closeDepthMenu(); closeDrawer(); closeModal(); closeNav(); } });
   const stored = await idb.all('chats');
-  state.chats = stored.map((c) => ({ id: c.id, title: c.title, updatedAt: c.updatedAt, text: c.messages.map((m) => m.text || (m.result && m.result.answer.text) || '').join(' ').slice(0, 4000).toLowerCase() })).sort((a, b) => b.updatedAt - a.updatedAt);
+  state.chats = stored.filter((c) => CHAT_MODE === 'internet' ? !c.mode || c.mode === 'internet' : c.mode === CHAT_MODE).map((c) => ({ id: c.id, title: c.title, updatedAt: c.updatedAt, text: c.messages.map((m) => m.text || (m.result && m.result.answer.text) || '').join(' ').slice(0, 4000).toLowerCase() })).sort((a, b) => b.updatedAt - a.updatedAt);
   newChat();
   autoGrow();
   // a link such as /?q=Why+do+stars+shine%3F opens the app and asks that question once
   const linked = new URLSearchParams(location.search).get('q');
-  if (linked) { history.replaceState(null, '', location.pathname); if (linked.trim() && linked.length <= 600) ask(linked); }
+  if (linked) { history.replaceState(null, '', location.pathname + (COMBINED ? `?mode=${CHAT_MODE}` : '')); if (linked.trim() && linked.length <= 600) ask(linked); }
   if ('serviceWorker' in navigator && location.protocol === 'https:') navigator.serviceWorker.register('/sw.js').catch(() => { /* PWA install is optional */ });
 }
 init();

@@ -1,0 +1,111 @@
+name: 100M token training stage
+on:
+  workflow_call:
+    inputs:
+      stage:
+        required: true
+        type: string
+      previous:
+        required: true
+        type: string
+    outputs:
+      complete:
+        value: ${{ jobs.train.outputs.complete }}
+permissions:
+  contents: write
+jobs:
+  train:
+    runs-on: ubuntu-latest
+    timeout-minutes: 330
+    outputs:
+      complete: ${{ steps.check.outputs.complete || steps.train.outputs.complete }}
+    env:
+      GH_TOKEN: ${{ github.token }}
+      OMP_NUM_THREADS: '2'
+      MKL_NUM_THREADS: '2'
+      TAG: infinity-books100m-training-${{ github.run_id }}
+      STAGE: ${{ inputs.stage }}
+      PREVIOUS: ${{ inputs.previous }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check previous stage
+        id: check
+        run: |
+          set -euo pipefail
+          [[ "$STAGE" =~ ^[0-9][0-9]$ && ( "$PREVIOUS" == start || "$PREVIOUS" =~ ^[0-9][0-9]$ ) ]]
+          if [ "$PREVIOUS" != start ]; then
+            gh release download "$TAG" --repo "$GITHUB_REPOSITORY" -p "status-${PREVIOUS}.json" -D .
+            if python3 -c 'import json,sys; s=json.load(open(sys.argv[1])); sys.exit(0 if s["state"] == "done" and s["reason"] == "cycle complete" else 1)' "status-${PREVIOUS}.json"; then
+              cp "status-${PREVIOUS}.json" "status-${STAGE}.json"
+              gh release upload "$TAG" --repo "$GITHUB_REPOSITORY" "status-${STAGE}.json" --clobber
+              echo 'complete=true' >> "$GITHUB_OUTPUT"
+            fi
+          fi
+      - name: Install CPU training dependencies
+        if: steps.check.outputs.complete != 'true'
+        run: |
+          python3 -m venv .venv
+          .venv/bin/pip install --quiet --index-url https://download.pytorch.org/whl/cpu torch
+          .venv/bin/pip install --quiet numpy
+      - name: Restore dataset and latest recoverable checkpoint
+        if: steps.check.outputs.complete != 'true'
+        run: |
+          set -euo pipefail
+          mkdir -p data/llm/books100m data/llm/datasets data/llm/runs/books100m
+          gh release download infinity-books100m-data-43697791940 --repo "$GITHUB_REPOSITORY" -p dataset-books100m.tar.gz -p dataset-books100m.tar.gz.sha256 -D data/llm/books100m
+          (cd data/llm/books100m && sha256sum -c dataset-books100m.tar.gz.sha256)
+          tar -xzf data/llm/books100m/dataset-books100m.tar.gz -C data/llm/datasets
+          asset=$(gh release view "$TAG" --repo "$GITHUB_REPOSITORY" --json assets --jq "[.assets[].name | select(test(\"^checkpoint-${STAGE}-[1-4]\\\\.pt$\"))] | sort | last // empty")
+          start_part=1
+          if [ -n "$asset" ]; then
+            previous_part=${asset%.pt}; previous_part=${previous_part##*-}
+            start_part=$((previous_part + 1))
+          fi
+          echo "START_PART=$start_part" >> "$GITHUB_ENV"
+          if [ -z "$asset" ] && [ "$PREVIOUS" != start ]; then
+            asset=$(gh release view "$TAG" --repo "$GITHUB_REPOSITORY" --json assets --jq "[.assets[].name | select(test(\"^checkpoint-${PREVIOUS}-[1-4]\\\\.pt$\"))] | sort | last // empty")
+            [ -n "$asset" ] || { echo 'Missing previous checkpoint' >&2; exit 1; }
+          fi
+          if [ -n "$asset" ]; then
+            gh release download "$TAG" --repo "$GITHUB_REPOSITORY" -p "$asset" -p "$asset.sha256" -D data/llm/books100m
+            (cd data/llm/books100m && sha256sum -c "$asset.sha256")
+            cp "data/llm/books100m/$asset" data/llm/runs/books100m/ckpt.pt
+            rm "data/llm/books100m/$asset"
+          else
+            gh release download infinity-qa75m-43662976189 --repo "$GITHUB_REPOSITORY" -p ckpt.pt -D data/llm/runs/books100m
+            echo '2ba5013aa9b2c5d4c7e7cf81567d8bfd927245517fc87f34d5c109852cc3755f  data/llm/runs/books100m/ckpt.pt' | sha256sum -c
+          fi
+      - name: Measure baseline on fixed validation data
+        if: steps.check.outputs.complete != 'true' && inputs.stage == '01' && env.START_PART == '1'
+        run: |
+          set -euo pipefail
+          .venv/bin/python -m llm.evaluate --data data/llm/datasets/books100m --ckpt data/llm/runs/books100m/ckpt.pt --context 128 --windows 32 --threads 2 > data/llm/books100m/before-evaluation.json
+          gh release upload "$TAG" --repo "$GITHUB_REPOSITORY" data/llm/books100m/before-evaluation.json --clobber
+      - name: Train in checkpointed one-hour segments
+        id: train
+        if: steps.check.outputs.complete != 'true'
+        run: |
+          set -euo pipefail
+          if [ "$START_PART" -gt 4 ]; then
+            gh release download "$TAG" --repo "$GITHUB_REPOSITORY" -p "status-${STAGE}.json" -D data/llm/books100m
+            if python3 -c 'import json,sys; s=json.load(open(sys.argv[1])); sys.exit(0 if s["state"] == "done" and s["reason"] == "cycle complete" else 1)' "data/llm/books100m/status-${STAGE}.json"; then echo 'complete=true' >> "$GITHUB_OUTPUT"; fi
+          fi
+          for part in $(seq "$START_PART" 4); do
+            asset="checkpoint-${STAGE}-${part}.pt"
+            .venv/bin/python -m llm.train --data data/llm/datasets/books100m --run data/llm/runs/books100m --steps 781250 --max-seconds 3600 --cycle books100m-v1 --set batch_size=1 --set sequence_length=128 --set threads=2 --set lr=0.00003 --set min_lr=0.000003 --set warmup_steps=1000 --set eval_interval=5000 --set eval_windows=16 --set log_interval=250 --set save_interval=1000 --set nice=0
+            cp data/llm/runs/books100m/ckpt.pt "data/llm/books100m/$asset"
+            (cd data/llm/books100m && sha256sum "$asset" > "$asset.sha256")
+            gh release upload "$TAG" --repo "$GITHUB_REPOSITORY" "data/llm/books100m/$asset" "data/llm/books100m/$asset.sha256"
+            rm "data/llm/books100m/$asset"
+            cp data/llm/runs/books100m/status.json "data/llm/books100m/status-${STAGE}.json"
+            gh release upload "$TAG" --repo "$GITHUB_REPOSITORY" "data/llm/books100m/status-${STAGE}.json" --clobber
+            if [ "$part" -gt 1 ]; then
+              old="checkpoint-${STAGE}-$((part-1)).pt"
+              gh release delete-asset "$TAG" "$old" --repo "$GITHUB_REPOSITORY" --yes
+              gh release delete-asset "$TAG" "$old.sha256" --repo "$GITHUB_REPOSITORY" --yes
+            fi
+            if python3 -c 'import json; s=json.load(open("data/llm/runs/books100m/status.json")); assert s["state"] == "done" and s["reason"] == "cycle complete"'; then
+              echo 'complete=true' >> "$GITHUB_OUTPUT"
+              break
+            fi
+          done

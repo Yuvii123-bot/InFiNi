@@ -25,13 +25,26 @@ function f16ToF32(u16) {
 export function loadModel(dir, { verify = true } = {}) {
   const meta = JSON.parse(fs.readFileSync(path.join(dir, 'model.json'), 'utf8'));
   if (meta.format !== FORMAT) throw new Error(`unsupported model format "${meta.format}" (expected ${FORMAT})`);
-  const raw = fs.readFileSync(path.join(dir, 'weights.bin'));
+  const parts = meta.weight_parts || ['weights.bin'];
+  if (!Array.isArray(parts) || !parts.length || parts.some((p) => typeof p !== 'string' || !/^weights(?:\.\d+)?\.bin$/.test(p))) throw new Error('invalid model weight parts');
+  const raw = parts.length === 1 ? fs.readFileSync(path.join(dir, parts[0])) : Buffer.concat(parts.map((p) => fs.readFileSync(path.join(dir, p))));
   if (verify && meta.sha256 && crypto.createHash('sha256').update(raw).digest('hex') !== meta.sha256) throw new Error('weights.bin does not match the checksum in model.json');
-  const per = meta.dtype === 'f16' ? 2 : 4;
+  if (!['f16', 'f32', 'q8'].includes(meta.dtype)) throw new Error(`unsupported model dtype "${meta.dtype}"`);
+  const per = meta.dtype === 'q8' ? 1 : meta.dtype === 'f16' ? 2 : 4;
   const total = meta.tensors.reduce((a, t) => a + t.size, 0);
   if (raw.length !== total * per) throw new Error(`weights.bin has ${raw.length} bytes, expected ${total * per}`);
-  const ab = raw.buffer.slice(raw.byteOffset, raw.byteOffset + raw.length);
-  const all = meta.dtype === 'f16' ? f16ToF32(new Uint16Array(ab)) : new Float32Array(ab);
+  let all;
+  if (meta.dtype === 'q8') {
+    all = new Float32Array(total);
+    const values = new Int8Array(raw.buffer, raw.byteOffset, raw.length);
+    for (const t of meta.tensors) {
+      if (!Number.isFinite(t.scale) || t.scale <= 0 || !Number.isInteger(t.offset) || t.offset < 0 || !Number.isInteger(t.size) || t.size < 0 || t.offset + t.size > total) throw new Error('invalid quantized tensor');
+      for (let i = t.offset, end = t.offset + t.size; i < end; i++) all[i] = values[i] * t.scale;
+    }
+  } else {
+    const ab = raw.buffer.slice(raw.byteOffset, raw.byteOffset + raw.length);
+    all = meta.dtype === 'f16' ? f16ToF32(new Uint16Array(ab)) : new Float32Array(ab);
+  }
   const W = Object.create(null);
   for (const t of meta.tensors) W[t.name] = all.subarray(t.offset, t.offset + t.size);
   const c = meta.config;

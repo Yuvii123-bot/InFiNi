@@ -1,0 +1,33 @@
+name: Verify current-news retrieval in production
+on:
+  push:
+    paths: ['.github/workflows/verify-news-live.yml']
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - name: Exercise recent-news questions
+        run: |
+          python3 - <<'PY'
+          import json, urllib.request, time
+          base='https://infini-eta.vercel.app'
+          rows=[]
+          for q in ['What are the latest NASA Artemis mission updates?', 'What are the latest research developments on cancer?']:
+              body=json.dumps({'question':q,'settings':{'mode':'combined','depth':'balanced'}}).encode()
+              req=urllib.request.Request(base+'/api/ask', data=body, headers={'Content-Type':'application/json'})
+              start=time.monotonic()
+              with urllib.request.urlopen(req,timeout=250) as r: events=[json.loads(line) for line in r.read().decode().splitlines() if line.strip()]
+              assert not [e for e in events if e['type']=='error'], events
+              result=next(e['result'] for e in events if e['type']=='answer')
+              assert result['interpretation']['parts'][0]['answerType']=='news', result['interpretation']
+              rows.append({'question':q,'seconds':round(time.monotonic()-start,2),'interpretation':result['interpretation'],'answer':result['answer'],'confidence':result.get('confidence'),'sources':[{'title':s['title'],'url':s['url'],'published':s.get('published')} for s in result.get('sources',[])], 'searches':result.get('research',{}).get('searches',[])})
+          with open('combined-news-live.json','w') as f: json.dump(rows,f,indent=2)
+          print(json.dumps(rows,indent=2))
+          PY
+          gh release upload infinity-qa75m-43788993113 --repo "$GITHUB_REPOSITORY" combined-news-live.json --clobber

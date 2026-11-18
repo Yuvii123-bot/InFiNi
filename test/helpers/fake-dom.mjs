@@ -26,6 +26,7 @@ class El extends Node_ {
   contains(other) { for (let n = other; n; n = n.parentNode) if (n === this) return true; return false; }
   setAttribute(k, v) { this.attrs[k] = String(v); if (k === 'hidden') this._hidden = true; if (k === 'class') this.className = String(v); if (k === 'checked') this.checked = true; if (k === 'disabled') this.disabled = true; }
   getAttribute(k) { return k in this.attrs ? this.attrs[k] : null; }
+  removeAttribute(k) { delete this.attrs[k]; }
   addEventListener(t, fn) { (this.listeners[t] = this.listeners[t] || []).push(fn); }
   fire(type, extra = {}) { const ev = { type, target: this, currentTarget: this, preventDefault() {}, stopPropagation() {}, ...extra }; return Promise.all((this.listeners[type] || []).map((fn) => fn(ev))); }
   click() { return this.fire('click'); }
