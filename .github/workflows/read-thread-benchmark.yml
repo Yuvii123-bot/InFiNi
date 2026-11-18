@@ -1,0 +1,27 @@
+name: Report CPU thread benchmark
+on:
+  push:
+    paths: ['.github/workflows/read-thread-benchmark.yml']
+  workflow_dispatch:
+permissions:
+  actions: read
+  contents: read
+jobs:
+  report:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - name: Read saved benchmark report
+        run: |
+          set -euo pipefail
+          gh run download 44216574364 --repo "$GITHUB_REPOSITORY" -n benchmark-training-threads -D results
+          python3 - <<'PY'
+          import json
+          r=json.load(open('results/benchmark-training-threads.json'))
+          fields=['precision','seconds_per_run','cpu_affinity_count','cgroup_cpu_max','cpu_count','median_training_positions_per_second','four_vs_two_ratio','runs']
+          for f in fields:
+              value=json.dumps(r[f],separators=(',',':'))
+              print(f'::notice::{f}={value}')
+          PY
