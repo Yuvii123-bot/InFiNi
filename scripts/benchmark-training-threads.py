@@ -68,13 +68,14 @@ def main():
             end = next(e for e in events if e.get('event') == 'end')
             final = json.loads((Path(work) / 'status.json').read_text())
             assert start['source'].startswith('resumed ') and start['optimizer_state_restored']
-            assert start['device'] == 'cpu' and start['precision'] == 'bf16' and start['threads'] == threads
+            assert start['device'] == 'cpu' and start['precision'] in ('bf16', 'fp32') and start['threads'] == threads, start
+            if runs: assert start['precision'] == runs[0]['precision'], start
             assert start['dataset'] == 'books100m-v1' and end['reason'] == 'time budget used'
             steps = end['step'] - start_step
             tokens = end['tokens_seen'] - start_tokens
             compute_seconds = end['train_seconds'] - start_seconds
             assert steps > 0 and tokens == steps * 128 and compute_seconds > 0 and end['cycle_seconds'] > 0
-            row = {'order': index, 'threads': threads, 'start_step': start_step, 'steps': steps,
+            row = {'order': index, 'threads': threads, 'precision': start['precision'], 'start_step': start_step, 'steps': steps,
                    'positions': tokens, 'train_step_seconds': round(compute_seconds, 2),
                    'cycle_seconds_including_final_save_and_validation': end['cycle_seconds'],
                    'train_positions_per_second': round(tokens / compute_seconds, 2),
@@ -84,7 +85,7 @@ def main():
             print(json.dumps(row), flush=True)
     medians = {str(t): statistics.median(r['train_positions_per_second'] for r in runs if r['threads'] == t) for t in (2, 4)}
     result = {'source': 'independent preserved checkpoint-16-1.pt, step 536897', 'dataset': 'books100m-v1',
-              'sequence_length': 128, 'batch_size': 1, 'precision': 'bf16',
+              'sequence_length': 128, 'batch_size': 1, 'precision': runs[0]['precision'],
               'seconds_per_run': args.seconds, 'cpu_affinity_count': affinity, 'cgroup_cpu_max': cpu_quota,
               'cpu_count': os.cpu_count(), 'platform': platform.platform(), 'torch': torch.__version__,
               'runs': runs, 'median_training_positions_per_second': medians,

@@ -32,7 +32,17 @@ jobs:
       - name: Compare four independent runs on this runner
         run: |
           set -euo pipefail
-          .venv/bin/python scripts/benchmark-training-threads.py --checkpoint "$RUNNER_TEMP/infini-bench/checkpoint-16-1.pt" --data data/llm/datasets/books100m --output benchmark-training-threads.json --seconds 75
+          set +e
+          .venv/bin/python scripts/benchmark-training-threads.py --checkpoint "$RUNNER_TEMP/infini-bench/checkpoint-16-1.pt" --data data/llm/datasets/books100m --output benchmark-training-threads.json --seconds 75 > benchmark-log.txt 2>&1
+          rc=$?
+          set -e
+          cat benchmark-log.txt
+          if [ "$rc" -ne 0 ]; then
+            printf '::error::Benchmark failed: '
+            tail -12 benchmark-log.txt | tr '\n' ' '
+            echo
+            exit "$rc"
+          fi
           {
             echo '### Independent 2-thread versus 4-thread training benchmark'
             echo 'The active training run was not modified. Results measure short-run throughput, not answer quality.'
